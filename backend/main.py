@@ -1,5 +1,6 @@
 """Basic Pydantic AI agent implementation for LLM GM testing."""
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -40,7 +41,8 @@ if not api_key:
 # Initialize the OpenRouterModel
 # You can change the model to any OpenRouter-supported model like:
 # 'gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'anthropic/claude-3-opus', etc.
-model_name = "anthropic/claude-haiku-4.5"
+# model_name = "anthropic/claude-haiku-4.5"
+model_name = "deepseek/deepseek-chat-v3-0324"
 model = OpenRouterModel(
     model_name,  # Model name (OpenRouter supports many models)
     provider=OpenRouterProvider(api_key=api_key),
@@ -94,8 +96,8 @@ def add_player_character() -> str:
 </player_character>"""
 
 
-@click.command()
-def main():
+async def run_chat():
+    """Async chat loop with streaming responses."""
     click.echo("🤖 AI Chat Game Master")
     click.echo("=" * 50)
     click.echo("Type 'exit' or 'quit' to end the conversation")
@@ -105,7 +107,7 @@ def main():
     # Prime the conversation history with the opening scene
     gm_opening = """This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods. Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals. Even now, from within your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush.
 
-You’ve noticed something unique about the look of the trees here in the Sablewood. What is it?    
+You've noticed something unique about the look of the trees here in the Sablewood. What is it?
 """
 
     # Display the opening scene
@@ -145,19 +147,28 @@ You’ve noticed something unique about the look of the trees here in the Sablew
         if not user_input.strip():
             continue
 
-        # Run the agent with the user's message and conversation history
+        # Run the agent with streaming
         click.echo("\n🤖 Game Master:")
         try:
-            result = agent.run_sync(user_input, message_history=message_history)
-            click.echo(result.output)
+            async with agent.run_stream(
+                user_input, message_history=message_history
+            ) as result:
+                # Stream text as it's generated (delta=True for incremental chunks)
+                async for chunk in result.stream_text(delta=True):
+                    print(chunk, end="", flush=True)
+                print()  # Newline after streaming completes
 
-            # Update message history with all messages from this interaction
-            # This includes both the user's message and the agent's response
-            message_history = result.all_messages()
+                # Update message history with all messages from this interaction
+                message_history = result.all_messages()
         except Exception as e:
             click.echo(f"❌ Error: {e}", err=True)
 
         click.echo()  # Add blank line for readability
+
+
+@click.command()
+def main():
+    asyncio.run(run_chat())
 
 
 if __name__ == "__main__":
