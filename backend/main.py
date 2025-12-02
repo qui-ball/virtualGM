@@ -5,8 +5,8 @@ from pathlib import Path
 
 import click
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 import dotenv
 import logfire
@@ -31,36 +31,20 @@ else:
 # Instrument pydantic-ai for observability - must be called after configure
 logfire.instrument_pydantic_ai()
 
-# Get API key from environment variable (set OPENROUTER_API_KEY or OPENAI_API_KEY)
-api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+# Get API key from environment variable (set OPENROUTER_API_KEY)
+api_key = os.getenv("OPENROUTER_API_KEY")
 
 if not api_key:
-    raise ValueError(
-        "Please set OPENROUTER_API_KEY or OPENAI_API_KEY environment variable"
-    )
+    raise ValueError("Please set OPENROUTER_API_KEY environment variable")
 
-# Initialize the OpenAIChatModel with OpenRouter's base URL
+# Initialize the OpenRouterModel
 # You can change the model to any OpenRouter-supported model like:
 # 'gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'anthropic/claude-3-opus', etc.
 model_name = "anthropic/claude-haiku-4.5"
-model = OpenAIChatModel(
+model = OpenRouterModel(
     model_name,  # Model name (OpenRouter supports many models)
-    provider=OpenAIProvider(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    ),
+    provider=OpenRouterProvider(api_key=api_key),
 )
-
-# Configure token pricing for logfire cost tracking
-# $1 per 1M input tokens, $5 per 1M output tokens
-if logfire_token:
-    # Set model pricing for cost tracking in logfire
-    # Prices are in dollars per 1 million tokens
-    logfire.set_model_pricing(
-        model_name=model_name,
-        input_price_per_1m_tokens=1.0,
-        output_price_per_1m_tokens=5.0,
-    )
 
 # Create an agent with the OpenRouter model
 # Define dependency type (optional, for passing context to dynamic prompts)
