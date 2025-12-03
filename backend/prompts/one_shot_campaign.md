@@ -171,7 +171,7 @@ In reality, most Thistlefolk are gentle and vulnerable creatures who remain with
 
 **Read aloud to your player:**
 
-> _This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods. Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals. Even now, from within your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush._
+> _This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods. Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals. Even now, as you drive your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush._
 
 **Prompt to Player:**  
 _You are driving the carriage._
@@ -189,11 +189,11 @@ Describe the trees as you pass, specifically incorporating the answer given by t
 
 **Read aloud:**
 
-> _As your steeds pull the carriage around a tight corner—one wheel briefly leaving the ground—you spot an overturned merchant’s cart, lying sideways in the path and blocking your way forward. A scattering of fruits and vegetables litter the trail._
+> _As your steeds pull the carriage around a tight corner—one wheel briefly leaving the ground—you spot an overturned merchant's cart, lying sideways in the path and blocking your way forward. A scattering of fruits and vegetables litter the trail._
 >
-> _From around the side of the cart steps a strixwolf: a large creature with a wolf’s body, an owl’s face, and broad wings arching from its back. It finishes chewing its meal—the hand of a dead merchant—and fixes you with a curious gaze, clearly trying to judge whether you’re friend or foe. Clumsily, two small pups follow, watching their mother and you with caution._
+> _From around the side of the cart steps a strixwolf: a large creature with a wolf's body, an owl's face, and broad wings arching from its back. It finishes chewing its meal—the hand of a dead merchant—and fixes you with a curious gaze, clearly trying to judge whether you're friend or foe. Clumsily, two small pups follow, watching their mother and you with caution._
 >
-> _Inside your own carriage, you feel your vehicle come to a halt._
+> _You pull back on the reins, bringing your carriage to a halt._
 
 **Ask:**  
 _What would you like to do?_

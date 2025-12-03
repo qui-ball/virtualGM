@@ -6,11 +6,14 @@ from pathlib import Path
 
 import click
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 import dotenv
 import logfire
+from openai import OpenAI
 
 
 dotenv.load_dotenv()
@@ -38,34 +41,77 @@ api_key = os.getenv("OPENROUTER_API_KEY")
 if not api_key:
     raise ValueError("Please set OPENROUTER_API_KEY environment variable")
 
-# Initialize the OpenRouterModel
-# You can change the model to any OpenRouter-supported model like:
-# 'gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'anthropic/claude-3-opus', etc.
-# model_name = "anthropic/claude-haiku-4.5"
-model_name = "deepseek/deepseek-chat-v3-0324"
+# Initialize the OpenRouter model with DeepSeek V3.1 routed through Fireworks
+# Available DeepSeek models on OpenRouter via Fireworks:
+# - deepseek/deepseek-chat-v3.1 (V3.1 - recommended)
+# - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
+# - deepseek/deepseek-r1-0528 (R1 reasoning model)
+model_name = "deepseek/deepseek-chat-v3.1"
+# model_name = "anthropic/claude-sonnet-4.5"
 model = OpenRouterModel(
-    model_name,  # Model name (OpenRouter supports many models)
+    model_name,
     provider=OpenRouterProvider(api_key=api_key),
 )
 
-# Create an agent with the OpenRouter model
+# Create an agent with the OpenRouter model (routed through Fireworks)
 # Define dependency type (optional, for passing context to dynamic prompts)
 # Set system instructions telling the agent it's a game master
 agent = Agent(
     model,
     deps_type=str,
-    instructions="""You are a game master (GM) for Daggerheart, a tabletop role-playing game. 
-Your role is to narrate the story, control non-player characters, 
-adjudicate Daggerheart rules (including Duality Dice, Hope & Fear mechanics, GM Moves, and combat), 
-and create an engaging experience for the players. 
-You are familiar with Daggerheart's unique mechanics including Hope and Fear dice, 
-Experience tags, Hope Features, Fear Features, and the various GM Moves (soft and hard moves).
+    instructions="""You are a game master (GM) for Daggerheart, running a solo campaign.
 
-Refer to the following material to help you:
-- <daggerheart_rules> for the Daggerheart rules
-- <campaign_material> for the campaign material
-- <player_character> for the player character
+## Core Responsibilities
+- Narrate vivid, immersive scenes that bring the Sablewood to life
+- Voice NPCs with distinct personalities and motivations
+- Adjudicate rules fairly using the provided Daggerheart rules reference
+- Track and spend Fear tokens strategically to create tension
+
+## GM Style
+- Be descriptive but concise—paint scenes in 2-3 sentences, then prompt for action
+- Use sensory details (sounds, smells, textures) to immerse the player
+- Match tone to the moment: tense during combat, warm during social scenes
+- Never narrate the player character's thoughts, feelings, or actions
+
+## Daggerheart Principles
+- **Ask questions and incorporate answers**: Invite the player to co-create details ("What does your spell look like?" "How do you feel about this?")
+- **Play to find out**: Don't predetermine outcomes—let dice and player choices shape the story
+- **Make GM moves with purpose**: Use soft moves to build tension, hard moves for consequences
+- **Manage the Fear economy**: Spend Fear to interrupt, activate features, or raise stakes at dramatic moments
+
+## Handling Dice Rolls
+When a roll is needed:
+1. Describe the situation and stakes
+2. Tell the player which trait to roll (e.g., "Make a Presence roll")
+3. State the difficulty if appropriate
+4. Ask for the total AND which die (Hope or Fear) was higher
+5. Narrate the outcome, applying Hope/Fear consequences
+
+## Combat Flow
+- Describe enemy positions and the environment
+- Prompt the player for their action each turn
+- Roll enemy attacks against the PC's Evasion
+- Narrate damage cinematically, then state mechanical effects
+
+## Tone
+- Fantasy adventure suitable for all ages
+- Violence can be dramatic but not gratuitous
+- Emphasize heroism, wonder, and discovery
+
+## Reference Materials
+Consult these sections as needed:
+- <daggerheart_rules> for mechanics and rules
+- <campaign_material> for story, NPCs, and encounters
+- <player_character> for Marlowe's stats and abilities
 """,
+    # # Route through Fireworks provider for high throughput
+    # model_settings={
+    #     "extra_body": {
+    #         "provider": {
+    #             "only": ["Fireworks"],  # Only use Fireworks provider
+    #         }
+    #     }
+    # },
 )
 
 
@@ -105,9 +151,17 @@ async def run_chat():
     click.echo()
 
     # Prime the conversation history with the opening scene
-    gm_opening = """This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods. Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals. Even now, from within your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush.
+    gm_opening = """This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods.
+Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals.
+Even now, from within your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush.
 
-You've noticed something unique about the look of the trees here in the Sablewood. What is it?
+As your steeds pull the carriage around a tight corner—one wheel briefly leaving the ground—you spot an overturned merchant’s cart, lying sideways in the path and blocking your way forward. A scattering of fruits and vegetables litter the trail.
+
+From around the side of the cart steps a strixwolf: a large creature with a wolf's body, an owl's face, and broad wings arching from its back. It finishes chewing its meal—the hand of a dead merchant—and fixes you with a curious gaze, clearly trying to judge whether you're friend or foe. Clumsily, two small pups follow, watching their mother and you with caution.
+
+You pull back on the reins, bringing your carriage to a halt.
+
+What do you do?
 """
 
     # Display the opening scene
