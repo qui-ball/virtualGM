@@ -13,10 +13,24 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 import dotenv
 import logfire
+from loguru import logger
 from openai import OpenAI
+
+from utils.cost import calculate_run_cost
 
 
 dotenv.load_dotenv()
+
+# Configure loguru logging level
+# Set LOGURU_LEVEL environment variable to control logging (default: INFO, set to DEBUG to see debug messages)
+loguru_level = os.getenv("LOGURU_LEVEL", "DEBUG").upper()
+logger.remove()  # Remove default handler
+logger.add(
+    lambda msg: print(msg, end=""),
+    level=loguru_level,
+    colorize=True,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
+)
 
 # Configure Logfire from environment variables
 # Logfire automatically reads LOGFIRE_TOKEN from environment if set
@@ -46,8 +60,8 @@ if not api_key:
 # - deepseek/deepseek-chat-v3.1 (V3.1 - recommended)
 # - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
 # - deepseek/deepseek-r1-0528 (R1 reasoning model)
-model_name = "deepseek/deepseek-chat-v3.1"
-# model_name = "anthropic/claude-sonnet-4.5"
+# model_name = "deepseek/deepseek-chat-v3.1"
+model_name = "anthropic/claude-haiku-4.5"
 model = OpenRouterModel(
     model_name,
     provider=OpenRouterProvider(api_key=api_key),
@@ -115,31 +129,31 @@ Consult these sections as needed:
 )
 
 
-@agent.instructions
-def add_daggerheart_rules() -> str:
-    prompt_file = Path(__file__).parent / "prompts" / "daggerheart_rules.md"
-    content = prompt_file.read_text(encoding="utf-8").strip()
-    return f"""<daggerheart_rules>
-{content}
-</daggerheart_rules>"""
+# @agent.instructions
+# def add_daggerheart_rules() -> str:
+#     prompt_file = Path(__file__).parent / "prompts" / "daggerheart_rules.md"
+#     content = prompt_file.read_text(encoding="utf-8").strip()
+#     return f"""<daggerheart_rules>
+# {content}
+# </daggerheart_rules>"""
 
 
-@agent.instructions
-def add_campaign_material() -> str:
-    prompt_file = Path(__file__).parent / "prompts" / "one_shot_campaign.md"
-    content = prompt_file.read_text(encoding="utf-8").strip()
-    return f"""<campaign_material>
-{content}
-</campaign_material>"""
+# @agent.instructions
+# def add_campaign_material() -> str:
+#     prompt_file = Path(__file__).parent / "prompts" / "one_shot_campaign.md"
+#     content = prompt_file.read_text(encoding="utf-8").strip()
+#     return f"""<campaign_material>
+# {content}
+# </campaign_material>"""
 
 
-@agent.instructions
-def add_player_character() -> str:
-    prompt_file = Path(__file__).parent / "prompts" / "player_character.md"
-    content = prompt_file.read_text(encoding="utf-8").strip()
-    return f"""<player_character>
-{content}
-</player_character>"""
+# @agent.instructions
+# def add_player_character() -> str:
+#     prompt_file = Path(__file__).parent / "prompts" / "player_character.md"
+#     content = prompt_file.read_text(encoding="utf-8").strip()
+#     return f"""<player_character>
+# {content}
+# </player_character>"""
 
 
 async def run_chat():
@@ -150,12 +164,15 @@ async def run_chat():
     click.echo("=" * 50)
     click.echo()
 
+    # Initialize session cost tracking
+    session_total_cost = 0.0
+
     # Prime the conversation history with the opening scene
     gm_opening = """This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods.
 Sablewood is renowned for two things: its sunken trade routes, traveled by countless merchants, and its unique, hybrid animals.
 Even now, from within your carriage, strange sounds drift in: the low calls of lark-moths, the croak of lemur-toads, the scittering of a family of fox-bats in the underbrush.
 
-As your steeds pull the carriage around a tight corner—one wheel briefly leaving the ground—you spot an overturned merchant’s cart, lying sideways in the path and blocking your way forward. A scattering of fruits and vegetables litter the trail.
+As your steeds pull the carriage around a tight corner—one wheel briefly leaving the ground—you spot an overturned merchant's cart, lying sideways in the path and blocking your way forward. A scattering of fruits and vegetables litter the trail.
 
 From around the side of the cart steps a strixwolf: a large creature with a wolf's body, an owl's face, and broad wings arching from its back. It finishes chewing its meal—the hand of a dead merchant—and fixes you with a curious gaze, clearly trying to judge whether you're friend or foe. Clumsily, two small pups follow, watching their mother and you with caution.
 
@@ -196,6 +213,8 @@ What do you do?
         # Check for exit commands
         if user_input.lower() in ("exit", "quit", "q"):
             click.echo("\n👋 Goodbye!")
+            if session_total_cost > 0:
+                click.echo(f"\n💰 Session total cost: ${session_total_cost:.6f}")
             break
 
         if not user_input.strip():
@@ -203,6 +222,7 @@ What do you do?
 
         # Run the agent with streaming
         click.echo("\n🤖 Game Master:")
+        result_for_cost = None
         try:
             async with agent.run_stream(
                 user_input, message_history=message_history
@@ -214,10 +234,40 @@ What do you do?
 
                 # Update message history with all messages from this interaction
                 message_history = result.all_messages()
+
+                # Store result for cost calculation after streaming
+                result_for_cost = result
         except Exception as e:
             click.echo(f"❌ Error: {e}", err=True)
 
         click.echo()  # Add blank line for readability
+
+        # Calculate and log cost for this run (only if cost info is available)
+        run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens = (
+            calculate_run_cost(result_for_cost, model_name, provider_id="openrouter")
+        )
+
+        logger.debug(
+            f"Cost calculation result: run_cost={run_cost}, input_tokens={input_tokens}, output_tokens={output_tokens}"
+        )
+
+        # Log cost information only if we have it
+        if run_cost is not None and run_cost > 0:
+            session_total_cost += run_cost
+            # Build token info string
+            token_parts = []
+            if input_tokens > 0:
+                token_parts.append(f"{input_tokens:,} input")
+            if output_tokens > 0:
+                token_parts.append(f"{output_tokens:,} output")
+            if cache_read_tokens > 0:
+                token_parts.append(f"{cache_read_tokens:,} cache read")
+            if cache_write_tokens > 0:
+                token_parts.append(f"{cache_write_tokens:,} cache write")
+            token_info = f" ({', '.join(token_parts)} tokens)" if token_parts else ""
+            click.echo(f"💰 Latest run cost: ${run_cost:.6f}{token_info}")
+            click.echo(f"💰 Session total cost: ${session_total_cost:.6f}")
+            click.echo()  # Add blank line after cost info
 
 
 @click.command()
