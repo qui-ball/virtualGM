@@ -5,17 +5,16 @@ import os
 from pathlib import Path
 
 import click
-from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-
 import dotenv
+import httpx
 import logfire
 from loguru import logger
-from openai import OpenAI
+from openai import AsyncOpenAI
+from pydantic_ai import Agent
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
+from utils.caching import CacheInjectingTransport
 from utils.cost import calculate_run_cost
 
 
@@ -55,21 +54,30 @@ api_key = os.getenv("OPENROUTER_API_KEY")
 if not api_key:
     raise ValueError("Please set OPENROUTER_API_KEY environment variable")
 
-# Initialize the OpenRouter model with DeepSeek V3.1 routed through Fireworks
+# Initialize the OpenRouter model with custom transport for Anthropic caching
 # Available DeepSeek models on OpenRouter via Fireworks:
 # - deepseek/deepseek-chat-v3.1 (V3.1 - recommended)
 # - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
 # - deepseek/deepseek-r1-0528 (R1 reasoning model)
-# model_name = "deepseek/deepseek-chat-v3.1"
-model_name = "anthropic/claude-haiku-4.5"
-model = OpenRouterModel(
-    model_name,
-    provider=OpenRouterProvider(api_key=api_key),
+model_name = "deepseek/deepseek-chat-v3.1"
+# model_name = "anthropic/claude-haiku-4.5"
+
+# Create custom HTTP client with cache control injection
+http_client = httpx.AsyncClient(transport=CacheInjectingTransport())
+openai_client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+    http_client=http_client,
 )
 
-# Create an agent with the OpenRouter model (routed through Fireworks)
-# Define dependency type (optional, for passing context to dynamic prompts)
-# Set system instructions telling the agent it's a game master
+# Create OpenRouter model with cache-injecting client
+model = OpenRouterModel(
+    model_name,
+    provider=OpenRouterProvider(openai_client=openai_client),
+)
+
+# Create an agent with the OpenRouter model
+# The CacheControlTransport automatically injects cache_control into system messages
 agent = Agent(
     model,
     deps_type=str,
@@ -118,42 +126,34 @@ Consult these sections as needed:
 - <campaign_material> for story, NPCs, and encounters
 - <player_character> for Marlowe's stats and abilities
 """,
-    # # Route through Fireworks provider for high throughput
-    # model_settings={
-    #     "extra_body": {
-    #         "provider": {
-    #             "only": ["Fireworks"],  # Only use Fireworks provider
-    #         }
-    #     }
-    # },
 )
 
 
-# @agent.instructions
-# def add_daggerheart_rules() -> str:
-#     prompt_file = Path(__file__).parent / "prompts" / "daggerheart_rules.md"
-#     content = prompt_file.read_text(encoding="utf-8").strip()
-#     return f"""<daggerheart_rules>
-# {content}
-# </daggerheart_rules>"""
+@agent.instructions
+def add_daggerheart_rules() -> str:
+    prompt_file = Path(__file__).parent / "prompts" / "daggerheart_rules.md"
+    content = prompt_file.read_text(encoding="utf-8").strip()
+    return f"""<daggerheart_rules>
+{content}
+</daggerheart_rules>"""
 
 
-# @agent.instructions
-# def add_campaign_material() -> str:
-#     prompt_file = Path(__file__).parent / "prompts" / "one_shot_campaign.md"
-#     content = prompt_file.read_text(encoding="utf-8").strip()
-#     return f"""<campaign_material>
-# {content}
-# </campaign_material>"""
+@agent.instructions
+def add_campaign_material() -> str:
+    prompt_file = Path(__file__).parent / "prompts" / "one_shot_campaign.md"
+    content = prompt_file.read_text(encoding="utf-8").strip()
+    return f"""<campaign_material>
+{content}
+</campaign_material>"""
 
 
-# @agent.instructions
-# def add_player_character() -> str:
-#     prompt_file = Path(__file__).parent / "prompts" / "player_character.md"
-#     content = prompt_file.read_text(encoding="utf-8").strip()
-#     return f"""<player_character>
-# {content}
-# </player_character>"""
+@agent.instructions
+def add_player_character() -> str:
+    prompt_file = Path(__file__).parent / "prompts" / "player_character.md"
+    content = prompt_file.read_text(encoding="utf-8").strip()
+    return f"""<player_character>
+{content}
+</player_character>"""
 
 
 async def run_chat():
@@ -206,7 +206,9 @@ What do you do?
         ModelResponse(parts=[TextPart(content=gm_opening)]),
     ]
 
+    # for user_input in ["I approach.", "I speak calmly to the strixwolf."]:
     while True:
+        # while True:
         # Get user input
         user_input = input("You: ").strip()
 
@@ -217,15 +219,13 @@ What do you do?
                 click.echo(f"\n💰 Session total cost: ${session_total_cost:.6f}")
             break
 
-        if not user_input.strip():
-            continue
-
         # Run the agent with streaming
         click.echo("\n🤖 Game Master:")
         result_for_cost = None
         try:
             async with agent.run_stream(
-                user_input, message_history=message_history
+                user_input,
+                message_history=message_history,
             ) as result:
                 # Stream text as it's generated (delta=True for incremental chunks)
                 async for chunk in result.stream_text(delta=True):
@@ -242,32 +242,15 @@ What do you do?
 
         click.echo()  # Add blank line for readability
 
-        # Calculate and log cost for this run (only if cost info is available)
-        run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens = (
-            calculate_run_cost(result_for_cost, model_name, provider_id="openrouter")
+        # Calculate and log cost for this run (logging handled by calculate_run_cost)
+        run_cost, *_ = calculate_run_cost(
+            result_for_cost, model_name, provider_id="openrouter"
         )
 
-        logger.debug(
-            f"Cost calculation result: run_cost={run_cost}, input_tokens={input_tokens}, output_tokens={output_tokens}"
-        )
-
-        # Log cost information only if we have it
+        # Track session total
         if run_cost is not None and run_cost > 0:
             session_total_cost += run_cost
-            # Build token info string
-            token_parts = []
-            if input_tokens > 0:
-                token_parts.append(f"{input_tokens:,} input")
-            if output_tokens > 0:
-                token_parts.append(f"{output_tokens:,} output")
-            if cache_read_tokens > 0:
-                token_parts.append(f"{cache_read_tokens:,} cache read")
-            if cache_write_tokens > 0:
-                token_parts.append(f"{cache_write_tokens:,} cache write")
-            token_info = f" ({', '.join(token_parts)} tokens)" if token_parts else ""
-            click.echo(f"💰 Latest run cost: ${run_cost:.6f}{token_info}")
-            click.echo(f"💰 Session total cost: ${session_total_cost:.6f}")
-            click.echo()  # Add blank line after cost info
+            logger.info(f"Session total cost: ${session_total_cost:.6f}")
 
 
 @click.command()

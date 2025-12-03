@@ -4,10 +4,14 @@ from typing import Optional, Tuple
 
 from loguru import logger
 
+# Track previous cache_read_tokens to estimate cache writes
+# OpenRouter doesn't report cache_write_tokens, but we can estimate from the delta
+_previous_cache_read_tokens: Optional[int] = None  # None = first call
+
 
 def calculate_run_cost(
     result, model_name: str, provider_id: str = "openrouter"
-) -> Tuple[Optional[float], int, int, int, int]:
+) -> Tuple[Optional[float], int, int, int, int, bool]:
     """
     Calculate the cost of an agent run based on token usage.
 
@@ -17,14 +21,18 @@ def calculate_run_cost(
         provider_id: The provider identifier (default: 'openrouter')
 
     Returns:
-        Tuple of (run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
+        Tuple of (run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, is_first_request)
         run_cost will be None if cost cannot be calculated
+        is_first_request is True if this is the first request (cache write status unknown)
     """
+    global _previous_cache_read_tokens
+
     run_cost = None
     input_tokens = 0
     output_tokens = 0
     cache_read_tokens = 0
     cache_write_tokens = 0
+    is_first_request = _previous_cache_read_tokens is None
 
     if not result:
         return (
@@ -33,16 +41,40 @@ def calculate_run_cost(
             output_tokens,
             cache_read_tokens,
             cache_write_tokens,
+            is_first_request,
         )
 
     # Get token counts from usage
     if hasattr(result, "usage"):
         usage = result.usage() if callable(result.usage) else result.usage
         if usage:
+            # Debug: log raw usage object to see all available fields
+            logger.debug(f"Raw usage object: {usage}")
+            logger.debug(f"Usage type: {type(usage)}")
+            if hasattr(usage, "__dict__"):
+                logger.debug(f"Usage __dict__: {usage.__dict__}")
+
             input_tokens = getattr(usage, "input_tokens", 0) or 0
             output_tokens = getattr(usage, "output_tokens", 0) or 0
             cache_read_tokens = getattr(usage, "cache_read_tokens", 0) or 0
             cache_write_tokens = getattr(usage, "cache_write_tokens", 0) or 0
+
+            # Also check for alternative field names that OpenRouter/Anthropic might use
+            if cache_write_tokens == 0:
+                cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0) or 0
+
+            # OpenRouter doesn't report cache_write_tokens, so estimate from delta
+            # If cache_read_tokens increased since last call, that increase was written
+            # Skip first call (None) since we can't distinguish warm vs cold cache
+            if (
+                cache_write_tokens == 0
+                and _previous_cache_read_tokens is not None
+                and cache_read_tokens > _previous_cache_read_tokens
+            ):
+                estimated_write = cache_read_tokens - _previous_cache_read_tokens
+                cache_write_tokens = estimated_write
+                logger.debug(f"Estimated cache_write_tokens from delta: {estimated_write}")
+            _previous_cache_read_tokens = cache_read_tokens
 
             logger.debug(f"input_tokens={input_tokens}")
             logger.debug(f"output_tokens={output_tokens}")
@@ -147,4 +179,24 @@ def calculate_run_cost(
             # Error calculating cost, skip it
             logger.debug(f"Error calculating cost: {e}", exc_info=True)
 
-    return run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+    # Log cost information
+    if run_cost is not None and run_cost > 0:
+        token_parts = []
+        if input_tokens > 0:
+            token_parts.append(f"{input_tokens:,} input")
+        if output_tokens > 0:
+            token_parts.append(f"{output_tokens:,} output")
+        if cache_read_tokens > 0:
+            token_parts.append(f"{cache_read_tokens:,} cache read")
+        if cache_write_tokens > 0:
+            token_parts.append(f"{cache_write_tokens:,} cache write")
+        token_info = f" ({', '.join(token_parts)} tokens)" if token_parts else ""
+        logger.info(f"Run cost: ${run_cost:.6f}{token_info}")
+
+        # Show warning on first request about unknown cache write status
+        if is_first_request and cache_read_tokens > 0:
+            logger.warning(
+                "First request - cache write cost unknown (OpenRouter limitation)"
+            )
+
+    return run_cost, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, is_first_request
