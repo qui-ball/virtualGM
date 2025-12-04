@@ -5,14 +5,21 @@ import os
 import random
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Union
 
 import click
 import dotenv
 import logfire
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import (
+    Agent,
+    ModelRetry,
+    RunContext,
+    CallDeferred,
+    DeferredToolRequests,
+    DeferredToolResults,
+)
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
@@ -206,7 +213,7 @@ model = OpenAIChatModel(model_name, provider=DeepSeekProvider())
 agent = Agent(
     model,
     deps_type=GameState,
-    output_type=EndGameMasterTurn,
+    output_type=Union[EndGameMasterTurn, DeferredToolRequests],
     instructions="""You are a game master (GM) for Daggerheart, running a solo campaign.
 
 ## Core Responsibilities
@@ -242,8 +249,9 @@ You communicate exclusively through tool calls. The player only sees output from
 
 Tools:
 - narrate(text): All player-facing communication—descriptions, dialogue, outcomes, rules explanations
-- roll_dice(count, type): All dice rolls. Fear/Hope pools update automatically for Duality Dice.
-  - Special case for Duality Dice: Always roll them together as a pair, i.e. roll_dice(2, "d12"), rather than rolling each die separately.
+- roll_dice(count, type): Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Do NOT use this for player actions.
+- player_roll_dice(count, type): Request the player to roll dice for their actions (attacks, damage, checks, etc.). The player will provide the result.
+  - Special case for Duality Dice: Always roll them together as a pair, i.e. player_roll_dice(2, "d12"), rather than rolling each die separately.
 - spend_fear(amount): Spend Fear tokens to take spotlight actions or activate GM abilities.
 - create_adversary(id, state): Create an adversary with stats (HP, thresholds, difficulty, etc.)
 - remove_adversary(id): Remove a defeated adversary from the game state
@@ -276,17 +284,19 @@ narrate("You now have 5/6 HP remaining. The spotlight shifts to you. What do you
 User: I attack Goblin 1!
 
 narrate("You lunge forward, blade flashing!")
-roll_dice(2, "d12")
-> result: Hope 5, Fear 9
-narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage.")
-roll_dice(1, "d8")
-> result: 6
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 5, Fear 9
+narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage (1d8).")
+player_roll_dice(1, "d8")
+> deferred: player will roll 1d8
+# Player provides: 6
 narrate("You deal 6 damage! Goblin 1's thresholds are Minor 4, Major 8. Since 6 >= 4 but < 8, it marks 2 HP.")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
 narrate("Goblin 1 now has 1/3 HP remaining. The goblin staggers, wounded but alive. The spotlight shifts to the GM. Goblin 1 seizes the moment and strikes!")
 roll_dice(1, "d20")
 > result: 15
-narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
+narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits!")
 roll_dice(1, "d6")
 > result: 4
 narrate("4 damage. You mark another 1 HP.")
@@ -295,7 +305,7 @@ narrate("I will spend a Fear token to spotlight Goblin 2 who will attack you wit
 spend_fear(1)
 roll_dice(1, "d20")
 > result: 10
-narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits! Roll damage.")
+narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits!")
 roll_dice(1, "d6")
 > result: 3
 narrate("3 damage. Since 3 < 7, you mark 1 HP.")
@@ -305,11 +315,13 @@ narrate("The spotlight shifts back to you. What do you do?")
 User: I finish off Goblin 1!
 
 narrate("You strike Goblin 1 with a finishing blow!")
-roll_dice(2, "d12")
-> result: Hope 11, Fear 3
-narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage.")
-roll_dice(1, "d8")
-> result: 5
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 11, Fear 3
+narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage (1d8).")
+player_roll_dice(1, "d8")
+> deferred: player will roll 1d8
+# Player provides: 5
 narrate("You deal 5 damage! Goblin 1 is defeated!")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP to 0 or below
 update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (Hope was higher)
@@ -326,7 +338,7 @@ When your turn is complete, return an EndGameMasterTurn with any token changes.
 
 @agent.tool
 def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) -> str:
-    """Roll dice. Stop after calling this and wait for the result before narrating the outcome.
+    """Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Players roll their own dice using player_roll_dice.
 
     Args:
         dice_count: Number of dice to roll
@@ -354,6 +366,19 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
         logger.info(result_str)
 
     return result_str
+
+
+@agent.tool
+def player_roll_dice(
+    ctx: RunContext[GameState], dice_count: int, dice_type: DiceType
+) -> str:
+    """Request the player to roll dice. This defers execution until the player provides their roll result.
+
+    Args:
+        dice_count: Number of dice to roll
+        dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
+    """
+    raise CallDeferred(metadata={"dice_count": dice_count, "dice_type": dice_type})
 
 
 @agent.tool_plain
@@ -721,26 +746,131 @@ What do you do?
         logger.info("\n🤖 Game Master:")
         result_for_cost = None
         try:
-            result = await agent.run(
-                user_input,
-                deps=game_state,
-                message_history=message_history,
-                model_settings={"extra_body": {"tool_choice": "required"}},
-            )
+            current_input = user_input
+            deferred_results = None
 
-            # Show token changes from the GM's turn
-            turn_result: EndGameMasterTurn = result.output
-            if turn_result.internal_notes:
-                logger.info(f"💡 GM notes: {turn_result.internal_notes}")
+            while True:
+                result = await agent.run(
+                    current_input,
+                    deps=game_state,
+                    message_history=message_history,
+                    deferred_tool_results=deferred_results,
+                    model_settings={"extra_body": {"tool_choice": "required"}},
+                )
 
-            # Update message history with all messages from this interaction
-            message_history = result.all_messages()
-            logger.info(
-                f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
-            )
+                # Check if we have deferred tool requests (player needs to roll dice)
+                if isinstance(result.output, DeferredToolRequests):
+                    # Update message history with the deferred tool call
+                    message_history = result.all_messages()
+                    deferred_results = DeferredToolResults()
 
-            # Store result for cost calculation
-            # result_for_cost = result
+                    for call in result.output.calls:
+                        # Access tool call arguments - args_as_dict is a method, not a property
+                        dice_count = call.args_as_dict()["dice_count"]
+                        dice_type = call.args_as_dict()["dice_type"]
+
+                        # Prompt player to roll
+                        if dice_count == 2 and dice_type == "d12":
+                            # Duality Dice - need Hope and Fear
+                            roll_input = input(
+                                "🎲 Roll your Duality Dice (2d12) - Enter Hope and Fear separated by space (e.g., '5 9'), or press Enter to auto-roll: "
+                            ).strip()
+
+                            if not roll_input:
+                                # Auto-roll if user pressed Enter
+                                hope = random.randint(1, 12)
+                                fear = random.randint(1, 12)
+                            else:
+                                try:
+                                    hope_str, fear_str = roll_input.split()
+                                    hope = int(hope_str)
+                                    fear = int(fear_str)
+                                except ValueError:
+                                    logger.error(
+                                        "Invalid input. Please enter two numbers separated by space."
+                                    )
+                                    raise
+
+                            # Format as the roll_dice function would
+                            result_str = (
+                                f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
+                            )
+                            logger.info(result_str)
+                            # Track Fear when Fear die is higher
+                            if fear > hope:
+                                game_state.fear_pool += 1
+                                logger.info(f"   😈 Fear pool: {game_state.fear_pool}")
+                                result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
+                        else:
+                            # Single die or multiple dice of same type
+                            roll_input = input(
+                                f"🎲 Roll {dice_count}{dice_type} (or press Enter to auto-roll): "
+                            ).strip()
+
+                            if not roll_input:
+                                # Auto-roll if user pressed Enter
+                                sides = DICE_SIDES[dice_type]
+                                rolls = [
+                                    random.randint(1, sides) for _ in range(dice_count)
+                                ]
+                                if dice_count == 1:
+                                    result_str = (
+                                        f"🎲 [{dice_count}{dice_type}] → {rolls[0]}"
+                                    )
+                                else:
+                                    total = sum(rolls)
+                                    result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+                                logger.info(f"Auto-rolled: {result_str}")
+                            else:
+                                try:
+                                    if dice_count == 1:
+                                        roll_value = int(roll_input)
+                                        result_str = f"🎲 [{dice_count}{dice_type}] → {roll_value}"
+                                        logger.info(result_str)
+                                    else:
+                                        # Multiple dice - parse as comma-separated or space-separated
+                                        rolls = [
+                                            int(x.strip())
+                                            for x in roll_input.replace(
+                                                ",", " "
+                                            ).split()
+                                        ]
+                                        if len(rolls) != dice_count:
+                                            raise ValueError(
+                                                f"Expected {dice_count} rolls, got {len(rolls)}"
+                                            )
+                                        total = sum(rolls)
+                                        result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+                                        logger.info(result_str)
+                                except ValueError as e:
+                                    logger.error(f"Invalid input: {e}")
+                                    raise
+
+                        deferred_results.calls[call.tool_call_id] = result_str
+
+                    # Continue the run with the player's roll results (no new user input needed)
+                    current_input = ""
+                    continue
+                else:
+                    # Normal completion - show token changes from the GM's turn
+                    if isinstance(result.output, EndGameMasterTurn):
+                        turn_result: EndGameMasterTurn = result.output
+                        if turn_result.internal_notes:
+                            logger.info(f"💡 GM notes: {turn_result.internal_notes}")
+                    else:
+                        # This shouldn't happen, but handle it gracefully
+                        logger.warning(f"Unexpected output type: {type(result.output)}")
+
+                    # Update message history with all messages from this interaction
+                    message_history = result.all_messages()
+                    logger.info(
+                        f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
+                    )
+
+                    # Store result for cost calculation
+                    # result_for_cost = result
+                    break
+
         except Exception as e:
             logger.error(f"❌ Error: {e}")
 
