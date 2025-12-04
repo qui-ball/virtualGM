@@ -3,6 +3,7 @@
 import asyncio
 import os
 import random
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -10,8 +11,8 @@ import click
 import dotenv
 import logfire
 from loguru import logger
-from pydantic import BaseModel
-from pydantic_ai import Agent, RunContext
+from pydantic import BaseModel, Field, model_validator
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
@@ -19,13 +20,22 @@ from utils.cost import calculate_run_cost
 
 dotenv.load_dotenv()
 
+
+# ANSI color codes for terminal output
+class Colors:
+    """ANSI color codes for terminal output."""
+
+    GREEN = "\033[32m"
+    LIGHT_BLACK = "\033[90m"  # Pale grey
+    RESET = "\033[0m"
+
+
 # Configure loguru logging level
 # Set LOGURU_LEVEL environment variable to control logging (default: INFO, set to DEBUG to see debug messages)
 loguru_level = os.getenv("LOGURU_LEVEL", "INFO").upper()
-# loguru_level = os.getenv("LOGURU_LEVEL", "DEBUG").upper()
 logger.remove()  # Remove default handler
 logger.add(
-    lambda msg: print(msg, end=""),
+    sys.stderr,
     level=loguru_level,
     colorize=True,
     format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
@@ -76,6 +86,70 @@ class DiceRollResult(BaseModel):
     total: int
 
 
+class CharacterState(BaseModel):
+    """Character state for both PCs and NPCs/adversaries."""
+
+    # HP and Stress (common to all characters)
+    hp: int | None = Field(
+        default=None,
+        ge=0,
+        description="Current HP remaining (None = full health/hp_max, 0 = defeated, decreases when taking damage)",
+    )
+    hp_max: int = Field(ge=1, description="Maximum HP")
+    stress: int = Field(
+        default=0,
+        ge=0,
+        description="Current Stress (increases when marking stress, max is stress_max)",
+    )
+    stress_max: int = Field(ge=0, description="Maximum Stress")
+
+    # Damage thresholds (common to all characters)
+    minor_threshold: int = Field(ge=0, description="Damage threshold for marking 1 HP")
+    major_threshold: int = Field(ge=0, description="Damage threshold for marking 2 HP")
+    severe_threshold: int | None = Field(
+        default=None,
+        ge=0,
+        description="Damage threshold for marking 3 HP (None means no severe threshold)",
+    )
+
+    # Conditions
+    conditions: list[str] = Field(
+        default_factory=list,
+        description="Active conditions (Vulnerable, Restrained, Hidden, etc.)",
+    )
+
+    # PC-specific fields (optional for NPCs)
+    hope: int | None = Field(
+        default=None, ge=0, le=6, description="Current Hope (PCs only, max 6)"
+    )
+    armor_slots: int | None = Field(
+        default=None, ge=0, description="Current armor slots marked (PCs only)"
+    )
+    armor_slots_max: int | None = Field(
+        default=None, ge=0, description="Total armor slots (PCs only)"
+    )
+    evasion: int | None = Field(
+        default=None, ge=0, description="Evasion value (PCs only, for being attacked)"
+    )
+
+    # NPC-specific fields (optional for PCs)
+    difficulty: int | None = Field(
+        default=None,
+        ge=0,
+        description="Difficulty value (NPCs only, for attack rolls against them)",
+    )
+    attack_modifier: int | None = Field(
+        default=None, description="Attack modifier for adversary attacks (NPCs only)"
+    )
+
+    @model_validator(mode="after")
+    def set_default_hp(self) -> "CharacterState":
+        """Set hp to hp_max if hp is None (not explicitly set)."""
+        if self.hp is None and self.hp_max > 0:
+            self.hp = self.hp_max
+        return self
+
+
 class EndGameMasterTurn(BaseModel):
     """Signals the end of the GM's turn and the start of the player's turn."""
 
@@ -86,7 +160,22 @@ class GameState:
     """Mutable game state shared across tool calls."""
 
     def __init__(self):
-        self.fear_pool: int = 0
+        self.fear_pool: int = 1  # GM starts with 1 Fear token for each PC
+        # Initialize PC state with Marlowe's stats
+        self.pc: CharacterState = CharacterState(
+            hp=6,  # Start at full HP
+            hp_max=6,  # Marlowe has 6 HP max
+            stress=0,  # Start with no stress
+            stress_max=6,  # All PCs start with 6 Stress max
+            minor_threshold=7,  # Minor: 7 (Mark 1 HP)
+            major_threshold=14,  # Major: 14 (Mark 2 HP)
+            severe_threshold=None,  # No severe threshold listed
+            hope=2,  # PCs start with 2 Hope
+            armor_slots=0,
+            armor_slots_max=3,  # Leather Armor has 3 armor slots
+            evasion=10,  # Marlowe's Evasion is 10
+        )
+        self.adversaries: dict[str, CharacterState] = {}  # Adversary name -> state
 
 
 # # Initialize the OpenRouter model (prompt caching is enabled by default on OpenRouter)
@@ -161,26 +250,62 @@ Tools:
 Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
 
 <example>
-User: I attack the goblin with my sword.
+narrate("Two goblins leap from the bushes, daggers drawn! The first goblin attacks!")
+
+# First, create the adversaries
+create_adversary("Goblin 1", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
+create_adversary("Goblin 2", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
+roll_dice(1, "d20")
+> result: 15
+narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
+roll_dice(1, "d6")
+> result: 4
+narrate("4 damage. Compare to your thresholds: Minor 7, Major 14. Since 4 < 7, you mark 1 HP.")
+update_character_state("pc", CharacterStateDelta(hp=-1))
+narrate("You now have 5/6 HP remaining. The spotlight shifts to you. What do you do?")
+
+User: I attack Goblin 1!
 
 narrate("You lunge forward, blade flashing!")
 roll_dice(2, "d12")
 > result: Hope 5, Fear 9
-narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage.")
+narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage.")
 roll_dice(1, "d8")
 > result: 6
-narrate("You deal 6 damage! The goblin staggers, wounded but alive. The spotlight shifts to the GM. The goblin you just attacked seizes the moment and strikes!")
+narrate("You deal 6 damage! Goblin 1's thresholds are Minor 4, Major 8. Since 6 >= 4 but < 8, it marks 2 HP.")
+update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
+narrate("Goblin 1 now has 1/3 HP remaining. The goblin staggers, wounded but alive. The spotlight shifts to the GM. Goblin 1 seizes the moment and strikes!")
 roll_dice(1, "d20")
 > result: 15
-narrate("A 15 vs your Evasion of 12 -- it hits! Let me roll to see how much damage you take.")
+narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
 roll_dice(1, "d6")
 > result: 4
-narrate("<calculate damage + narrate the outcome>")
-narrate("I will spend a Fear token to spotlight the other goblin who will attack you with its spear.")
+narrate("4 damage. You mark another 1 HP.")
+update_character_state("pc", CharacterStateDelta(hp=-1))
+narrate("I will spend a Fear token to spotlight Goblin 2 who will attack you with its spear.")
 spend_fear(1)
 roll_dice(1, "d20")
 > result: 10
-narrate("A 10 vs your Evasion of 12 -- it misses! The spotlight shifts back to you. What do you do?")
+narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits! Roll damage.")
+roll_dice(1, "d6")
+> result: 3
+narrate("3 damage. Since 3 < 7, you mark 1 HP.")
+update_character_state("pc", CharacterStateDelta(hp=-1))
+narrate("The spotlight shifts back to you. What do you do?")
+
+User: I finish off Goblin 1!
+
+narrate("You strike Goblin 1 with a finishing blow!")
+roll_dice(2, "d12")
+> result: Hope 11, Fear 3
+narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage.")
+roll_dice(1, "d8")
+> result: 5
+narrate("You deal 5 damage! Goblin 1 is defeated!")
+update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP to 0 or below
+update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (Hope was higher)
+remove_adversary("Goblin 1")
+narrate("Goblin 1 collapses to the ground. Only Goblin 2 remains. What do you do?")
 EndGameMasterTurn()
 </example>
 
@@ -204,20 +329,20 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
     # Display the roll
     if len(rolls) == 1:
         result_str = f"🎲 [{dice_count}{dice_type}] → {rolls[0]}"
-        click.echo(result_str)
+        logger.info(result_str)
     elif len(rolls) == 2 and dice_type == "d12":
         # Special formatting for Hope/Fear dice (Duality Dice)
         hope, fear = rolls
         result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
-        click.echo(result_str)
+        logger.info(result_str)
         # Track Fear when Fear die is higher
         if fear > hope:
             ctx.deps.fear_pool += 1
-            click.echo(f"   😈 Fear pool: {ctx.deps.fear_pool}")
+            logger.info(f"   😈 Fear pool: {ctx.deps.fear_pool}")
             result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
     else:
         result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {sum(rolls)}"
-        click.echo(result_str)
+        logger.info(result_str)
 
     return result_str
 
@@ -229,7 +354,7 @@ def narrate(narration: str) -> None:
     Args:
         narration: Scene descriptions, dialogue, outcomes, or rules explanations.
     """
-    click.echo(narration)
+    logger.info(f"{Colors.GREEN}{narration}{Colors.RESET}")
 
 
 @agent.tool
@@ -241,11 +366,177 @@ def spend_fear(ctx: RunContext[GameState], amount: int = 1) -> str:
     """
     if ctx.deps.fear_pool >= amount:
         ctx.deps.fear_pool -= amount
-        click.echo(f"   😈 Spent {amount} Fear (pool: {ctx.deps.fear_pool})")
+        logger.info(f"   😈 Spent {amount} Fear. Remaining: {ctx.deps.fear_pool}")
         return f"Spent {amount} Fear. Remaining: {ctx.deps.fear_pool}"
     else:
-        click.echo(f"   ⚠️ Not enough Fear! (pool: {ctx.deps.fear_pool})")
+        logger.warning(f"   ⚠️ Not enough Fear! (pool: {ctx.deps.fear_pool})")
         return f"Cannot spend {amount} Fear. Only {ctx.deps.fear_pool} available."
+
+
+@agent.tool
+def create_adversary(
+    ctx: RunContext[GameState], adversary_id: str, adversary_state: CharacterState
+) -> str:
+    """Create an adversary in the game state.
+
+    Args:
+        adversary_id: Unique identifier/name for the adversary (e.g., "Thistlefolk Ambusher 1")
+        adversary_state: CharacterState with the adversary's stats (HP, thresholds, difficulty, etc.)
+    """
+    if adversary_id in ctx.deps.adversaries:
+        logger.warning(f"Adversary '{adversary_id}' already exists")
+        raise ModelRetry(
+            f"Adversary '{adversary_id}' already exists. Use a different adversary_id or remove the existing one first."
+        )
+
+    ctx.deps.adversaries[adversary_id] = adversary_state
+    logger.info(
+        f"Created adversary '{adversary_id}' (HP: {adversary_state.hp}/{adversary_state.hp_max}, Difficulty: {adversary_state.difficulty})"
+    )
+    return f"Successfully created adversary '{adversary_id}' (HP: {adversary_state.hp}/{adversary_state.hp_max}, Difficulty: {adversary_state.difficulty})"
+
+
+@agent.tool
+def remove_adversary(ctx: RunContext[GameState], adversary_id: str) -> str:
+    """Remove an adversary from the game state (typically when defeated).
+
+    Args:
+        adversary_id: Unique identifier/name of the adversary to remove
+    """
+    if adversary_id not in ctx.deps.adversaries:
+        logger.warning(f"Adversary '{adversary_id}' not found")
+        raise ModelRetry(
+            f"Adversary '{adversary_id}' does not exist. Available adversaries: {list(ctx.deps.adversaries.keys())}"
+        )
+
+    del ctx.deps.adversaries[adversary_id]
+    logger.info(f"Removed adversary '{adversary_id}'")
+    return f"Successfully removed adversary '{adversary_id}'"
+
+
+class CharacterStateDelta(BaseModel):
+    """Delta/change to apply to a CharacterState. Values are relative changes (positive to increase, negative to decrease). Only provide fields you want to change."""
+
+    hp: int | None = Field(
+        default=None,
+        description="Change to HP (e.g., -2 to reduce HP by 2, +3 to increase HP by 3)",
+    )
+    stress: int | None = Field(
+        default=None,
+        description="Change to Stress (e.g., -1 to reduce stress by 1, +2 to increase stress by 2)",
+    )
+    add_conditions: list[str] | None = Field(
+        default=None,
+        description="Conditions to add (e.g., ['Vulnerable', 'Restrained'])",
+    )
+    remove_conditions: list[str] | None = Field(
+        default=None, description="Conditions to remove (e.g., ['Vulnerable'])"
+    )
+    hope: int | None = Field(
+        default=None,
+        description="Change to Hope (e.g., -1 to reduce hope by 1, +2 to increase hope by 2, PCs only)",
+    )
+    armor_slots: int | None = Field(
+        default=None,
+        description="Change to armor slots (e.g., -1 to mark an armor slot, +1 to unmark, PCs only)",
+    )
+
+
+@agent.tool
+def update_character_state(
+    ctx: RunContext[GameState],
+    target: str,
+    delta: CharacterStateDelta,
+) -> str:
+    """Update character state for PC or an adversary by applying deltas (relative changes).
+
+    Args:
+        target: "pc" for player character, or adversary_id for an adversary
+        delta: CharacterStateDelta with relative changes to apply (e.g., hp=-2 to reduce HP by 2, hp=+3 to increase HP by 3)
+    """
+    logger.info(
+        f"{Colors.LIGHT_BLACK}Updating character state for {target}: {delta.__dict__}{Colors.RESET}"
+    )
+    if target == "pc":
+        character = ctx.deps.pc
+        character_name = "PC"
+    elif target in ctx.deps.adversaries:
+        character = ctx.deps.adversaries[target]
+        character_name = f"adversary '{target}'"
+    else:
+        logger.warning(f"Target '{target}' not found")
+        raise ModelRetry(
+            f"Target '{target}' does not exist. Use 'pc' for player character, or one of: {list(ctx.deps.adversaries.keys())}"
+        )
+
+    updated_fields = []
+    if delta.hp is not None:
+        character.hp = max(
+            0, character.hp + delta.hp
+        )  # Apply delta, ensure non-negative
+        updated_fields.append(
+            f"hp={delta.hp:+d} (now {character.hp}/{character.hp_max})"
+        )
+    if delta.stress is not None:
+        new_stress = max(
+            0, character.stress + delta.stress
+        )  # Apply delta, ensure non-negative
+        overflow = max(
+            0, new_stress - character.stress_max
+        )  # Calculate overflow beyond max
+        character.stress = min(character.stress_max, new_stress)  # Cap stress at max
+        if overflow > 0:
+            # Convert overflow stress to HP damage (1 HP per overflow point)
+            character.hp = max(0, character.hp - overflow)
+            updated_fields.append(
+                f"stress={delta.stress:+d} (now {character.stress}/{character.stress_max}, {overflow} overflow → -{overflow} HP, HP now {character.hp}/{character.hp_max})"
+            )
+        else:
+            updated_fields.append(
+                f"stress={delta.stress:+d} (now {character.stress}/{character.stress_max})"
+            )
+    if delta.add_conditions is not None:
+        for condition in delta.add_conditions:
+            if condition not in character.conditions:
+                character.conditions.append(condition)
+                updated_fields.append(f"added condition: {condition}")
+    if delta.remove_conditions is not None:
+        for condition in delta.remove_conditions:
+            if condition in character.conditions:
+                character.conditions.remove(condition)
+                updated_fields.append(f"removed condition: {condition}")
+    if delta.hope is not None:
+        if character.hope is None:
+            raise ModelRetry(
+                f"Cannot update hope for {character_name} - hope is only for PCs"
+            )
+        character.hope = max(
+            0, min(6, character.hope + delta.hope)
+        )  # Apply delta, clamp 0-6
+        updated_fields.append(f"hope={delta.hope:+d} (now {character.hope})")
+    if delta.armor_slots is not None:
+        if character.armor_slots is None:
+            raise ModelRetry(
+                f"Cannot update armor_slots for {character_name} - armor slots are only for PCs"
+            )
+        character.armor_slots = max(
+            0,
+            min(
+                character.armor_slots_max or 0,
+                character.armor_slots + delta.armor_slots,
+            ),
+        )  # Apply delta, clamp 0-max
+        updated_fields.append(
+            f"armor_slots={delta.armor_slots:+d} (now {character.armor_slots}/{character.armor_slots_max})"
+        )
+
+    if not updated_fields:
+        raise ModelRetry(
+            "No fields provided to update. Provide at least one field in delta."
+        )
+
+    logger.info(f"Updated {character_name}: {', '.join(updated_fields)}")
+    return f"Successfully updated {character_name}: {', '.join(updated_fields)}"
 
 
 @agent.instructions
@@ -276,13 +567,21 @@ def add_player_character() -> str:
 </player_character>"""
 
 
+@agent.instructions
+def current_game_state(ctx: RunContext[GameState]) -> str:
+    logger.info(f"{Colors.LIGHT_BLACK}Game state: {ctx.deps.__dict__}{Colors.RESET}")
+    return f"""<current_game_state>
+{ctx.deps.__dict__}
+</current_game_state>"""
+
+
 async def run_chat():
     """Async chat loop (non-streaming)."""
-    click.echo("🤖 AI Chat Game Master")
-    click.echo("=" * 50)
-    click.echo("Type 'exit' or 'quit' to end the conversation")
-    click.echo("=" * 50)
-    click.echo()
+    logger.info("🤖 AI Chat Game Master")
+    logger.info("=" * 50)
+    logger.info("Type 'exit' or 'quit' to end the conversation")
+    logger.info("=" * 50)
+    logger.info("")
 
     # Initialize session cost tracking
     session_total_cost = 0.0
@@ -305,9 +604,9 @@ What do you do?
 """
 
     # Display the opening scene
-    click.echo("🤖 Game Master:")
-    click.echo(gm_opening)
-    click.echo()
+    logger.info("🤖 Game Master:")
+    logger.info(f"{Colors.GREEN}{gm_opening}{Colors.RESET}")
+    logger.info("")
 
     # Create the message history directly without invoking the agent
     from pydantic_ai.messages import (
@@ -337,13 +636,13 @@ What do you do?
 
         # Check for exit commands
         if user_input.lower() in ("exit", "quit", "q"):
-            click.echo("\n👋 Goodbye!")
+            logger.info("\n👋 Goodbye!")
             if session_total_cost > 0:
-                click.echo(f"\n💰 Session total cost: ${session_total_cost:.6f}")
+                logger.info(f"\n💰 Session total cost: ${session_total_cost:.6f}")
             break
 
         # Run the agent - tools (narrate, roll_dice) handle their own output
-        click.echo("\n🤖 Game Master:")
+        logger.info("\n🤖 Game Master:")
         result_for_cost = None
         try:
             result = await agent.run(
@@ -356,18 +655,20 @@ What do you do?
             # Show token changes from the GM's turn
             turn_result: EndGameMasterTurn = result.output
             if turn_result.internal_notes:
-                click.echo(f"💡 GM notes: {turn_result.internal_notes}")
+                logger.info(f"💡 GM notes: {turn_result.internal_notes}")
 
             # Update message history with all messages from this interaction
             message_history = result.all_messages()
-            logger.info(f"Game state: {game_state.__dict__}")
+            logger.info(
+                f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
+            )
 
             # Store result for cost calculation
             # result_for_cost = result
         except Exception as e:
-            click.echo(f"❌ Error: {e}", err=True)
+            logger.error(f"❌ Error: {e}")
 
-        click.echo()  # Add blank line for readability
+        logger.info("")  # Add blank line for readability
 
         # # Calculate and log cost for this run (logging handled by calculate_run_cost)
         # run_cost, *_ = calculate_run_cost(
