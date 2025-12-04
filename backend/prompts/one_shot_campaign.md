@@ -1,6 +1,6 @@
 # Campaign Overview
 
-> *"Marlowe Fairwind, the right-hand sorcerer of King Emeris, has gathered her most trusted allies to carry an important package to Hush, a small village within the ancient forest of Sablewood. The crate is large, heavy, and sealed with magic, addressed to the Whitefire Arcanist. You’ve been given a map and a carriage, and the promise of reward upon your arrival."*
+> *"Marlowe Fairwind, the right-hand sorcerer of King Emeris, has gathered her most trusted allies to carry an important package to Hush, a small village within the ancient forest of Sablewood. The crate is large, heavy, and sealed with magic, addressed to the Whitefire Arcanist. You've been given a map and a carriage, and the promise of reward upon your arrival."*
 
 
 ## Character: Marlowe Fairwind  
@@ -65,7 +65,7 @@ Your primal origin grants you the ability to manipulate and reshape the very ess
 
 > **Manipulate Magic:**  
 > _After casting a spell or attacking with a magic weapon, you may mark a Stress to choose one of the following enhancements:_
-> - Extend the spell or attack’s reach by one range increment  
+> - Extend the spell or attack's reach by one range increment  
 > - Gain a +2 bonus to your action roll  
 > - Double a damage die of your choice  
 > - Hit an additional target within range
@@ -116,7 +116,7 @@ Nestled deep in the Sablewood is the small, welcoming village of **Hush**, which
 
 ### The Whitefire Arcanist
 
-The spiritual and magical anchor of Hush is the **Whitefire Arcanist**, leader of the village’s primary religious order. The Arcanist is responsible for maintaining the powerful wards that safeguard Hush from the Sablewood’s dangers.
+The spiritual and magical anchor of Hush is the **Whitefire Arcanist**, leader of the village's primary religious order. The Arcanist is responsible for maintaining the powerful wards that safeguard Hush from the Sablewood's dangers.
 
 ---
 
@@ -158,7 +158,7 @@ You, along with the Whitefire Arcanist, transport the keystone to the ritual sit
 
 ## About the Thistlefolk
 
-The Thistlefolk make their homes where few dare tread: deep within the thickest, most tangled brambles of the Sablewood. Although the only Thistlefolk that most travelers ever see are those who venture out to steal goods from passing merchants, this has given them an undeserved reputation as criminals or a thieves’ syndicate.
+The Thistlefolk make their homes where few dare tread: deep within the thickest, most tangled brambles of the Sablewood. Although the only Thistlefolk that most travelers ever see are those who venture out to steal goods from passing merchants, this has given them an undeserved reputation as criminals or a thieves' syndicate.
 
 In reality, most Thistlefolk are gentle and vulnerable creatures who remain within the safety of the brambles to protect themselves from the larger predators that stalk the Sablewood in search of easy meals.
 
@@ -178,7 +178,7 @@ _You are driving the carriage._
 
 Ask the player:
 
-> _You’ve noticed something unique about the look of the trees here in the Sablewood. What is it?_
+> _You've noticed something unique about the look of the trees here in the Sablewood. What is it?_
 
 **GM Note:**  
 Describe the trees as you pass, specifically incorporating the answer given by the player. (This utilizes the Daggerheart GM Principle: _Ask Questions and Incorporate the Answers._)
@@ -206,7 +206,7 @@ Give the player a chance to roleplay and act. When you approach the merchant car
 
 **Read aloud:**
 
-> _The strixwolf is wary of your movement. Let’s make our first roll to see how she reacts! This uses your **Presence** trait, so grab your Duality Dice and roll them, then add your Presence. If you wish, spend a Hope before the roll to add an Experience, if it applies. Then tell me your total, and which die came out higher!_
+> _The strixwolf is wary of your movement. Let's make our first roll to see how she reacts! This uses your **Presence** trait, so grab your Duality Dice and roll them, then add your Presence. If you wish, spend a Hope before the roll to add an Experience, if it applies. Then tell me your total, and which die came out higher!_
 
 #### Roll Results
 
@@ -230,7 +230,7 @@ Give the player a chance to roleplay and act. When you approach the merchant car
   _Sample narration_:  
   > _With a final snarl, she leans down to let her pups clamber onto her back, then takes off into the air, landing on a branch where she continues to watch your every move._
 
-- If rolled with *Fear*: Gain a Fear. The strixwolf’s aggression causes the PC to mark a Stress.
+- If rolled with *Fear*: Gain a Fear. The strixwolf's aggression causes the PC to mark a Stress.
 
 ---
 
@@ -313,7 +313,7 @@ When the moment feels right, or if one of the above scenarios triggers it, ask t
 
 **Read aloud:**
 
-> "In a whirlwind of cracking branches and unsheathed blades, a group of four Thistlefolk leap from the brush alongside the road. The overturned cart was an ambush! They stand before you, weapons drawn, blocking the road. They'll go first. I’m going to set up a battle map!"
+> "In a whirlwind of cracking branches and unsheathed blades, a group of four Thistlefolk leap from the brush alongside the road. The overturned cart was an ambush! They stand before you, weapons drawn, blocking the road. They'll go first. I'm going to set up a battle map!"
 
 ---
 
@@ -348,7 +348,7 @@ If the player was ambushed, the Thistlefolk act first. This is reflected in the 
 
 **Read Aloud:**
 
-> "Having the upper hand, the three Thistlefolk Ambushers rush you! Because of their Ambush feature, they get to make an attack immediately. This only happens when they enter the scene, so it won’t be like this every time. But right now, they are slashing at you with daggers, protected by armor made of polished stones."
+> "Having the upper hand, the three Thistlefolk Ambushers rush you! Because of their Ambush feature, they get to make an attack immediately. This only happens when they enter the scene, so it won't be like this every time. But right now, they are slashing at you with daggers, protected by armor made of polished stones."
 
 - Move the Ambushers into melee with the player character.
 - Then, follow the attack guide (below) for each Ambusher.
@@ -382,7 +382,7 @@ If the player spotted the Ambushers before the attack, you get to act first.
 
 When you make an attack against a PC:
 1. Roll a d20 and add the Ambusher's attack modifier (**+1**).
-2. Compare this to the PC’s **Evasion**.
+2. Compare this to the PC's **Evasion**.
     - If the attack hits, roll damage using **1d8+5**.
     - Ask the player to compare the total to your damage thresholds, use armor if you'd like, and mark your hit point(s) accordingly.
 
@@ -391,8 +391,8 @@ When you make an attack against a PC:
 ### Thief Attack Guide
 
 When you make an attack against a PC with the Thistlefolk Thief:
-1. Roll a d20 and add the Thief’s attack modifier (**+3**).
-2. Compare this to the PC’s **Evasion**.
+1. Roll a d20 and add the Thief's attack modifier (**+3**).
+2. Compare this to the PC's **Evasion**.
     - If the attack hits, roll damage using **2d4+3**.
     - Have the player compare the total to your damage thresholds, use armor if you'd like, and mark your hit point(s).
     - If the Thief is using **Back Off**, and the attack succeeds, deal the listed damage and move the player's standee in a direction of your choice—into **Far** range from where you were.
@@ -497,7 +497,7 @@ _Example progression_: You might meet Fidget in town. After some conversation an
 
 > The Clover Tavern is a sight to behold, with six curving stories climbing the trunk of an ancient tree. This is the heart of the community, always crowded with music and good-natured conversation.
 >
-> Newcomers to the bar must take off their shoes and hang them over a line that stretches across the bar’s ground floor. Inevitably, by the time visitors leave, their shoes will be shined and filled with small trinkets.
+> Newcomers to the bar must take off their shoes and hang them over a line that stretches across the bar's ground floor. Inevitably, by the time visitors leave, their shoes will be shined and filled with small trinkets.
 >
 > As you enter, what would you like to do?
 
@@ -515,7 +515,7 @@ Consider asking the player to describe details about the tavern, such as:
 
 If the player inquires, you will find out that Hush is currently celebrating the **Firstmoss Festival**—the time when new crops in the Sunless Farms have developed their first layer of moss, signaling the start of ripening for the season.
 
-It’s a celebration of spring’s arrival and the abundance of fresh fruits and vegetables soon to come.
+It's a celebration of spring's arrival and the abundance of fresh fruits and vegetables soon to come.
 
 **Festival Activities Might Include:**
 
@@ -531,9 +531,9 @@ When you're ready, guide the player to interact with an NPC who can help you rea
 
 After a few exchanges, the NPC can share:
 
-> "The Arcanist is quite busy, but if you’ve traveled so far, I’m sure she’ll be more than hospitable. We would be lost without her. She keeps this whole place protected by a powerful ward so that no dangers from the Sablewood can pass into town.
+> "The Arcanist is quite busy, but if you've traveled so far, I'm sure she'll be more than hospitable. We would be lost without her. She keeps this whole place protected by a powerful ward so that no dangers from the Sablewood can pass into town.
 >
-> "You’ll find her house to the south, through the farmland. It’s hanging from one of the old Sablewood trees—you can’t miss it."
+> "You'll find her house to the south, through the farmland. It's hanging from one of the old Sablewood trees—you can't miss it."
 
 When the player is ready, send them off towards the Arcanist's home.
 
@@ -550,7 +550,7 @@ When the player is ready, send them off towards the Arcanist's home.
 
 > Making your way past the homes of the village and through the farmlands of Hush, you see a variety of crops beginning to sprout a thin layer of glowing blue moss over their fruits and vegetables. The moss pulses softly, like a heartbeat, as you pass.
 >
-> Among the thriving groves, the Sablewood trees stand tall, each carved with hundreds of unique faces, their eyes peering in every direction. One tree, taller than the rest, holds the Arcanist’s home, dangling like an overripe fruit. The home itself is suspended by a braid of rope as thick as a giant’s forearm, tied to a massive branch and counterweighted by a cabin-sized boulder lying at the tree's base. Symbols mark the stone, and the cabin’s windows flicker with a soft yellow-green light.
+> Among the thriving groves, the Sablewood trees stand tall, each carved with hundreds of unique faces, their eyes peering in every direction. One tree, taller than the rest, holds the Arcanist's home, dangling like an overripe fruit. The home itself is suspended by a braid of rope as thick as a giant's forearm, tied to a massive branch and counterweighted by a cabin-sized boulder lying at the tree's base. Symbols mark the stone, and the cabin's windows flicker with a soft yellow-green light.
 >
 > What would you like to do?
 
@@ -579,7 +579,7 @@ When you finally earn the Arcanist's attention, describe her with the following:
 As she lowers her home and invites you inside, describe the interior:
 
 - The main room is crowded with potion bottles, spellbooks, runes, plants, and a menagerie of small creatures.
-- Despite the chaos, not a single thing is out of place; it’s clear that even moving an item an inch would be noticed instantly by the Arcanist.
+- Despite the chaos, not a single thing is out of place; it's clear that even moving an item an inch would be noticed instantly by the Arcanist.
 
 ---
 
@@ -597,11 +597,11 @@ Whenever conversation winds down, the Arcanist asks after the package from King 
 
 **Read aloud as she opens the delivery:**
 
-> Inside King Emeris’ package lies a massive stone with a lion’s face carved into it. Marlowe, you recognize it immediately: the keystone from the capital city gate’s main archway.
+> Inside King Emeris' package lies a massive stone with a lion's face carved into it. Marlowe, you recognize it immediately: the keystone from the capital city gate's main archway.
 >
 > The Arcanist nods sagely. “Of course the King would keep this delivery secret. If anyone knew your city was no longer warded, you would be conquered before sunrise.”
 >
-> With a serious tone, she begins to ready her unusual home for travel again. “We must travel to the Open Vale to revitalize the ward. Such an effort of magic will attract dangerous creatures from the dark reaches of the Sablewood. I’ll need your help.”
+> With a serious tone, she begins to ready her unusual home for travel again. “We must travel to the Open Vale to revitalize the ward. Such an effort of magic will attract dangerous creatures from the dark reaches of the Sablewood. I'll need your help.”
 
 ---
 
@@ -617,23 +617,23 @@ If the player is eager to assist, proceed directly to **The Open Vale** (Act Fiv
 ### Part One: The Open Vale
 
 **Read aloud:**  
-On the Arcanist’s instructions, your carriage arrives in a mysterious clearing—an almost perfect circle—the only spot in the Sablewood without trees crowding out the sky. This is **The Open Vale**.
+On the Arcanist's instructions, your carriage arrives in a mysterious clearing—an almost perfect circle—the only spot in the Sablewood without trees crowding out the sky. This is **The Open Vale**.
 
 > The Arcanist appears thoughtful as she surveys the clearing.  
 >  
-> "This place," she says, "has always been used for powerful ritual magic. It’s here that I first forged the ward pillars found at the four corners of Hush, the ones that keep your village safe to this day. I nearly died performing that ritual."
+> "This place," she says, "has always been used for powerful ritual magic. It's here that I first forged the ward pillars found at the four corners of Hush, the ones that keep your village safe to this day. I nearly died performing that ritual."
 >
 > She seems ready to share more, but stops herself, perhaps uneasy about offending the Forgotten Gods.
 
 Invite the player to interact and speak with the Arcanist. Let them ask questions and explore her mood or the location. When you are ready to move the story forward, read the following:
 
-The Arcanist’s antennae twitch in a strange, almost startling manner.  
-> “This is good. Stop, stop. Yes, here. Now come help me, I’m old.”
+The Arcanist's antennae twitch in a strange, almost startling manner.  
+> “This is good. Stop, stop. Yes, here. Now come help me, I'm old.”
 
 
 She unfolds the carriage (just as she did with her home) and stands over the crate, humming softly. Her body brightens, flickering with light in the night air.
 
-> “I’ll need about an hour to prepare. Please, enjoy the night air while you can—we will be quite busy soon.”
+> “I'll need about an hour to prepare. Please, enjoy the night air while you can—we will be quite busy soon.”
 
 ---
 
@@ -669,7 +669,7 @@ She unfolds the carriage (just as she did with her home) and stands over the cra
 
 **Read aloud:**  
 The Arcanist lets out a shrill cry:  
-> “The keystone has finally responded! Quickly, surround me, the ritual must begin or I’ll lose the pathway! Hurry!”
+> “The keystone has finally responded! Quickly, surround me, the ritual must begin or I'll lose the pathway! Hurry!”
 
 Her body begins to glow, ever brighter, as her eyes roll back into her head. The entire carriage lifts a foot off the ground. Unnatural screeches echo through the woods as creatures sense the surge of arcane energy.
 
@@ -691,7 +691,7 @@ You feel a tremor as four ancient skeletons claw their way from beneath the eart
 To guide the encounter:
 
 - Take a d8 and set it on the table with the **8** facing up.  
-- **This is the ritual’s countdown die.**  
+- **This is the ritual's countdown die.**  
     - **Tick down** the die by 1 whenever an adversary is defeated.
     - **Tick up** the die by 1 each time the Whitefire Arcanist is hit by an attack.
 - **Goal:** Defend the Arcanist until the countdown reaches **0**. When this happens, the ritual is complete and combat ends.
@@ -747,7 +747,7 @@ To guide the encounter:
 
 **Features:**
 - **Spectral Body (Passive):** Resistance to physical damage.
-- **Memory Delve (Action):** Attack a close target. On success, flies to Melee, places hand on target’s cheek; ask the player to describe a terrifying childhood moment. Deal 3d4+9 magic damage and make them Vulnerable until next rest.
+- **Memory Delve (Action):** Attack a close target. On success, flies to Melee, places hand on target's cheek; ask the player to describe a terrifying childhood moment. Deal 3d4+9 magic damage and make them Vulnerable until next rest.
 - **Pass-Through (Action):** Spend a Fear, attack a Melee target. On success, the Wraith passes through and temporarily untethers the target's soul (see above for handling Untethered player).
 
 ---
@@ -778,7 +778,7 @@ As you deliver a powerful blow, the ritual ends! The carriage crashes to the gro
 
 Shortly after, you return inside the cozy treehouse. The keystone now hangs carefully suspended over a rumbling fire in the hearth. The Arcanist, looking even older than before, sits cross-legged in an overstuffed chair. There is a deep exhaustion in her voice as she addresses you:
 
-> “You fought hard. I’m not surprised, of course. The King keeps good company. I’m very glad you were there.”
+> “You fought hard. I'm not surprised, of course. The King keeps good company. I'm very glad you were there.”
 
 ---
 
@@ -786,7 +786,7 @@ Shortly after, you return inside the cozy treehouse. The keystone now hangs care
 
 Give the player space to speak with the Arcanist, resolve personal moments, or ask final questions. When conversation slows or the player inquires about the keystone, continue with:
 
-> “The keystone will need a week, maybe more, to allow the magic to settle. I’ll need to watch it carefully—make sure nothing cracks, or becomes sentient or anything of the like. You know how it is.  
+> “The keystone will need a week, maybe more, to allow the magic to settle. I'll need to watch it carefully—make sure nothing cracks, or becomes sentient or anything of the like. You know how it is.  
 >  
 > And in the meantime, after you rest and gather yourselves, have a nice hot meal and warm bath, I have one more thing to ask of you.”
 
@@ -794,11 +794,11 @@ Give the player space to speak with the Arcanist, resolve personal moments, or a
 
 #### A Glimpse Beyond
 
-Zoom out from the Arcanist’s home, rising above the forest’s canopy. Stone spires twist through the treeline, each bearing a flickering flame—beacons against the shadows.
+Zoom out from the Arcanist's home, rising above the forest's canopy. Stone spires twist through the treeline, each bearing a flickering flame—beacons against the shadows.
 
 The Arcanist continues:
 
-> “There’s a Spire, just west of here, maybe a few hours walk. I sensed its power on the way to the ritual, but it felt… strange. The light was weaker than it should be.  
+> “There's a Spire, just west of here, maybe a few hours walk. I sensed its power on the way to the ritual, but it felt… strange. The light was weaker than it should be.  
 >  
 > I fear something is terribly wrong with the Spirekeeper. And if its fire goes out entirely, I dread what might follow.  
 >  
@@ -806,4 +806,4 @@ The Arcanist continues:
 
 ---
 
-**This concludes today’s session.**
+**This concludes today's session.**

@@ -15,17 +15,18 @@
 
 **Advantage:** Roll d6 and add to action roll total. Disadvantage: roll d6 and subtract from total.
 
-**Hope:** When Hope die is higher, mark Hope. Spend Hope to:
-- **Experience:** Before action roll, add Experience value (+2 typically) as modifier if it applies to the scene. Experiences are narrative tags reflecting character specializations (e.g., "Royal Mage", "Not Afraid of Anything").
-- **Help Ally:** Explain how you aid them, roll d6 advantage die they add to their action roll
+**Hope:** When Hope die is higher, mark Hope. PCs start with 2 Hope at character creation, max 6 Hope at one time. Hope carries over between sessions. Spend Hope to:
+- **Utilize an Experience:** When you make a relevant action or reaction roll, spend Hope to add an Experience's modifier (+2 typically) to the result. You can spend multiple Hope to utilize multiple Experiences. Experiences are narrative tags reflecting character specializations (e.g., "Royal Mage", "Not Afraid of Anything").
+- **Help an Ally:** When an ally is making an action roll, describe how you help and roll an advantage die (d6). The ally adds the result to their final total. Multiple players can help the same ally, but only the highest result is added.
 - **Hope Features:** Use class-specific Hope abilities (costs vary)
-- **Tag Team Roll:** Spend 3 Hope (once per session). Two PCs combine actions, both roll separately, choose one result to apply to both. Combat: both roll damage, add totals together as single source.
+- **Tag Team Roll:** Spend 3 Hope (once per session). Two PCs combine actions, both roll separately, choose one result to apply to both. Combat: both roll damage, add totals together as single source. On Hope, all involved PCs gain Hope. On Fear, GM gains Fear for each PC involved.
 
-**Fear:** When Fear die is higher, GM gains Fear. GM starts with 1 Fear per PC, max 12. GM spends Fear to:
+**Fear:** When Fear die is higher, GM gains Fear. GM starts campaign with 1 Fear per PC, max 12 at one time. Fear carries over between sessions. GM gains Fear when: PC rolls with Fear, PCs take a rest, or an ability/effect says so. GM spends Fear to:
 - **Interrupt Players:** Spend 1 Fear to seize spotlight and make a move
-- **Extra GM Move:** Spend 1 Fear for additional move on GM's turn
-- **Activate Fear Features:** Spend Fear to use adversary/environment Fear Features
-- **Enhance Adversary Rolls:** Spend 1 Fear to add adversary's Experience modifier to roll
+- **Extra GM Move:** Spend 1 Fear to make an additional GM move
+- **Activate Fear Features:** Spend Fear to use adversary's Fear Feature or environment's Fear Feature
+- **Enhance Adversary Rolls:** Spend 1 Fear to add adversary's Experience to a roll
+- **End Temporary Effect:** Spend 1 Fear to end a temporary effect (like a spell)
 
 ## GM Moves
 
@@ -43,7 +44,7 @@
 
 **Spellcast Rolls:** Roll Duality Dice + Spellcast trait (from subclass) vs target's Difficulty. Works like attack rolls.
 
-**Reaction Rolls:** Roll Duality Dice + trait modifier vs target's Difficulty. Used for reactions like Attack of Opportunity. Critical success: choose two effects instead of one.
+**Reaction Rolls:** Roll Duality Dice + trait modifier vs target's Difficulty. Used for reactions like avoiding attacks or hazards. Reaction rolls don't generate Hope or Fear, don't trigger GM moves, and other characters can't help with Help an Ally. Critical success: ignore any effects that would have impacted you on a success.
 
 **Attack Outcomes:**
 - **Success with Hope:** PC gains Hope, deal damage normally.
@@ -82,17 +83,17 @@
 
 ## Rest
 
-**Short Rest (1 hour):** Choose 2 moves (can repeat same move):
+**Short Rest (1 hour):** Each player can move domain cards between loadout and vault for free, then choose 2 moves (can repeat same move):
 - **Tend to Wounds:** Clear 1d4+Tier HP (self or ally)
 - **Clear Stress:** Clear 1d4+Tier Stress
 - **Repair Armor:** Clear 1d4+Tier Armor Slots (self or ally)
-- **Prepare:** Gain 1 Hope (or 2 Hope if with party)
-GM gains 1d4 Fear. Can swap domain cards.
+- **Prepare:** Describe how you prepare yourself, then gain 1 Hope (or 2 Hope if with one or more party members)
+GM gains 1d4 Fear. Features/effects with limited uses per rest refresh.
 
-**Long Rest (overnight):** Choose 2 moves (can repeat same move):
+**Long Rest (overnight):** Each player can move domain cards between loadout and vault for free, then choose 2 moves (can repeat same move):
 - **Tend to All Wounds:** Clear all HP (self or ally)
 - **Clear All Stress:** Clear all Stress
 - **Repair All Armor:** Clear all Armor Slots (self or ally)
-- **Prepare:** Gain 1 Hope (or 2 Hope if with party)
-- **Work on Project:** Advance long-term project
-GM gains 1d4+PCs Fear. Can swap domain cards. After 3 short rests, next rest must be long rest.
+- **Prepare:** Describe how you prepare for the next day's adventure, then gain 1 Hope (or 2 Hope if with one or more party members)
+- **Work on a Project:** With GM approval, pursue a long-term project. First time starting a project, assign it a countdown. Each time you make this move, advance the countdown automatically or make an action roll (GM's choice).
+GM gains Fear equal to 1d4 + number of PCs, and can advance a long-term countdown. Features/effects with limited uses per rest or per long rest refresh. After 3 short rests in a row, next rest must be long rest.
