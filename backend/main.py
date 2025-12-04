@@ -176,6 +176,7 @@ class GameState:
             evasion=10,  # Marlowe's Evasion is 10
         )
         self.adversaries: dict[str, CharacterState] = {}  # Adversary name -> state
+        self.countdowns: dict[str, int] = {}  # Countdown name -> current value
 
 
 # # Initialize the OpenRouter model (prompt caching is enabled by default on OpenRouter)
@@ -244,6 +245,14 @@ Tools:
 - roll_dice(count, type): All dice rolls. Fear/Hope pools update automatically for Duality Dice.
   - Special case for Duality Dice: Always roll them together as a pair, i.e. roll_dice(2, "d12"), rather than rolling each die separately.
 - spend_fear(amount): Spend Fear tokens to take spotlight actions or activate GM abilities.
+- create_adversary(id, state): Create an adversary with stats (HP, thresholds, difficulty, etc.)
+- remove_adversary(id): Remove a defeated adversary from the game state
+- update_character_state(target, delta): Update PC or adversary state (HP, Stress, conditions, Hope, armor slots)
+- create_countdown(name, initial_value): Create a new countdown tracker with an initial value
+- update_countdown(name, delta): Update an existing countdown tracker by applying a delta (change value)
+  - delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
+  - Only works on existing countdowns (use create_countdown first)
+  - When a countdown reaches 0, its effect triggers (ritual completes, reinforcements arrive, etc.)
 </output_format>
 
 <sequencing>
@@ -537,6 +546,73 @@ def update_character_state(
 
     logger.info(f"Updated {character_name}: {', '.join(updated_fields)}")
     return f"Successfully updated {character_name}: {', '.join(updated_fields)}"
+
+
+@agent.tool
+def create_countdown(
+    ctx: RunContext[GameState],
+    countdown_name: str,
+    initial_value: int,
+) -> str:
+    """Create a new countdown tracker with an initial value.
+
+    Args:
+        countdown_name: Name/identifier for the countdown (e.g., 'Ritual Countdown', 'Reinforcements')
+        initial_value: Starting value for the countdown (must be >= 0)
+    """
+    logger.info(
+        f"{Colors.LIGHT_BLACK}Creating countdown '{countdown_name}' with value {initial_value}{Colors.RESET}"
+    )
+
+    if countdown_name in ctx.deps.countdowns:
+        raise ModelRetry(
+            f"Countdown '{countdown_name}' already exists. Use update_countdown() to modify it."
+        )
+
+    if initial_value < 0:
+        raise ModelRetry(f"Countdown initial value must be >= 0, got {initial_value}")
+
+    ctx.deps.countdowns[countdown_name] = initial_value
+    logger.info(f"Created countdown '{countdown_name}' with value {initial_value}")
+    if initial_value == 0:
+        return f"Created countdown '{countdown_name}' with value 0 (REACHED 0 - effect triggers!)"
+    return f"Created countdown '{countdown_name}' with value {initial_value}"
+
+
+@agent.tool
+def update_countdown(
+    ctx: RunContext[GameState],
+    countdown_name: str,
+    delta: int,
+) -> str:
+    """Update an existing countdown tracker by applying a delta (change value).
+
+    Countdowns track looming events (rituals completing, reinforcements arriving, etc.).
+    When a countdown reaches 0, its effect occurs.
+
+    Args:
+        countdown_name: Name/identifier for the countdown (e.g., 'Ritual Countdown', 'Reinforcements')
+        delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
+            - Applies the delta to the current value
+            - Countdown cannot go below 0 (clamped to 0)
+    """
+    logger.info(
+        f"{Colors.LIGHT_BLACK}Updating countdown '{countdown_name}': delta={delta}{Colors.RESET}"
+    )
+
+    if countdown_name not in ctx.deps.countdowns:
+        raise ModelRetry(
+            f"Countdown '{countdown_name}' does not exist. Use create_countdown() to create it first. Available countdowns: {list(ctx.deps.countdowns.keys())}"
+        )
+
+    old_value = ctx.deps.countdowns[countdown_name]
+    new_value = max(0, old_value + delta)  # Apply delta, clamp to 0 minimum
+    ctx.deps.countdowns[countdown_name] = new_value
+    logger.info(f"Updated countdown '{countdown_name}': {old_value} → {new_value}")
+
+    if new_value == 0:
+        return f"Updated countdown '{countdown_name}': {old_value} → {new_value} (REACHED 0 - effect triggers!)"
+    return f"Updated countdown '{countdown_name}': {old_value} → {new_value}"
 
 
 @agent.instructions
