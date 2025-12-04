@@ -383,6 +383,13 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
         dice_count: Number of dice to roll
         dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
     """
+    # Duality Dice (2d12) are always rolled by the player, not the GM
+    if dice_count == 2 and dice_type == "d12":
+        raise ModelRetry(
+            "Duality Dice (2d12) must always be rolled by the player. "
+            "Use player_roll_dice(2, 'd12') instead of roll_dice. "
+            "Duality Dice are used for player action rolls and checks."
+        )
     sides = DICE_SIDES[dice_type]
     rolls = [random.randint(1, sides) for _ in range(dice_count)]
 
@@ -552,6 +559,13 @@ def update_character_state(
     if target == "pc":
         character = ctx.deps.pc
         character_name = "PC"
+        # Check if trying to reduce PC HP (damage) - must use player_take_damage instead
+        if delta.hp is not None and delta.hp < 0:
+            raise ModelRetry(
+                "You cannot use update_character_state to reduce the PC's HP (apply damage). "
+                "Instead, use player_take_damage(damage) which allows the player to choose whether to use armor slots before HP is marked. "
+                "Narrate the attack and raw damage amount, then call player_take_damage with the damage value."
+            )
     elif target in ctx.deps.adversaries:
         character = ctx.deps.adversaries[target]
         character_name = f"adversary '{target}'"
