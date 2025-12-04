@@ -138,6 +138,10 @@ class CharacterState(BaseModel):
     evasion: int | None = Field(
         default=None, ge=0, description="Evasion value (PCs only, for being attacked)"
     )
+    experiences: dict[str, int] | None = Field(
+        default=None,
+        description="PC Experiences: name -> modifier (e.g., {'Royal Mage': 2, 'Not On My Watch': 2})",
+    )
 
     # NPC-specific fields (optional for PCs)
     difficulty: int | None = Field(
@@ -181,6 +185,10 @@ class GameState:
             armor_slots=0,
             armor_slots_max=3,  # Leather Armor has 3 armor slots
             evasion=10,  # Marlowe's Evasion is 10
+            experiences={
+                "Royal Mage": 2,
+                "Not On My Watch": 2,
+            },  # Marlowe's Experiences
         )
         self.adversaries: dict[str, CharacterState] = {}  # Adversary name -> state
         self.countdowns: dict[str, int] = {}  # Countdown name -> current value
@@ -252,6 +260,10 @@ Tools:
 - roll_dice(count, type): Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Do NOT use this for player actions.
 - player_roll_dice(count, type): Request the player to roll dice for their actions (attacks, damage, checks, etc.). The player will provide the result.
   - Special case for Duality Dice: Always roll them together as a pair, i.e. player_roll_dice(2, "d12"), rather than rolling each die separately.
+  - IMPORTANT: If the player uses an Experience, they will provide an explanation in the roll result (e.g., "Player explanation: ..."). 
+    - You MUST evaluate whether the Experience explanation makes sense in context BEFORE proceeding with the roll result.
+    - If the explanation doesn't make sense: Narrate why it doesn't apply, use update_character_state to refund 1 Hope, and ask the player to roll again without using the Experience. Do NOT use the roll result with the Experience modifier.
+    - If it makes sense: Proceed with the roll result including the Experience modifier.
 - player_take_damage(damage): Apply damage to the PC. The player will be prompted to use armor slots before HP is marked.
   - ALWAYS use this instead of update_character_state when the PC takes damage
   - Narrate the attack and raw damage amount, then call this tool. Do NOT narrate the HP loss—the tool result will tell you what happened.
@@ -268,6 +280,8 @@ Tools:
 
 <sequencing>
 Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
+
+IMPORTANT: When player_roll_dice returns a result with an Experience explanation, ALWAYS evaluate whether the explanation makes sense before using the roll result. If it doesn't make sense, reject it and ask for a re-roll.
 
 <example>
 narrate("Two goblins leap from the bushes, daggers drawn! The first goblin attacks!")
@@ -336,6 +350,22 @@ update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP to 0
 update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (Hope was higher)
 remove_adversary("Goblin 1")
 narrate("Goblin 1 collapses to the ground. Only Goblin 2 remains. What do you do?")
+EndGameMasterTurn()
+
+User: I try to break down the locked door!
+
+narrate("You brace yourself and prepare to force the door open.")
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12 with Experience
+# Player result: "Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
+# GM evaluates: The explanation doesn't make sense - "Royal Mage" is about magical knowledge and courtly connections, not physical strength
+narrate("'Royal Mage' represents your magical expertise and connections to royal courts, not physical might. Your explanation doesn't connect the Experience to breaking down a door with brute force.")
+update_character_state("pc", CharacterStateDelta(hope=+1))  # Refund the Hope spent
+narrate("I'm refunding your Hope. Please roll again without using an Experience.")
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 7, Fear 5
+narrate("Hope 7, Fear 5 -- total is 7 + 5 + Might (+0) = 12. That succeeds! Hope is higher, so you gain 1 Hope.")
 EndGameMasterTurn()
 </example>
 
@@ -710,7 +740,85 @@ def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
     dice_type = args["dice_type"]
 
     if dice_count == 2 and dice_type == "d12":
-        # Duality Dice - need Hope and Fear
+        # Duality Dice - modifiers can be applied
+        pc = game_state.pc
+
+        # Track modifiers
+        experience_modifier = 0
+        experience_name = None
+        experience_explanation = None
+        hope_spent = 0
+
+        # Step 1: Prompt for Experience usage (if Hope available and Experiences exist)
+        if pc.hope is not None and pc.hope > 0 and pc.experiences:
+            while True:
+                use_experience = (
+                    input(
+                        f"Spend 1 Hope to Utilize an Experience? (Current Hope: {pc.hope}) [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+
+                if use_experience in ("y", "yes"):
+                    # Show available Experiences
+                    experiences_list = list(pc.experiences.items())
+                    logger.info("Available Experiences:")
+                    for i, (name, mod) in enumerate(experiences_list, 1):
+                        logger.info(f"  {i}. {name} (+{mod})")
+
+                    # Prompt for selection
+                    while True:
+                        choice = input(
+                            "Select Experience (number) or 'cancel': "
+                        ).strip()
+
+                        if choice.lower() == "cancel":
+                            break  # Go back to "use experience?" prompt
+
+                        try:
+                            idx = int(choice) - 1
+                            if 0 <= idx < len(experiences_list):
+                                experience_name, experience_modifier = experiences_list[
+                                    idx
+                                ]
+
+                                # Prompt for explanation of how the Experience applies
+                                while True:
+                                    explanation = input(
+                                        f"How does '{experience_name}' apply to this situation? "
+                                    ).strip()
+
+                                    if explanation:
+                                        experience_explanation = explanation
+                                        logger.info(
+                                            f"   💭 {experience_name}: {explanation}"
+                                        )
+                                        break
+                                    else:
+                                        logger.error("Please provide an explanation.")
+
+                                hope_spent = 1
+                                pc.hope -= 1
+                                logger.info(
+                                    f"✓ Using {experience_name} (+{experience_modifier}), Hope: {pc.hope}"
+                                )
+                                break
+                            else:
+                                logger.error(
+                                    f"Invalid selection. Please enter 1-{len(experiences_list)}."
+                                )
+                        except ValueError:
+                            logger.error("Please enter a number or 'cancel'.")
+
+                    if hope_spent > 0:
+                        break  # Exit "use experience?" loop
+                elif use_experience in ("n", "no", ""):
+                    break
+                else:
+                    logger.error("Please enter 'y' for yes or 'n' for no.")
+
+        # Step 2: Prompt for actual dice roll
         while True:
             roll_input = input(
                 "🎲 Roll your Duality Dice (2d12) - Enter Hope and Fear separated by space (e.g., '5 9'), or press Enter to auto-roll: "
@@ -718,33 +826,45 @@ def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
 
             if not roll_input:
                 # Auto-roll if user pressed Enter
-                hope = random.randint(1, 12)
-                fear = random.randint(1, 12)
+                hope_die = random.randint(1, 12)
+                fear_die = random.randint(1, 12)
                 break
             else:
                 try:
                     # Parse input - split on whitespace and filter out non-numeric words like "and"
                     parts = [p for p in roll_input.split() if p.isdigit()]
                     if len(parts) >= 2:
-                        hope = int(parts[0])
-                        fear = int(parts[1])
-                        if 1 <= hope <= 12 and 1 <= fear <= 12:
+                        hope_die = int(parts[0])
+                        fear_die = int(parts[1])
+                        if 1 <= hope_die <= 12 and 1 <= fear_die <= 12:
                             break
                         else:
                             logger.error("Values must be between 1 and 12.")
+                            continue
                     else:
                         logger.error(
                             "Please enter two numbers (e.g., '5 9' or '5 and 9')."
                         )
+                        continue
                 except ValueError as e:
                     logger.error(f"Invalid input: {e}. Please enter two numbers.")
+                    continue
 
-        # Format result
-        result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
+        # Step 3: Format result with modifiers
+        base_total = hope_die + fear_die
+        total_with_mods = base_total + experience_modifier
+
+        result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope_die} Fear:{fear_die}"
+        if experience_modifier > 0:
+            result_str += f" + {experience_name} (+{experience_modifier})"
+            if experience_explanation:
+                result_str += f" (Player explanation: {experience_explanation})"
+        result_str += f" = {total_with_mods}"
+
         logger.info(result_str)
 
         # Track Fear when Fear die is higher
-        if fear > hope:
+        if fear_die > hope_die:
             game_state.fear_pool += 1
             logger.info(f"   😈 Fear pool: {game_state.fear_pool}")
             result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
