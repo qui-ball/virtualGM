@@ -5,14 +5,21 @@ import os
 import random
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Union
 
 import click
 import dotenv
 import logfire
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import (
+    Agent,
+    ModelRetry,
+    RunContext,
+    CallDeferred,
+    DeferredToolRequests,
+    DeferredToolResults,
+)
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
@@ -131,6 +138,10 @@ class CharacterState(BaseModel):
     evasion: int | None = Field(
         default=None, ge=0, description="Evasion value (PCs only, for being attacked)"
     )
+    experiences: dict[str, int] | None = Field(
+        default=None,
+        description="PC Experiences: name -> modifier (e.g., {'Royal Mage': 2, 'Not On My Watch': 2})",
+    )
 
     # NPC-specific fields (optional for PCs)
     difficulty: int | None = Field(
@@ -174,6 +185,10 @@ class GameState:
             armor_slots=0,
             armor_slots_max=3,  # Leather Armor has 3 armor slots
             evasion=10,  # Marlowe's Evasion is 10
+            experiences={
+                "Royal Mage": 2,
+                "Not On My Watch": 2,
+            },  # Marlowe's Experiences
         )
         self.adversaries: dict[str, CharacterState] = {}  # Adversary name -> state
         self.countdowns: dict[str, int] = {}  # Countdown name -> current value
@@ -206,7 +221,7 @@ model = OpenAIChatModel(model_name, provider=DeepSeekProvider())
 agent = Agent(
     model,
     deps_type=GameState,
-    output_type=EndGameMasterTurn,
+    output_type=Union[EndGameMasterTurn, DeferredToolRequests],
     instructions="""You are a game master (GM) for Daggerheart, running a solo campaign.
 
 ## Core Responsibilities
@@ -242,12 +257,20 @@ You communicate exclusively through tool calls. The player only sees output from
 
 Tools:
 - narrate(text): All player-facing communication—descriptions, dialogue, outcomes, rules explanations
-- roll_dice(count, type): All dice rolls. Fear/Hope pools update automatically for Duality Dice.
-  - Special case for Duality Dice: Always roll them together as a pair, i.e. roll_dice(2, "d12"), rather than rolling each die separately.
+- roll_dice(count, type): Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Do NOT use this for player actions.
+- player_roll_dice(count, type): Request the player to roll dice for their actions (attacks, damage, checks, etc.). The player will provide the result.
+  - Special case for Duality Dice: Always roll them together as a pair, i.e. player_roll_dice(2, "d12"), rather than rolling each die separately.
+  - IMPORTANT: If the player uses an Experience, they will provide an explanation in the roll result (e.g., "Player explanation: ..."). 
+    - You MUST evaluate whether the Experience explanation makes sense in context BEFORE proceeding with the roll result.
+    - If the explanation doesn't make sense: Narrate why it doesn't apply, use update_character_state to refund 1 Hope, and ask the player to roll again without using the Experience. Do NOT use the roll result with the Experience modifier.
+    - If it makes sense: Proceed with the roll result including the Experience modifier.
+- player_take_damage(damage): Apply damage to the PC. The player will be prompted to use armor slots before HP is marked.
+  - ALWAYS use this instead of update_character_state when the PC takes damage
+  - Narrate the attack and raw damage amount, then call this tool. Do NOT narrate the HP loss—the tool result will tell you what happened.
 - spend_fear(amount): Spend Fear tokens to take spotlight actions or activate GM abilities.
 - create_adversary(id, state): Create an adversary with stats (HP, thresholds, difficulty, etc.)
 - remove_adversary(id): Remove a defeated adversary from the game state
-- update_character_state(target, delta): Update PC or adversary state (HP, Stress, conditions, Hope, armor slots)
+- update_character_state(target, delta): Update adversary state (HP, Stress, conditions) or PC state for non-damage changes (Hope, Stress, conditions). Do NOT use for PC damage—use player_take_damage instead.
 - create_countdown(name, initial_value): Create a new countdown tracker with an initial value
 - update_countdown(name, delta): Update an existing countdown tracker by applying a delta (change value)
   - delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
@@ -257,6 +280,8 @@ Tools:
 
 <sequencing>
 Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
+
+IMPORTANT: When player_roll_dice returns a result with an Experience explanation, ALWAYS evaluate whether the explanation makes sense before using the roll result. If it doesn't make sense, reject it and ask for a re-roll.
 
 <example>
 narrate("Two goblins leap from the bushes, daggers drawn! The first goblin attacks!")
@@ -269,52 +294,78 @@ roll_dice(1, "d20")
 narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
 roll_dice(1, "d6")
 > result: 4
-narrate("4 damage. Compare to your thresholds: Minor 7, Major 14. Since 4 < 7, you mark 1 HP.")
-update_character_state("pc", CharacterStateDelta(hp=-1))
-narrate("You now have 5/6 HP remaining. The spotlight shifts to you. What do you do?")
+narrate("The goblin's dagger strikes you for 4 damage!")
+player_take_damage(4)
+> deferred: player chooses armor slots
+# Player result: "Player took 4 damage (below Minor 7 = 1 HP). No armor used. HP: 5/6"
+narrate("You mark 1 HP. You now have 5/6 HP remaining. The spotlight shifts to you. What do you do?")
 
 User: I attack Goblin 1!
 
 narrate("You lunge forward, blade flashing!")
-roll_dice(2, "d12")
-> result: Hope 5, Fear 9
-narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage.")
-roll_dice(1, "d8")
-> result: 6
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 5, Fear 9
+narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage (1d8).")
+player_roll_dice(1, "d8")
+> deferred: player will roll 1d8
+# Player provides: 6
 narrate("You deal 6 damage! Goblin 1's thresholds are Minor 4, Major 8. Since 6 >= 4 but < 8, it marks 2 HP.")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
 narrate("Goblin 1 now has 1/3 HP remaining. The goblin staggers, wounded but alive. The spotlight shifts to the GM. Goblin 1 seizes the moment and strikes!")
 roll_dice(1, "d20")
 > result: 15
-narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
+narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits!")
 roll_dice(1, "d6")
 > result: 4
-narrate("4 damage. You mark another 1 HP.")
-update_character_state("pc", CharacterStateDelta(hp=-1))
-narrate("I will spend a Fear token to spotlight Goblin 2 who will attack you with its spear.")
+narrate("Goblin 1 slashes you for 4 damage!")
+player_take_damage(4)
+> deferred: player chooses armor slots
+# Player result: "Player took 4 damage (below Minor 7 = 1 HP). No armor used. HP: 4/6"
+narrate("You mark 1 HP. I will spend a Fear token to spotlight Goblin 2 who will attack you with its spear.")
 spend_fear(1)
 roll_dice(1, "d20")
 > result: 10
-narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits! Roll damage.")
+narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits!")
 roll_dice(1, "d6")
 > result: 3
-narrate("3 damage. Since 3 < 7, you mark 1 HP.")
-update_character_state("pc", CharacterStateDelta(hp=-1))
-narrate("The spotlight shifts back to you. What do you do?")
+narrate("Goblin 2's spear catches you for 3 damage!")
+player_take_damage(3)
+> deferred: player chooses armor slots
+# Player result: "Player took 3 damage (below Minor 7 = 1 HP). No armor used. HP: 3/6"
+narrate("You mark 1 HP. The spotlight shifts back to you. What do you do?")
 
 User: I finish off Goblin 1!
 
 narrate("You strike Goblin 1 with a finishing blow!")
-roll_dice(2, "d12")
-> result: Hope 11, Fear 3
-narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage.")
-roll_dice(1, "d8")
-> result: 5
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 11, Fear 3
+narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage (1d8).")
+player_roll_dice(1, "d8")
+> deferred: player will roll 1d8
+# Player provides: 5
 narrate("You deal 5 damage! Goblin 1 is defeated!")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP to 0 or below
 update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (Hope was higher)
 remove_adversary("Goblin 1")
 narrate("Goblin 1 collapses to the ground. Only Goblin 2 remains. What do you do?")
+EndGameMasterTurn()
+
+User: I try to break down the locked door!
+
+narrate("You brace yourself and prepare to force the door open.")
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12 with Experience
+# Player result: "Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
+# GM evaluates: The explanation doesn't make sense - "Royal Mage" is about magical knowledge and courtly connections, not physical strength
+narrate("'Royal Mage' represents your magical expertise and connections to royal courts, not physical might. Your explanation doesn't connect the Experience to breaking down a door with brute force.")
+update_character_state("pc", CharacterStateDelta(hope=+1))  # Refund the Hope spent
+narrate("I'm refunding your Hope. Please roll again without using an Experience.")
+player_roll_dice(2, "d12")
+> deferred: player will roll 2d12
+# Player provides: Hope 7, Fear 5
+narrate("Hope 7, Fear 5 -- total is 7 + 5 + Might (+0) = 12. That succeeds! Hope is higher, so you gain 1 Hope.")
 EndGameMasterTurn()
 </example>
 
@@ -326,12 +377,19 @@ When your turn is complete, return an EndGameMasterTurn with any token changes.
 
 @agent.tool
 def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) -> str:
-    """Roll dice. Stop after calling this and wait for the result before narrating the outcome.
+    """Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Players roll their own dice using player_roll_dice.
 
     Args:
         dice_count: Number of dice to roll
         dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
     """
+    # Duality Dice (2d12) are always rolled by the player, not the GM
+    if dice_count == 2 and dice_type == "d12":
+        raise ModelRetry(
+            "Duality Dice (2d12) must always be rolled by the player. "
+            "Use player_roll_dice(2, 'd12') instead of roll_dice. "
+            "Duality Dice are used for player action rolls and checks."
+        )
     sides = DICE_SIDES[dice_type]
     rolls = [random.randint(1, sides) for _ in range(dice_count)]
 
@@ -354,6 +412,38 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
         logger.info(result_str)
 
     return result_str
+
+
+@agent.tool
+def player_roll_dice(
+    ctx: RunContext[GameState], dice_count: int, dice_type: DiceType
+) -> str:
+    """Request the player to roll dice. This defers execution until the player provides their roll result.
+
+    Args:
+        dice_count: Number of dice to roll
+        dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
+    """
+    raise CallDeferred(
+        metadata={
+            "tool": "player_roll_dice",
+            "dice_count": dice_count,
+            "dice_type": dice_type,
+        }
+    )
+
+
+@agent.tool
+def player_take_damage(ctx: RunContext[GameState], damage: int) -> str:
+    """Apply damage to the player character. This defers execution to let the player decide whether to use armor slots.
+
+    The player will be prompted to use armor slots (if available) to reduce damage before HP is marked.
+    Damage thresholds determine HP marked: < Minor = 1 HP, >= Minor = 2 HP, >= Major = 2 HP, >= Severe = 3 HP.
+
+    Args:
+        damage: The raw damage amount to apply (before armor reduction)
+    """
+    raise CallDeferred(metadata={"tool": "player_take_damage", "damage": damage})
 
 
 @agent.tool_plain
@@ -469,6 +559,13 @@ def update_character_state(
     if target == "pc":
         character = ctx.deps.pc
         character_name = "PC"
+        # Check if trying to reduce PC HP (damage) - must use player_take_damage instead
+        if delta.hp is not None and delta.hp < 0:
+            raise ModelRetry(
+                "You cannot use update_character_state to reduce the PC's HP (apply damage). "
+                "Instead, use player_take_damage(damage) which allows the player to choose whether to use armor slots before HP is marked. "
+                "Narrate the attack and raw damage amount, then call player_take_damage with the damage value."
+            )
     elif target in ctx.deps.adversaries:
         character = ctx.deps.adversaries[target]
         character_name = f"adversary '{target}'"
@@ -651,6 +748,318 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
 </current_game_state>"""
 
 
+def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
+    """Handle the player_roll_dice deferred tool - prompt player to roll or auto-roll."""
+    dice_count = args["dice_count"]
+    dice_type = args["dice_type"]
+
+    if dice_count == 2 and dice_type == "d12":
+        # Duality Dice - modifiers can be applied
+        pc = game_state.pc
+
+        # Track modifiers
+        experience_modifier = 0
+        experience_name = None
+        experience_explanation = None
+        hope_spent = 0
+
+        # Step 1: Prompt for Experience usage (if Hope available and Experiences exist)
+        if pc.hope is not None and pc.hope > 0 and pc.experiences:
+            while True:
+                use_experience = (
+                    input(
+                        f"Spend 1 Hope to Utilize an Experience? (Current Hope: {pc.hope}) [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+
+                if use_experience in ("y", "yes"):
+                    # Show available Experiences
+                    experiences_list = list(pc.experiences.items())
+                    logger.info("Available Experiences:")
+                    for i, (name, mod) in enumerate(experiences_list, 1):
+                        logger.info(f"  {i}. {name} (+{mod})")
+
+                    # Prompt for selection
+                    while True:
+                        choice = input(
+                            "Select Experience (number) or 'cancel': "
+                        ).strip()
+
+                        if choice.lower() == "cancel":
+                            break  # Go back to "use experience?" prompt
+
+                        try:
+                            idx = int(choice) - 1
+                            if 0 <= idx < len(experiences_list):
+                                experience_name, experience_modifier = experiences_list[
+                                    idx
+                                ]
+
+                                # Prompt for explanation of how the Experience applies
+                                while True:
+                                    explanation = input(
+                                        f"How does '{experience_name}' apply to this situation? "
+                                    ).strip()
+
+                                    if explanation:
+                                        experience_explanation = explanation
+                                        logger.info(
+                                            f"   💭 {experience_name}: {explanation}"
+                                        )
+                                        break
+                                    else:
+                                        logger.error("Please provide an explanation.")
+
+                                hope_spent = 1
+                                pc.hope -= 1
+                                logger.info(
+                                    f"✓ Using {experience_name} (+{experience_modifier}), Hope: {pc.hope}"
+                                )
+                                break
+                            else:
+                                logger.error(
+                                    f"Invalid selection. Please enter 1-{len(experiences_list)}."
+                                )
+                        except ValueError:
+                            logger.error("Please enter a number or 'cancel'.")
+
+                    if hope_spent > 0:
+                        break  # Exit "use experience?" loop
+                elif use_experience in ("n", "no", ""):
+                    break
+                else:
+                    logger.error("Please enter 'y' for yes or 'n' for no.")
+
+        # Step 2: Prompt for actual dice roll
+        while True:
+            roll_input = input(
+                "🎲 Roll your Duality Dice (2d12) - Enter Hope and Fear separated by space (e.g., '5 9'), or press Enter to auto-roll: "
+            ).strip()
+
+            if not roll_input:
+                # Auto-roll if user pressed Enter
+                hope_die = random.randint(1, 12)
+                fear_die = random.randint(1, 12)
+                break
+            else:
+                try:
+                    # Parse input - split on whitespace and filter out non-numeric words like "and"
+                    parts = [p for p in roll_input.split() if p.isdigit()]
+                    if len(parts) >= 2:
+                        hope_die = int(parts[0])
+                        fear_die = int(parts[1])
+                        if 1 <= hope_die <= 12 and 1 <= fear_die <= 12:
+                            break
+                        else:
+                            logger.error("Values must be between 1 and 12.")
+                            continue
+                    else:
+                        logger.error(
+                            "Please enter two numbers (e.g., '5 9' or '5 and 9')."
+                        )
+                        continue
+                except ValueError as e:
+                    logger.error(f"Invalid input: {e}. Please enter two numbers.")
+                    continue
+
+        # Step 3: Format result with modifiers
+        base_total = hope_die + fear_die
+        total_with_mods = base_total + experience_modifier
+
+        result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope_die} Fear:{fear_die}"
+        if experience_modifier > 0:
+            result_str += f" + {experience_name} (+{experience_modifier})"
+            if experience_explanation:
+                result_str += f" (Player explanation: {experience_explanation})"
+        result_str += f" = {total_with_mods}"
+
+        logger.info(result_str)
+
+        # Track Fear when Fear die is higher
+        if fear_die > hope_die:
+            game_state.fear_pool += 1
+            logger.info(f"   😈 Fear pool: {game_state.fear_pool}")
+            result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
+    else:
+        # Single die or multiple dice of same type
+        while True:
+            roll_input = input(
+                f"🎲 Roll {dice_count}{dice_type} (or press Enter to auto-roll): "
+            ).strip()
+
+            if not roll_input:
+                # Auto-roll if user pressed Enter
+                sides = DICE_SIDES[dice_type]
+                rolls = [random.randint(1, sides) for _ in range(dice_count)]
+                if dice_count == 1:
+                    result_str = f"🎲 [{dice_count}{dice_type}] → {rolls[0]}"
+                else:
+                    total = sum(rolls)
+                    result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+                logger.info(f"Auto-rolled: {result_str}")
+                break
+            else:
+                try:
+                    if dice_count == 1:
+                        roll_value = int(roll_input)
+                        sides = DICE_SIDES[dice_type]
+                        if 1 <= roll_value <= sides:
+                            result_str = f"🎲 [{dice_count}{dice_type}] → {roll_value}"
+                            logger.info(result_str)
+                            break
+                        else:
+                            logger.error(f"Value must be between 1 and {sides}.")
+                    else:
+                        # Multiple dice - parse as comma-separated or space-separated
+                        # Filter out non-numeric words
+                        parts = [
+                            p.strip()
+                            for p in roll_input.replace(",", " ").split()
+                            if p.strip().isdigit()
+                        ]
+                        if len(parts) == dice_count:
+                            sides = DICE_SIDES[dice_type]
+                            rolls = [int(x) for x in parts]
+                            if all(1 <= r <= sides for r in rolls):
+                                total = sum(rolls)
+                                result_str = (
+                                    f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+                                )
+                                logger.info(result_str)
+                                break
+                            else:
+                                logger.error(
+                                    f"All values must be between 1 and {sides}."
+                                )
+                        else:
+                            logger.error(
+                                f"Expected {dice_count} numbers, got {len(parts)}."
+                            )
+                except ValueError as e:
+                    logger.error(
+                        f"Invalid input: {e}. Please enter {'a number' if dice_count == 1 else f'{dice_count} numbers'}."
+                    )
+
+    return result_str
+
+
+def handle_player_take_damage(args: dict, game_state: GameState) -> str:
+    """Handle the player_take_damage deferred tool - prompt player about armor slots.
+
+    Only one armor slot can be used per damage instance. It reduces damage severity by one threshold level:
+    - Severe (3 HP) → Major (2 HP)
+    - Major (2 HP) → Minor (1 HP)
+    - Minor (1 HP) → None (0 HP)
+    """
+    damage = args["damage"]
+    pc = game_state.pc
+
+    # Calculate HP to mark based on thresholds
+    def calculate_hp_to_mark(dmg: int) -> int:
+        if pc.severe_threshold is not None and dmg >= pc.severe_threshold:
+            return 3
+        elif dmg >= pc.major_threshold:
+            return 2
+        elif dmg >= pc.minor_threshold:
+            return 2
+        else:
+            return 1
+
+    # Calculate base HP to mark (before armor)
+    base_hp_to_mark = calculate_hp_to_mark(damage)
+
+    # Check if armor slots are available
+    armor_available = (
+        pc.armor_slots is not None
+        and pc.armor_slots_max is not None
+        and pc.armor_slots < pc.armor_slots_max
+    )
+
+    armor_used = 0
+    hp_to_mark = base_hp_to_mark
+
+    if armor_available and hp_to_mark > 0:
+        slots_remaining = pc.armor_slots_max - pc.armor_slots
+
+        # Show damage info and prompt for armor use
+        threshold_info = f"Minor:{pc.minor_threshold}, Major:{pc.major_threshold}"
+        if pc.severe_threshold:
+            threshold_info += f", Severe:{pc.severe_threshold}"
+
+        logger.info(f"⚔️  Incoming damage: {damage} (Thresholds: {threshold_info})")
+        logger.info(f"   Base HP to mark: {base_hp_to_mark} HP")
+        logger.info(f"   Armor slots available: {slots_remaining}/{pc.armor_slots_max}")
+
+        # Prompt once for armor slot usage (only one armor slot can be used per damage instance)
+        if hp_to_mark > 0:
+            reduced_hp = max(0, hp_to_mark - 1)
+            severity_name = {3: "Severe", 2: "Major", 1: "Minor"}.get(hp_to_mark, "")
+            reduced_severity = {2: "Major", 1: "Minor", 0: "None"}.get(reduced_hp, "")
+
+            # Keep prompting until we get a valid answer
+            while True:
+                armor_input = (
+                    input(
+                        f"   Use an armor slot to reduce severity? ({severity_name}: {hp_to_mark} HP → {reduced_severity}: {reduced_hp} HP) [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+
+                if armor_input in ("y", "yes"):
+                    armor_used = 1
+                    hp_to_mark = reduced_hp
+                    logger.info(
+                        f"   ✓ Using armor slot. HP to mark reduced to {hp_to_mark} HP"
+                    )
+                    break
+                elif armor_input in ("n", "no", ""):
+                    # Empty string defaults to "no" (as indicated by [y/N])
+                    break
+                else:
+                    logger.error(
+                        "Please enter 'y' for yes or 'n' for no (or press Enter for no)."
+                    )
+                    # Continue loop to re-prompt
+    else:
+        if not armor_available:
+            logger.info(
+                f"⚔️  Incoming damage: {damage} → {hp_to_mark} HP marked (no armor available)"
+            )
+        else:
+            logger.info(f"⚔️  Incoming damage: {damage} → {hp_to_mark} HP marked")
+
+    # Apply armor slot usage
+    if armor_used > 0:
+        pc.armor_slots += armor_used
+        logger.info(f"   🛡️  Armor slots: {pc.armor_slots}/{pc.armor_slots_max}")
+
+    # Apply HP damage
+    old_hp = pc.hp
+    pc.hp = max(0, pc.hp - hp_to_mark)
+    logger.info(f"   ❤️  HP: {old_hp} → {pc.hp}/{pc.hp_max}")
+
+    # Build result string for the GM
+    if armor_used > 0:
+        severity_reduction = f"{base_hp_to_mark} → {hp_to_mark}"
+        result_str = f"Player took {damage} damage. Used {armor_used} armor slot(s) to reduce HP marked from {severity_reduction}. HP: {pc.hp}/{pc.hp_max}, Armor: {pc.armor_slots}/{pc.armor_slots_max}"
+    else:
+        threshold_hit = (
+            "below Minor"
+            if damage < pc.minor_threshold
+            else (
+                "Severe"
+                if pc.severe_threshold and damage >= pc.severe_threshold
+                else ("Major" if damage >= pc.major_threshold else "Minor")
+            )
+        )
+        result_str = f"Player took {damage} damage ({threshold_hit} threshold = {hp_to_mark} HP). HP: {pc.hp}/{pc.hp_max}"
+
+    return result_str
+
+
 async def run_chat():
     """Async chat loop (non-streaming)."""
     logger.info("🤖 AI Chat Game Master")
@@ -721,26 +1130,64 @@ What do you do?
         logger.info("\n🤖 Game Master:")
         result_for_cost = None
         try:
-            result = await agent.run(
-                user_input,
-                deps=game_state,
-                message_history=message_history,
-                model_settings={"extra_body": {"tool_choice": "required"}},
-            )
+            current_input = user_input
+            deferred_results = None
 
-            # Show token changes from the GM's turn
-            turn_result: EndGameMasterTurn = result.output
-            if turn_result.internal_notes:
-                logger.info(f"💡 GM notes: {turn_result.internal_notes}")
+            while True:
+                result = await agent.run(
+                    current_input,
+                    deps=game_state,
+                    message_history=message_history,
+                    deferred_tool_results=deferred_results,
+                    model_settings={"extra_body": {"tool_choice": "required"}},
+                )
 
-            # Update message history with all messages from this interaction
-            message_history = result.all_messages()
-            logger.info(
-                f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
-            )
+                # Check if we have deferred tool requests (player interaction needed)
+                if isinstance(result.output, DeferredToolRequests):
+                    # Update message history with the deferred tool call
+                    message_history = result.all_messages()
+                    deferred_results = DeferredToolResults()
 
-            # Store result for cost calculation
-            # result_for_cost = result
+                    for call in result.output.calls:
+                        args = call.args_as_dict()
+
+                        if call.tool_name == "player_roll_dice":
+                            # Handle player dice roll
+                            result_str = handle_player_roll_dice(args, game_state)
+                        elif call.tool_name == "player_take_damage":
+                            # Handle player taking damage (armor slot choice)
+                            result_str = handle_player_take_damage(args, game_state)
+                        else:
+                            logger.error(f"Unknown deferred tool: {call.tool_name}")
+                            result_str = (
+                                f"Error: Unknown deferred tool {call.tool_name}"
+                            )
+
+                        deferred_results.calls[call.tool_call_id] = result_str
+
+                    # Continue the run with the player's results (no new user input needed)
+                    current_input = ""
+                    continue
+                else:
+                    # Normal completion - show token changes from the GM's turn
+                    if isinstance(result.output, EndGameMasterTurn):
+                        turn_result: EndGameMasterTurn = result.output
+                        if turn_result.internal_notes:
+                            logger.info(f"💡 GM notes: {turn_result.internal_notes}")
+                    else:
+                        # This shouldn't happen, but handle it gracefully
+                        logger.warning(f"Unexpected output type: {type(result.output)}")
+
+                    # Update message history with all messages from this interaction
+                    message_history = result.all_messages()
+                    logger.info(
+                        f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
+                    )
+
+                    # Store result for cost calculation
+                    # result_for_cost = result
+                    break
+
         except Exception as e:
             logger.error(f"❌ Error: {e}")
 
