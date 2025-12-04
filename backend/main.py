@@ -88,9 +88,17 @@ if not api_key:
 # - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
 # - deepseek/deepseek-r1-0528 (R1 reasoning model)
 # model_name = "deepseek/deepseek-chat-v3.1"
+model_name = "deepseek/deepseek-v3.2"
 # model_name = "anthropic/claude-haiku-4.5"
-model_name = "moonshotai/kimi-k2-0905"
+# model_name = "moonshotai/kimi-k2-0905"
 # model_name = "openai/gpt-4.1-mini"
+# model_name = "mistralai/mistral-large-2512"
+# model_name = "google/gemini-2.5-flash-preview-09-2025"
+# model_name = "openai/gpt-oss-120b"  # Has potential, but gets tool calling wrong
+# model_name = "meta-llama/llama-3.1-405b-instruct"
+# model_name = (
+#     "qwen/qwen3-235b-a22b-2507"  # Has potential, but stops after some tool calls
+# )
 
 model = OpenRouterModel(model_name)
 
@@ -108,12 +116,26 @@ You MUST use tools for ALL output—never output raw text.
 - `narrate(narration)` - ALL narrative output: descriptions, dialogue, outcomes
 - `roll_dice(dice_count, dice_type)` - ALL dice rolls
 
-Example flow (each line is a SEPARATE tool call):
-1. narrate("The skeleton lunges forward, rusty blade raised...")
-2. roll_dice(1, "d20") → see result (e.g., 19)
-3. narrate("A 19! The blade finds a gap in your armor...")
-4. roll_dice(1, "d8") → see result (e.g., 6)
-5. narrate("...dealing 6 damage! You feel the chill of the grave.")
+**⚠️ CRITICAL SEQUENCING RULE:**
+You CANNOT narrate an outcome until AFTER you SEE the dice result.
+
+**✅ ALLOWED:** narrate(setup) + roll_dice() together in one turn
+- Example: narrate("The skeleton lunges! Roll to defend.") + roll_dice(1, "d20")
+- This is fine because you're describing the situation BEFORE the roll.
+
+**❌ FORBIDDEN:** roll_dice() + narrate(outcome) together
+- You MUST STOP after rolling and WAIT to see the result.
+- Only THEN can you narrate what happens based on the actual roll.
+
+**Correct flow:**
+1. narrate("The skeleton attacks!") + roll_dice(1, "d20") → STOP, wait for result (e.g., 19)
+2. narrate("A 19 hits! It deals...") + roll_dice(1, "d8") → STOP, wait for result (e.g., 6)
+3. narrate("...6 damage! You stagger back from the blow.")
+
+**WRONG (never do this):**
+- roll_dice() then narrate() in the same response (you don't know the result yet!)
+- Describing success/failure before seeing the dice
+- Pre-writing the outcome and rolling simultaneously
 
 When your turn is complete, return an EndGameMasterTurn with any token changes.
 
@@ -167,6 +189,9 @@ For damage: `roll_dice(X, "dY")` as specified by the attack
 @agent.tool_plain
 def roll_dice(dice_count: int, dice_type: DiceType) -> DiceRollResult:
     """Roll dice and return the results.
+
+    You may call narrate() BEFORE this to describe the setup, but you MUST STOP
+    after this roll and WAIT for the result before narrating what happens.
 
     Args:
         dice_count: Number of dice to roll (e.g., 2 for rolling two dice)
