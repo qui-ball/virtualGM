@@ -305,7 +305,7 @@ When the moment feels right, or if one of the above scenarios triggers it, ask t
 
 **Read aloud:**
 
-> "You hear the sound of a branch snapping and turn to see four Thistlefolk sneaking through the underbrush, attempting to get the jump on you. The overturned cart was a distraction, but their plan didn't work. I'm going to set up a map!"
+> "You hear the sound of a branch snapping and turn to see two Thistlefolk sneaking through the underbrush, attempting to get the jump on you. The overturned cart was a distraction, but their plan didn't work. I'm going to set up a map!"
 
 ---
 
@@ -313,7 +313,7 @@ When the moment feels right, or if one of the above scenarios triggers it, ask t
 
 **Read aloud:**
 
-> "In a whirlwind of cracking branches and unsheathed blades, a group of four Thistlefolk leap from the brush alongside the road. The overturned cart was an ambush! They stand before you, weapons drawn, blocking the road. They'll go first. I'm going to set up a battle map!"
+> "In a whirlwind of cracking branches and unsheathed blades, a group of two Thistlefolk leap from the brush alongside the road. The overturned cart was an ambush! They stand before you, weapons drawn, blocking the road. They'll go first. I'm going to set up a battle map!"
 
 ---
 
@@ -322,13 +322,13 @@ When the moment feels right, or if one of the above scenarios triggers it, ask t
 - Take the forest terrain you've prepared and ask the player to help spread it across the table to build the encounter map.
 - Encourage the player to add items from around the room to enrich the terrain, building the playspace together.
 - Place the overturned merchant cart on the table. Ask the player to place their miniature nearby, along with their carriage, where you imagine yourself to be in the scene.
-- Finally, place the Thistlefolk Ambusher and Thistlefolk Thief standees in **Close** range of the player.
+- Finally, place **one Thistlefolk Ambusher** and **one Thistlefolk Thief** standee in **Close** range of the player.
 
 ---
 
 ## Beginning the Encounter
 
-On the following page, you'll find the stat blocks for the Ambushers and Thief. Use them to guide the remainder of this encounter.
+On the following page, you'll find the stat blocks for the Ambusher and Thief. Use them to guide the remainder of this encounter.
 
 **GM Tips:**
 - Make the battle your own! Decide in detail what the Thistlefolk look like, and describe the scene vividly, as if it's unfolding in a movie or story.
@@ -348,10 +348,10 @@ If the player was ambushed, the Thistlefolk act first. This is reflected in the 
 
 **Read Aloud:**
 
-> "Having the upper hand, the three Thistlefolk Ambushers rush you! Because of their Ambush feature, they get to make an attack immediately. This only happens when they enter the scene, so it won't be like this every time. But right now, they are slashing at you with daggers, protected by armor made of polished stones."
+> "Having the upper hand, the Thistlefolk Ambusher rushes you! Because of their Ambush feature, they get to make an attack immediately. This only happens when they enter the scene, so it won't be like this every time. But right now, they are slashing at you with a dagger, protected by armor made of polished stones."
 
-- Move the Ambushers into melee with the player character.
-- Then, follow the attack guide (below) for each Ambusher.
+- Move the Ambusher into melee with the player character.
+- Then, follow the attack guide (below) for the Ambusher.
 
 ---
 
@@ -367,14 +367,14 @@ If the player spotted the Ambushers before the attack, you get to act first.
 
 ### Thistlefolk Tactics and Goals
 
-- **Goal:** Use the Ambushers to keep the player's attention while the Thief attempts to steal your carriage.
+- **Goal:** Use the Ambusher to keep the player's attention while the Thief attempts to steal your carriage.
 
 ---
 
 ### Using Reference Stat Blocks
 
-- On the Thistlefolk Ambusher, you'll notice the stat block is listed as "Reference" with three other smaller stat blocks below it.
-- This is how Daggerheart represents three adversaries with identical stats. Instead of repeating information, everything is centralized; treat each Ambusher as having the same abilities.
+- The Thistlefolk Ambusher stat block below represents a single adversary for this solo encounter.
+- For larger groups, Daggerheart uses "Reference" stat blocks to represent multiple adversaries with identical stats.
 
 ---
 
@@ -409,7 +409,7 @@ When you make an attack against a PC with the Thistlefolk Thief:
 
 ## Thistlefolk Stat Blocks
 
-### Thistlefolk Ambusher (Reference)
+### Thistlefolk Ambusher
 
 - **Tier:** 1 (Standard)
 - **Weapon:** Dagger (Melee) — *1d8+5 Physical*
@@ -678,11 +678,11 @@ Her body begins to glow, ever brighter, as her eyes roll back into her head. The
 Arrange the scene as follows:
 - Place the Whitefire Arcanist standee at the center of the table.
 - Have the player place their character standee in the scene.
-- Place **four Ancient Skeletons** within *close* range of the Arcanist.
-- Place **two Forest Wraiths** within *far* range.
+- Place **two Ancient Skeletons** within *close* range of the Arcanist.
+- Place **one Forest Wraith** within *far* range.
 
 **Read aloud:**  
-You feel a tremor as four ancient skeletons claw their way from beneath the earth, rusted swords in hand—disturbed by the magic the Arcanist wields. In the distance, two Forest Wraiths float toward you, silent but menacing.
+You feel a tremor as two ancient skeletons claw their way from beneath the earth, rusted swords in hand—disturbed by the magic the Arcanist wields. In the distance, a Forest Wraith floats toward you, silent but menacing.
 
 ---
 
@@ -690,7 +690,7 @@ You feel a tremor as four ancient skeletons claw their way from beneath the eart
 
 To guide the encounter:
 
-- Take a d8 and set it on the table with the **8** facing up.  
+- Take a d6 and set it on the table with the **4** facing up.  
 - **This is the ritual's countdown die.**  
     - **Tick down** the die by 1 whenever an adversary is defeated.
     - **Tick up** the die by 1 each time the Whitefire Arcanist is hit by an attack.
@@ -705,7 +705,7 @@ To guide the encounter:
 - **Type:** Exploration
 
 **Feature: Vengeance of the Vale**  
-- *Action*: Spend a Fear to summon two additional Ancient Skeletons from the ground within **very close range** of a PC.
+- *Action*: Spend a Fear to summon one additional Ancient Skeleton from the ground within **very close range** of a PC.
 
 > *Note to GM: Environments can offer unique features. Use this one to add challenge or urgency to the encounter when needed.*
 
@@ -735,7 +735,7 @@ To guide the encounter:
 
 ---
 
-#### Forest Wraith (Reference)
+#### Forest Wraith
 
 - **Tier:** 1 (Bruisers)
 - **Lifedrain:** Far, 2d6+8 magic

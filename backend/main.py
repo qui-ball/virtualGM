@@ -11,39 +11,11 @@ import dotenv
 import logfire
 from loguru import logger
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.deepseek import DeepSeekProvider
 from utils.cost import calculate_run_cost
-
-# Standard RPG dice types
-DiceType = Literal["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
-
-DICE_SIDES: dict[DiceType, int] = {
-    "d4": 4,
-    "d6": 6,
-    "d8": 8,
-    "d10": 10,
-    "d12": 12,
-    "d20": 20,
-    "d100": 100,
-}
-
-
-class DiceRollResult(BaseModel):
-    """Result of a dice roll."""
-
-    dice_type: DiceType
-    rolls: list[int]
-    total: int
-
-
-class EndGameMasterTurn(BaseModel):
-    """Signals the end of the GM's turn with any game state changes."""
-
-    fear_tokens_gained: int = 0
-    hope_tokens_granted: int = 0
-    internal_notes: str | None = None  # GM's private notes for continuity
-
 
 dotenv.load_dotenv()
 
@@ -76,77 +48,85 @@ else:
 # Instrument pydantic-ai for observability - must be called after configure
 logfire.instrument_pydantic_ai()
 
-# Get API key from environment variable (set OPENROUTER_API_KEY)
-api_key = os.getenv("OPENROUTER_API_KEY")
+# # Get API key from environment variable (set OPENROUTER_API_KEY)
+# api_key = os.getenv("OPENROUTER_API_KEY")
 
-if not api_key:
-    raise ValueError("Please set OPENROUTER_API_KEY environment variable")
+# if not api_key:
+#     raise ValueError("Please set OPENROUTER_API_KEY environment variable")
 
-# Initialize the OpenRouter model (prompt caching is enabled by default on OpenRouter)
-# Available DeepSeek models on OpenRouter via Fireworks:
-# - deepseek/deepseek-chat-v3.1 (V3.1 - recommended)
-# - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
-# - deepseek/deepseek-r1-0528 (R1 reasoning model)
-# model_name = "deepseek/deepseek-chat-v3.1"
-model_name = "deepseek/deepseek-v3.2"
-# model_name = "anthropic/claude-haiku-4.5"
-# model_name = "moonshotai/kimi-k2-0905"
-# model_name = "openai/gpt-4.1-mini"
-# model_name = "mistralai/mistral-large-2512"
-# model_name = "google/gemini-2.5-flash-preview-09-2025"
-# model_name = "openai/gpt-oss-120b"  # Has potential, but gets tool calling wrong
-# model_name = "meta-llama/llama-3.1-405b-instruct"
-# model_name = (
-#     "qwen/qwen3-235b-a22b-2507"  # Has potential, but stops after some tool calls
-# )
+# Standard RPG dice types
+DiceType = Literal["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
 
-model = OpenRouterModel(model_name)
+DICE_SIDES: dict[DiceType, int] = {
+    "d4": 4,
+    "d6": 6,
+    "d8": 8,
+    "d10": 10,
+    "d12": 12,
+    "d20": 20,
+    "d100": 100,
+}
+
+
+class DiceRollResult(BaseModel):
+    """Result of a dice roll."""
+
+    dice_type: DiceType
+    rolls: list[int]
+    total: int
+
+
+class EndGameMasterTurn(BaseModel):
+    """Signals the end of the GM's turn and the start of the player's turn."""
+
+    internal_notes: str | None = None  # GM's private notes for continuity
+
+
+class GameState:
+    """Mutable game state shared across tool calls."""
+
+    def __init__(self):
+        self.fear_pool: int = 0
+
+
+# # Initialize the OpenRouter model (prompt caching is enabled by default on OpenRouter)
+# # Available DeepSeek models on OpenRouter via Fireworks:
+# # - deepseek/deepseek-chat-v3.1 (V3.1 - recommended)
+# # - deepseek/deepseek-chat-v3-0324 (V3 March 2024 checkpoint)
+# # - deepseek/deepseek-r1-0528 (R1 reasoning model)
+# # model_name = "deepseek/deepseek-chat-v3.1"
+# model_name = "deepseek/deepseek-v3.2"
+# # model_name = "anthropic/claude-haiku-4.5"
+# # model_name = "moonshotai/kimi-k2-0905"
+# # model_name = "openai/gpt-4.1-mini"
+# # model_name = "mistralai/mistral-large-2512"
+# # model_name = "google/gemini-2.5-flash-preview-09-2025"
+# # model_name = "openai/gpt-oss-120b"  # Has potential, but gets tool calling wrong
+# # model_name = "meta-llama/llama-3.1-405b-instruct"
+# # model_name = (
+# #     "qwen/qwen3-235b-a22b-2507"  # Has potential, but stops after some tool calls
+# # )
+# model = OpenRouterModel(model_name)
+
+# Use DeepSeek API directly (set DEEPSEEK_API_KEY environment variable)
+model_name = "deepseek-chat"
+model = OpenAIChatModel(model_name, provider=DeepSeekProvider())
 
 # Create an agent with the OpenRouter model
 agent = Agent(
     model,
-    deps_type=str,
+    deps_type=GameState,
     output_type=EndGameMasterTurn,
     instructions="""You are a game master (GM) for Daggerheart, running a solo campaign.
 
-## CRITICAL: How You Communicate
-You MUST use tools for ALL output—never output raw text.
-
-**Tools available:**
-- `narrate(narration)` - ALL narrative output: descriptions, dialogue, outcomes
-- `roll_dice(dice_count, dice_type)` - ALL dice rolls
-
-**⚠️ CRITICAL SEQUENCING RULE:**
-You CANNOT narrate an outcome until AFTER you SEE the dice result.
-
-**✅ ALLOWED:** narrate(setup) + roll_dice() together in one turn
-- Example: narrate("The skeleton lunges! Roll to defend.") + roll_dice(1, "d20")
-- This is fine because you're describing the situation BEFORE the roll.
-
-**❌ FORBIDDEN:** roll_dice() + narrate(outcome) together
-- You MUST STOP after rolling and WAIT to see the result.
-- Only THEN can you narrate what happens based on the actual roll.
-
-**Correct flow:**
-1. narrate("The skeleton attacks!") + roll_dice(1, "d20") → STOP, wait for result (e.g., 19)
-2. narrate("A 19 hits! It deals...") + roll_dice(1, "d8") → STOP, wait for result (e.g., 6)
-3. narrate("...6 damage! You stagger back from the blow.")
-
-**WRONG (never do this):**
-- roll_dice() then narrate() in the same response (you don't know the result yet!)
-- Describing success/failure before seeing the dice
-- Pre-writing the outcome and rolling simultaneously
-
-When your turn is complete, return an EndGameMasterTurn with any token changes.
-
 ## Core Responsibilities
-- Narrate vivid, immersive scenes that bring the Sablewood to life
+- Narrate vivid, immersive scenes that bring the campaign to life
 - Voice NPCs with distinct personalities and motivations
 - Adjudicate rules fairly using the provided Daggerheart rules reference
 - Track and spend Fear tokens strategically to create tension
 
 ## GM Style
-- Be descriptive but concise—paint scenes in 2-3 sentences, then prompt for action
+- Be descriptive but concise—paint scenes in 2-3 sentences
 - Use sensory details (sounds, smells, textures) to immerse the player
 - Match tone to the moment: tense during combat, warm during social scenes
 - Never narrate the player character's thoughts, feelings, or actions
@@ -157,22 +137,6 @@ When your turn is complete, return an EndGameMasterTurn with any token changes.
 - **Make GM moves with purpose**: Use soft moves to build tension, hard moves for consequences
 - **Manage the Fear economy**: Spend Fear to interrupt, activate features, or raise stakes
 
-## Dice Rolling
-
-### Player Action Rolls (2d12 Hope & Fear)
-When the player attempts something risky:
-1. `narrate()` the situation and stakes
-2. `roll_dice(2, "d12")` — first result = Hope die, second = Fear die
-3. Add the player's trait modifier to the HIGHER die for the total
-4. Interpret and `narrate()` the result:
-   - **Hope die higher**: Success favors the player—grant a Hope token
-   - **Fear die higher**: You gain a Fear token—narrate a complication
-   - **Doubles**: Critical! High = extraordinary success; low = dramatic failure
-
-### GM Rolls (d20)
-For enemy attacks: `roll_dice(1, "d20")` vs player's Evasion
-For damage: `roll_dice(X, "dY")` as specified by the attack
-
 ## Tone
 - Fantasy adventure suitable for all ages
 - Violence can be dramatic but not gratuitous
@@ -182,36 +146,77 @@ For damage: `roll_dice(X, "dY")` as specified by the attack
 - <daggerheart_rules> for mechanics and rules
 - <campaign_material> for story, NPCs, and encounters
 - <player_character> for Marlowe's stats and abilities
+
+<output_format>
+You communicate exclusively through tool calls. The player only sees output from narrate(); any text outside of tool calls is invisible to them.
+
+Tools:
+- narrate(text): All player-facing communication—descriptions, dialogue, outcomes, rules explanations
+- roll_dice(count, type): All dice rolls. Fear/Hope pools update automatically for Duality Dice.
+  - Special case for Duality Dice: Always roll them together as a pair, i.e. roll_dice(2, "d12"), rather than rolling each die separately.
+- spend_fear(amount): Spend Fear tokens to take spotlight actions or activate GM abilities.
+</output_format>
+
+<sequencing>
+Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
+
+<example>
+User: I attack the goblin with my sword.
+
+narrate("You lunge forward, blade flashing!")
+roll_dice(2, "d12")
+> result: Hope 5, Fear 9
+narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage.")
+roll_dice(1, "d8")
+> result: 6
+narrate("You deal 6 damage! The goblin staggers, wounded but alive. The spotlight shifts to the GM. The goblin you just attacked seizes the moment and strikes!")
+roll_dice(1, "d20")
+> result: 15
+narrate("A 15 vs your Evasion of 12 -- it hits! Let me roll to see how much damage you take.")
+roll_dice(1, "d6")
+> result: 4
+narrate("<calculate damage + narrate the outcome>")
+narrate("I will spend a Fear token to spotlight the other goblin who will attack you with its spear.")
+spend_fear(1)
+roll_dice(1, "d20")
+> result: 10
+narrate("A 10 vs your Evasion of 12 -- it misses! The spotlight shifts back to you. What do you do?")
+EndGameMasterTurn()
+</example>
+
+When your turn is complete, return an EndGameMasterTurn with any token changes.
+</sequencing>
 """,
 )
 
 
-@agent.tool_plain
-def roll_dice(dice_count: int, dice_type: DiceType) -> DiceRollResult:
-    """Roll dice and return the results.
-
-    You may call narrate() BEFORE this to describe the setup, but you MUST STOP
-    after this roll and WAIT for the result before narrating what happens.
+@agent.tool
+def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) -> str:
+    """Roll dice. Stop after calling this and wait for the result before narrating the outcome.
 
     Args:
-        dice_count: Number of dice to roll (e.g., 2 for rolling two dice)
-        dice_type: Type of die to roll (d4, d6, d8, d10, d12, d20, or d100)
+        dice_count: Number of dice to roll
+        dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
     """
     sides = DICE_SIDES[dice_type]
     rolls = [random.randint(1, sides) for _ in range(dice_count)]
-    result = DiceRollResult(dice_type=dice_type, rolls=rolls, total=sum(rolls))
 
     # Display the roll
     if len(rolls) == 1:
         result_str = f"🎲 [{dice_count}{dice_type}] → {rolls[0]}"
         click.echo(result_str)
     elif len(rolls) == 2 and dice_type == "d12":
-        # Special formatting for Hope/Fear dice
+        # Special formatting for Hope/Fear dice (Duality Dice)
         hope, fear = rolls
         result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
         click.echo(result_str)
+        # Track Fear when Fear die is higher
+        if fear > hope:
+            ctx.deps.fear_pool += 1
+            click.echo(f"   😈 Fear pool: {ctx.deps.fear_pool}")
+            result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
     else:
-        result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {result.total}"
+        result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {sum(rolls)}"
         click.echo(result_str)
 
     return result_str
@@ -219,16 +224,28 @@ def roll_dice(dice_count: int, dice_type: DiceType) -> DiceRollResult:
 
 @agent.tool_plain
 def narrate(narration: str) -> None:
-    """Output narrative text to the player.
-
-    Use this tool for ALL narrative output: scene descriptions, NPC dialogue,
-    action descriptions, and outcome narration. Call multiple times to interleave
-    narration with dice rolls.
+    """Send text to the player. This is the only way the player sees your output.
 
     Args:
-        narration: The narrative text to display to the player.
+        narration: Scene descriptions, dialogue, outcomes, or rules explanations.
     """
     click.echo(narration)
+
+
+@agent.tool
+def spend_fear(ctx: RunContext[GameState], amount: int = 1) -> str:
+    """Spend Fear tokens from the GM's pool to activate abilities or take spotlight actions.
+
+    Args:
+        amount: Number of Fear tokens to spend (default 1)
+    """
+    if ctx.deps.fear_pool >= amount:
+        ctx.deps.fear_pool -= amount
+        click.echo(f"   😈 Spent {amount} Fear (pool: {ctx.deps.fear_pool})")
+        return f"Spent {amount} Fear. Remaining: {ctx.deps.fear_pool}"
+    else:
+        click.echo(f"   ⚠️ Not enough Fear! (pool: {ctx.deps.fear_pool})")
+        return f"Cannot spend {amount} Fear. Only {ctx.deps.fear_pool} available."
 
 
 @agent.instructions
@@ -269,6 +286,9 @@ async def run_chat():
 
     # Initialize session cost tracking
     session_total_cost = 0.0
+
+    # Initialize game state
+    game_state = GameState()
 
     # Prime the conversation history with the opening scene
     gm_opening = """This evening, you finally made it to the Sablewood—a sprawling forest filled with colossal trees some say are even older than the Forgotten Gods.
@@ -328,39 +348,36 @@ What do you do?
         try:
             result = await agent.run(
                 user_input,
+                deps=game_state,
                 message_history=message_history,
+                model_settings={"extra_body": {"tool_choice": "required"}},
             )
 
             # Show token changes from the GM's turn
             turn_result: EndGameMasterTurn = result.output
-            if turn_result.fear_tokens_gained > 0:
-                click.echo(
-                    f"😈 GM gains {turn_result.fear_tokens_gained} Fear token(s)"
-                )
-            if turn_result.hope_tokens_granted > 0:
-                click.echo(
-                    f"✨ You gain {turn_result.hope_tokens_granted} Hope token(s)"
-                )
+            if turn_result.internal_notes:
+                click.echo(f"💡 GM notes: {turn_result.internal_notes}")
 
             # Update message history with all messages from this interaction
             message_history = result.all_messages()
+            logger.info(f"Game state: {game_state.__dict__}")
 
             # Store result for cost calculation
-            result_for_cost = result
+            # result_for_cost = result
         except Exception as e:
             click.echo(f"❌ Error: {e}", err=True)
 
         click.echo()  # Add blank line for readability
 
-        # Calculate and log cost for this run (logging handled by calculate_run_cost)
-        run_cost, *_ = calculate_run_cost(
-            result_for_cost, model_name, provider_id="openrouter"
-        )
+        # # Calculate and log cost for this run (logging handled by calculate_run_cost)
+        # run_cost, *_ = calculate_run_cost(
+        #     result_for_cost, model_name, provider_id="openrouter"
+        # )
 
-        # Track session total
-        if run_cost is not None and run_cost > 0:
-            session_total_cost += run_cost
-            logger.info(f"Session total cost: ${session_total_cost:.6f}")
+        # # Track session total
+        # if run_cost is not None and run_cost > 0:
+        #     session_total_cost += run_cost
+        #     logger.info(f"Session total cost: ${session_total_cost:.6f}")
 
 
 # async def run_chat_stream():
