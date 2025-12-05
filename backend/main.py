@@ -130,7 +130,9 @@ class CharacterState(BaseModel):
         default=None, ge=0, le=6, description="Current Hope (PCs only, max 6)"
     )
     armor_slots: int | None = Field(
-        default=None, ge=0, description="Current armor slots marked (PCs only)"
+        default=None,
+        ge=0,
+        description="Current armor slots remaining (PCs only, decreases when used)",
     )
     armor_slots_max: int | None = Field(
         default=None, ge=0, description="Total armor slots (PCs only)"
@@ -182,7 +184,7 @@ class GameState:
             major_threshold=14,  # Major: 14 (Mark 2 HP)
             severe_threshold=None,  # No severe threshold listed
             hope=2,  # PCs start with 2 Hope
-            armor_slots=0,
+            armor_slots=3,  # Start with 3/3 armor slots (like HP)
             armor_slots_max=3,  # Leather Armor has 3 armor slots
             evasion=10,  # Marlowe's Evasion is 10
             experiences={
@@ -271,6 +273,7 @@ Tools:
 - create_adversary(id, state): Create an adversary with stats (HP, thresholds, difficulty, etc.)
 - remove_adversary(id): Remove a defeated adversary from the game state
 - update_character_state(target, delta): Update adversary state (HP, Stress, conditions) or PC state for non-damage changes (Hope, Stress, conditions). Do NOT use for PC damage—use player_take_damage instead.
+  - Delta values are relative changes: hope=+1 adds Hope, hope=-1 spends Hope, hp=-2 reduces HP by 2. Omit fields you don't want to change.
 - create_countdown(name, initial_value): Create a new countdown tracker with an initial value
 - update_countdown(name, delta): Update an existing countdown tracker by applying a delta (change value)
   - delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
@@ -346,8 +349,8 @@ player_roll_dice(1, "d8")
 > deferred: player will roll 1d8
 # Player provides: 5
 narrate("You deal 5 damage! Goblin 1 is defeated!")
-update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP to 0 or below
-update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (Hope was higher)
+update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP by 5 (delta: -5)
+update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (delta: +1, adds to current Hope)
 remove_adversary("Goblin 1")
 narrate("Goblin 1 collapses to the ground. Only Goblin 2 remains. What do you do?")
 EndGameMasterTurn()
@@ -360,7 +363,7 @@ player_roll_dice(2, "d12")
 # Player result: "Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
 # GM evaluates: The explanation doesn't make sense - "Royal Mage" is about magical knowledge and courtly connections, not physical strength
 narrate("'Royal Mage' represents your magical expertise and connections to royal courts, not physical might. Your explanation doesn't connect the Experience to breaking down a door with brute force.")
-update_character_state("pc", CharacterStateDelta(hope=+1))  # Refund the Hope spent
+update_character_state("pc", CharacterStateDelta(hope=+1))  # Refund 1 Hope (delta: +1, adds to current Hope)
 narrate("I'm refunding your Hope. Please roll again without using an Experience.")
 player_roll_dice(2, "d12")
 > deferred: player will roll 2d12
@@ -537,7 +540,7 @@ class CharacterStateDelta(BaseModel):
     )
     armor_slots: int | None = Field(
         default=None,
-        description="Change to armor slots (e.g., -1 to mark an armor slot, +1 to unmark, PCs only)",
+        description="Change to armor slots (e.g., -1 to use an armor slot, +1 to restore, PCs only)",
     )
 
 
@@ -551,7 +554,7 @@ def update_character_state(
 
     Args:
         target: "pc" for player character, or adversary_id for an adversary
-        delta: CharacterStateDelta with relative changes to apply (e.g., hp=-2 to reduce HP by 2, hp=+3 to increase HP by 3)
+        delta: CharacterStateDelta with relative changes to apply (e.g., hp=-2 to reduce HP by 2, hope=+1 to gain 1 Hope). Values are added to current state, not set absolutely.
     """
     logger.info(
         f"{Colors.LIGHT_BLACK}Updating character state for {target}: {delta.__dict__}{Colors.RESET}"
@@ -575,15 +578,28 @@ def update_character_state(
             f"Target '{target}' does not exist. Use 'pc' for player character, or one of: {list(ctx.deps.adversaries.keys())}"
         )
 
+    # Check if all deltas are 0 or None (no actual changes)
+    all_zero = (
+        (delta.hp is None or delta.hp == 0)
+        and (delta.stress is None or delta.stress == 0)
+        and (delta.hope is None or delta.hope == 0)
+        and (delta.armor_slots is None or delta.armor_slots == 0)
+        and (delta.add_conditions is None or len(delta.add_conditions) == 0)
+        and (delta.remove_conditions is None or len(delta.remove_conditions) == 0)
+    )
+
+    if all_zero:
+        return f"No changes to apply for {character_name} - all delta values are 0 or None."
+
     updated_fields = []
-    if delta.hp is not None:
+    if delta.hp is not None and delta.hp != 0:
         character.hp = max(
             0, character.hp + delta.hp
         )  # Apply delta, ensure non-negative
         updated_fields.append(
             f"hp={delta.hp:+d} (now {character.hp}/{character.hp_max})"
         )
-    if delta.stress is not None:
+    if delta.stress is not None and delta.stress != 0:
         new_stress = max(
             0, character.stress + delta.stress
         )  # Apply delta, ensure non-negative
@@ -611,7 +627,7 @@ def update_character_state(
             if condition in character.conditions:
                 character.conditions.remove(condition)
                 updated_fields.append(f"removed condition: {condition}")
-    if delta.hope is not None:
+    if delta.hope is not None and delta.hope != 0:
         if character.hope is None:
             raise ModelRetry(
                 f"Cannot update hope for {character_name} - hope is only for PCs"
@@ -620,11 +636,13 @@ def update_character_state(
             0, min(6, character.hope + delta.hope)
         )  # Apply delta, clamp 0-6
         updated_fields.append(f"hope={delta.hope:+d} (now {character.hope})")
-    if delta.armor_slots is not None:
+    if delta.armor_slots is not None and delta.armor_slots != 0:
         if character.armor_slots is None:
             raise ModelRetry(
                 f"Cannot update armor_slots for {character_name} - armor slots are only for PCs"
             )
+        # Apply delta (negative to use slots, positive to restore)
+        # Clamp between 0 (all used) and armor_slots_max (all available)
         character.armor_slots = max(
             0,
             min(
@@ -637,9 +655,7 @@ def update_character_state(
         )
 
     if not updated_fields:
-        raise ModelRetry(
-            "No fields provided to update. Provide at least one field in delta."
-        )
+        return f"No changes to apply for {character_name} - all delta values are 0 or None, or conditions were already present/absent."
 
     logger.info(f"Updated {character_name}: {', '.join(updated_fields)}")
     return f"Successfully updated {character_name}: {', '.join(updated_fields)}"
@@ -974,15 +990,13 @@ def handle_player_take_damage(args: dict, game_state: GameState) -> str:
     armor_available = (
         pc.armor_slots is not None
         and pc.armor_slots_max is not None
-        and pc.armor_slots < pc.armor_slots_max
+        and pc.armor_slots > 0
     )
 
     armor_used = 0
     hp_to_mark = base_hp_to_mark
 
     if armor_available and hp_to_mark > 0:
-        slots_remaining = pc.armor_slots_max - pc.armor_slots
-
         # Show damage info and prompt for armor use
         threshold_info = f"Minor:{pc.minor_threshold}, Major:{pc.major_threshold}"
         if pc.severe_threshold:
@@ -990,7 +1004,7 @@ def handle_player_take_damage(args: dict, game_state: GameState) -> str:
 
         logger.info(f"⚔️  Incoming damage: {damage} (Thresholds: {threshold_info})")
         logger.info(f"   Base HP to mark: {base_hp_to_mark} HP")
-        logger.info(f"   Armor slots available: {slots_remaining}/{pc.armor_slots_max}")
+        logger.info(f"   Armor slots available: {pc.armor_slots}/{pc.armor_slots_max}")
 
         # Prompt once for armor slot usage (only one armor slot can be used per damage instance)
         if hp_to_mark > 0:
@@ -1033,7 +1047,7 @@ def handle_player_take_damage(args: dict, game_state: GameState) -> str:
 
     # Apply armor slot usage
     if armor_used > 0:
-        pc.armor_slots += armor_used
+        pc.armor_slots -= armor_used
         logger.info(f"   🛡️  Armor slots: {pc.armor_slots}/{pc.armor_slots_max}")
 
     # Apply HP damage
