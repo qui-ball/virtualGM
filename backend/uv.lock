@@ -199,6 +199,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "click" },
     { name = "logfire" },
+    { name = "loguru" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
 ]
@@ -207,7 +208,8 @@ dependencies = [
 requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
     { name = "logfire", specifier = ">=4.15.1" },
-    { name = "pydantic-ai", specifier = ">=1.25.1" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic-ai", specifier = ">=1.27.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 
@@ -1116,6 +1118,19 @@ wheels = [
 ]
 
 [[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1677,18 +1692,19 @@ email = [
 
 [[package]]
 name = "pydantic-ai"
-version = "1.25.1"
+version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic-ai-slim", extra = ["ag-ui", "anthropic", "bedrock", "cli", "cohere", "evals", "fastmcp", "google", "groq", "huggingface", "logfire", "mcp", "mistral", "openai", "retries", "temporal", "ui", "vertexai"] },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/7f/c56413e9dd3a1f4330981bc4f261f2edb22d3c19480102fdf50e590a5fd7/pydantic_ai-1.27.0.tar.gz", hash = "sha256:6741111d0be19c0fb5f9612beab5af12b945ce715780b19e861fe104e656d61d", size = 11862, upload-time = "2025-12-05T03:23:03.818Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/1d/a8f1cb306008c8663638981852b7a8f4f3b3d5d256b7cad8af121945b1ed/pydantic_ai-1.25.1-py3-none-any.whl", hash = "sha256:f652cd49a63be4f2b4b500afb7ad710f6b3c796ee5501fd8efdf839363330b79", size = 7168, upload-time = "2025-11-28T23:54:45.179Z" },
+    { url = "https://files.pythonhosted.org/packages/39/6f/dfa4a1895b5011b0daff684198226d6a16be1f1104a4e7e9f8b1377c4ab0/pydantic_ai-1.27.0-py3-none-any.whl", hash = "sha256:cdb77c1a1f6569c42483ba05b1da99aa3b5f7f9042ad3492b5dac741f45d5450", size = 7167, upload-time = "2025-12-05T03:22:54.825Z" },
 ]
 
 [[package]]
 name = "pydantic-ai-slim"
-version = "1.25.1"
+version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "genai-prices" },
@@ -1699,8 +1715,9 @@ dependencies = [
     { name = "pydantic-graph" },
     { name = "typing-inspection" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/2c/ad/bfc0a881c14cda2e41dade0a514a311343edd9916e8d1cb02414283b14b6/pydantic_ai_slim-1.27.0.tar.gz", hash = "sha256:5bfd03bff477d708c4d5479ef0f1676b5cf9daa38f30d7f1cce3d63eead5297a", size = 327922, upload-time = "2025-12-05T03:23:07.381Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/d2/0e843a3dff1702c7ace283288db3888bfcc5b1d5616b60eab83b6a8b46e2/pydantic_ai_slim-1.25.1-py3-none-any.whl", hash = "sha256:4f1527a5d33c2bcd64b82ae062a1face274a9110fc8d8ca470989206ac0ea9da", size = 422157, upload-time = "2025-11-28T23:54:48.5Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/e9/e9eccab1d535414bde6c8c593dbdf685af5f355b2a1f7c6dfc4c5127a335/pydantic_ai_slim-1.27.0-py3-none-any.whl", hash = "sha256:31c1ed7dec4d59b3d95c9bb59daeb37d57f9e7d18547e30a0b7c5f5ecc44e5c0", size = 429679, upload-time = "2025-12-05T03:22:58.329Z" },
 ]
 
 [package.optional-dependencies]
@@ -1837,7 +1854,7 @@ wheels = [
 
 [[package]]
 name = "pydantic-evals"
-version = "1.25.1"
+version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1847,13 +1864,14 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/b6/75/f668b4d83e3c6d6806b37f97b84397ca1667a559147d8d4133a3665db55d/pydantic_evals-1.27.0.tar.gz", hash = "sha256:d8f08c4a61c7adea8cabd84368d3acde88f196162ab37ca1f99ffbbac6872f8f", size = 47078, upload-time = "2025-12-05T03:23:08.792Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/24/ad/e007beeebf1fba79ddaf7f577c345104f77ddcbfe5810f8b2bf0c1ef3112/pydantic_evals-1.25.1-py3-none-any.whl", hash = "sha256:50a9bc1ae0552a65f7ff72cb52ad728466212159a625ef0fe2e928403c73ec2e", size = 56225, upload-time = "2025-11-28T23:54:50.617Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/b0/1fcde1b8263ec681a46e1af1a6a01850ed25ae856db52c477b127d12947e/pydantic_evals-1.27.0-py3-none-any.whl", hash = "sha256:086b3264c6602dceddaeb66ee18df7f9a3d5def2acd27d5251018bc95430c47e", size = 56225, upload-time = "2025-12-05T03:22:59.876Z" },
 ]
 
 [[package]]
 name = "pydantic-graph"
-version = "1.25.1"
+version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1861,8 +1879,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-inspection" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/59/bf/3974e1546508461dfda9a6b1e34ba8040e1568abf03ec9a7ebc2628964f6/pydantic_graph-1.27.0.tar.gz", hash = "sha256:5762956e6b002b0415ee78fcbc60da6c7f31778760fb82dbc263f8e1bdcc5f19", size = 58366, upload-time = "2025-12-05T03:23:09.781Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/01/5383e6efc9b8ec4ba92df44a2e48246aea8229957c2083894023204b1132/pydantic_graph-1.25.1-py3-none-any.whl", hash = "sha256:a56cc2712036dedec250f6442ca5ac5d07a10a1ca0e3afc4029abdae1f3e4a13", size = 72261, upload-time = "2025-11-28T23:54:52.229Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/a4/60062ac7894cc5187cb14825f4a6ca37c9203ff20a69de7a952b5c3c6f95/pydantic_graph-1.27.0-py3-none-any.whl", hash = "sha256:eea771a77516c43d5adedb337863e2cd627658dbd46e1abf2197a62b7826e738", size = 72260, upload-time = "2025-12-05T03:23:01.457Z" },
 ]
 
 [[package]]
@@ -2372,6 +2391,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/86/eb/20b6cdf273913d0ad05a6a14aed4b9a85591c18a987a3d47f20fa13dcc47/websockets-15.0.1-cp313-cp313-win32.whl", hash = "sha256:ba9e56e8ceeeedb2e080147ba85ffcd5cd0711b89576b83784d8605a7df455fa", size = 176393, upload-time = "2025-03-05T20:02:53.814Z" },
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837, upload-time = "2025-03-05T20:02:55.237Z" },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743, upload-time = "2025-03-05T20:03:39.41Z" },
+]
+
+[[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
 
 [[package]]

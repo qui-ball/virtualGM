@@ -33,6 +33,7 @@ class Colors:
     """ANSI color codes for terminal output."""
 
     GREEN = "\033[32m"
+    BLUE = "\033[34m"
     LIGHT_BLACK = "\033[90m"  # Pale grey
     RESET = "\033[0m"
 
@@ -166,7 +167,9 @@ class CharacterState(BaseModel):
 class EndGameMasterTurn(BaseModel):
     """Signals the end of the GM's turn and the start of the player's turn."""
 
-    internal_notes: str | None = None  # GM's private notes for continuity
+    notes: str | None = Field(
+        default=None, description="GM's private notes for continuity"
+    )  # GM's private notes for continuity
 
 
 class GameState:
@@ -213,11 +216,50 @@ class GameState:
 # # model_name = (
 # #     "qwen/qwen3-235b-a22b-2507"  # Has potential, but stops after some tool calls
 # # )
+# model_name = "x-ai/grok-4.1-fast"
+# model_name = "meta-llama/llama-3.3-70b-instruct:free"
+# model_name = "qwen/qwen3-coder-30b-a3b-instruct"
+# model_name = "openai/gpt-5.1-codex-mini"
+# model_name = "openai/gpt-oss-120b:exacto"
+# model_name = "qwen/qwen3-235b-a22b-thinking-2507"
+# model_name = "openai/gpt-oss-20b"
+# model_name = "z-ai/glm-4.5-air"  # output format is wrong
+# model_name = "minimax/minimax-m2"
+# model_name = "mistralai/mistral-large-2512"
 # model = OpenRouterModel(model_name)
 
 # Use DeepSeek API directly (set DEEPSEEK_API_KEY environment variable)
 model_name = "deepseek-chat"
 model = OpenAIChatModel(model_name, provider=DeepSeekProvider())
+
+# from pydantic_ai.providers.grok import GrokProvider
+
+# model = OpenAIChatModel(
+#     "grok:grok-4-1-fast-reasoning",
+#     provider=GrokProvider(),
+# )
+
+# model = "grok:grok-4-1-fast-reasoning"
+# model = "grok:grok-4-1"
+# model = "grok:grok-code-fast-1"
+
+# # Self-hosted vLLM
+# from pydantic_ai.providers.openai import OpenAIProvider
+
+# model_name = "openai/gpt-oss-20b"
+# model = OpenAIChatModel(
+#     model_name,
+#     provider=OpenAIProvider(
+#         base_url="https://vllm.bilunsun.dev/v1",
+#         api_key=os.getenv(
+#             "VLLM_API_KEY", ""
+#         ),  # Set env var or use empty string if no auth
+#     ),
+# )
+
+# TOOD: Combine roll_dice and player_roll_dice into a single tool
+# TODO: Combine player_take_damage and update_character_state into a single tool
+# TODO: Spotlight shift state tracking
 
 # Create an agent with the OpenRouter model
 agent = Agent(
@@ -255,10 +297,11 @@ agent = Agent(
 - <player_character> for Marlowe's stats and abilities
 
 <output_format>
-You communicate exclusively through tool calls. The player only sees output from narrate(); any text outside of tool calls is invisible to them.
+You communicate exclusively through tool calls. The player only sees output from narrate() and declare(); any text outside of tool calls is invisible to them.
 
-Tools:
-- narrate(text): All player-facing communication—descriptions, dialogue, outcomes, rules explanations
+You have access to the following tools:
+- narrate(text): Immersive storytelling—scene descriptions, NPC dialogue, sensory details, atmosphere. Keep it vivid but concise.
+- declare(text): Mechanical announcements—roll results, hit/miss calculations, damage thresholds, Hope/Fear outcomes. State the math clearly.
 - roll_dice(count, type): Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Do NOT use this for player actions.
 - player_roll_dice(count, type): Request the player to roll dice for their actions (attacks, damage, checks, etc.). The player will provide the result.
   - Special case for Duality Dice: Always roll them together as a pair, i.e. player_roll_dice(2, "d12"), rather than rolling each die separately.
@@ -287,88 +330,130 @@ Tool calls are sequential. Never end your turn on a dice roll. After rolling dic
 IMPORTANT: When player_roll_dice returns a result with an Experience explanation, ALWAYS evaluate whether the explanation makes sense before using the roll result. If it doesn't make sense, reject it and ask for a re-roll.
 
 <example>
-narrate("Two goblins leap from the bushes, daggers drawn! The first goblin attacks!")
+This example shows proper tool sequencing, narrate vs declare usage, and spotlight management.
 
-# First, create the adversaries
+=== COMBAT ENCOUNTER START ===
+
+[GM narrates and creates adversaries]
+narrate("<describe ambush, introduce enemies>")
 create_adversary("Goblin 1", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
 create_adversary("Goblin 2", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
+
+[GM has spotlight - Goblin 1 attacks]
+narrate("<describe Goblin 1's attack>")
 roll_dice(1, "d20")
-> result: 15
-narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits! Roll damage.")
+→ Result: "🎲 [1d20] → 15"
+declare("15 + 1 = 16 vs your Evasion 10 — hit!")
 roll_dice(1, "d6")
-> result: 4
-narrate("The goblin's dagger strikes you for 4 damage!")
+→ Result: "🎲 [1d6] → 4"
+narrate("<describe the hit>")
+declare("4 damage.")
 player_take_damage(4)
-> deferred: player chooses armor slots
-# Player result: "Player took 4 damage (below Minor 7 = 1 HP). No armor used. HP: 5/6"
-narrate("You mark 1 HP. You now have 5/6 HP remaining. The spotlight shifts to you. What do you do?")
+→ Deferred: Player chooses whether to use armor slots
+→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 5/6"
+declare("You mark 1 HP. (5/6 remaining)")
+narrate("<pass spotlight to player>")
+EndGameMasterTurn()
 
-User: I attack Goblin 1!
+=== PLAYER TURN ===
 
-narrate("You lunge forward, blade flashing!")
+User: I attack Goblin 1 with my sword!
+
+[Player action - attack roll]
+narrate("<describe player's attack attempt>")
 player_roll_dice(2, "d12")
-> deferred: player will roll 2d12
-# Player provides: Hope 5, Fear 9
-narrate("Hope 5, Fear 9 -- total is 5 + 9 + Agility (+2) = 16. That hits Goblin 1's Difficulty of 10! But Fear is higher, so the GM gains 1 Fear and the spotlight shifts to the GM after your action. Roll damage (1d8).")
+→ Deferred: Player rolls Duality Dice
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 = 14; Fear is higher, so the GM gains 1 Fear..."
+
+[Interpret the roll: 5 + 9 + Agility (+2) = 16 vs Difficulty 10]
+declare("Hope 5 + Fear 9 + Agility (+2) = 16 vs Difficulty 10 — hit! Fear is higher, so I gain 1 Fear.")
+narrate("<prompt for damage roll>")
 player_roll_dice(1, "d8")
-> deferred: player will roll 1d8
-# Player provides: 6
-narrate("You deal 6 damage! Goblin 1's thresholds are Minor 4, Major 8. Since 6 >= 4 but < 8, it marks 2 HP.")
+→ Deferred: Player rolls damage
+→ Player result: "🎲 [1d8] → 6"
+
+[Apply damage using adversary thresholds: Minor 4, Major 8]
+declare("6 damage vs Minor 4 / Major 8 — marks 2 HP. Goblin 1: 1/3 HP remaining.")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
-narrate("Goblin 1 now has 1/3 HP remaining. The goblin staggers, wounded but alive. The spotlight shifts to the GM. Goblin 1 seizes the moment and strikes!")
+narrate("<describe the wound>")
+
+[Fear was higher, so GM takes spotlight immediately]
+narrate("<Goblin 1 retaliates>")
 roll_dice(1, "d20")
-> result: 15
-narrate("A 15 + 1 = 16 vs your Evasion of 10 -- it hits!")
+→ Result: "🎲 [1d20] → 15"
+declare("15 + 1 = 16 vs Evasion 10 — hit!")
 roll_dice(1, "d6")
-> result: 4
-narrate("Goblin 1 slashes you for 4 damage!")
+→ Result: "🎲 [1d6] → 4"
+narrate("<describe the hit>")
+declare("4 damage.")
 player_take_damage(4)
-> deferred: player chooses armor slots
-# Player result: "Player took 4 damage (below Minor 7 = 1 HP). No armor used. HP: 4/6"
-narrate("You mark 1 HP. I will spend a Fear token to spotlight Goblin 2 who will attack you with its spear.")
+→ Deferred: Player chooses armor
+→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 4/6"
+declare("You mark 1 HP. (4/6 remaining)")
+
+[GM spends Fear for additional action]
+declare("Spending 1 Fear to spotlight Goblin 2.")
 spend_fear(1)
+→ Result: "Spent 1 Fear. Remaining: 1"
+narrate("<Goblin 2 attacks>")
 roll_dice(1, "d20")
-> result: 10
-narrate("A 10 + 1 = 11 vs your Evasion of 10 -- it hits!")
+→ Result: "🎲 [1d20] → 10"
+declare("10 + 1 = 11 vs Evasion 10 — hit!")
 roll_dice(1, "d6")
-> result: 3
-narrate("Goblin 2's spear catches you for 3 damage!")
+→ Result: "🎲 [1d6] → 3"
+narrate("<describe the hit>")
+declare("3 damage.")
 player_take_damage(3)
-> deferred: player chooses armor slots
-# Player result: "Player took 3 damage (below Minor 7 = 1 HP). No armor used. HP: 3/6"
-narrate("You mark 1 HP. The spotlight shifts back to you. What do you do?")
+→ Deferred: Player chooses armor
+→ Player result: "Player took 3 damage (below Minor 7 = 1 HP). HP: 3/6"
+declare("You mark 1 HP. (3/6 remaining)")
+narrate("<pass spotlight to player>")
+EndGameMasterTurn()
+
+=== PLAYER TURN (SUCCESS WITH HOPE) ===
 
 User: I finish off Goblin 1!
 
-narrate("You strike Goblin 1 with a finishing blow!")
+narrate("<describe attack attempt>")
 player_roll_dice(2, "d12")
-> deferred: player will roll 2d12
-# Player provides: Hope 11, Fear 3
-narrate("Hope 11, Fear 3 -- total is 11 + 3 + Agility (+2) = 16. That hits! Hope is higher, so you gain 1 Hope. Roll damage (1d8).")
+→ Deferred: Player rolls Duality Dice
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:11 Fear:3 = 14"
+
+[Hope is higher — player gains 1 Hope, GM does NOT gain Fear]
+declare("Hope 11 + Fear 3 + Agility (+2) = 16 vs Difficulty 10 — hit! Hope is higher, you gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<prompt for damage>")
 player_roll_dice(1, "d8")
-> deferred: player will roll 1d8
-# Player provides: 5
-narrate("You deal 5 damage! Goblin 1 is defeated!")
-update_character_state("Goblin 1", CharacterStateDelta(hp=-5))  # Reduce HP by 5 (delta: -5)
-update_character_state("pc", CharacterStateDelta(hope=+1))  # Gain 1 Hope (delta: +1, adds to current Hope)
+→ Deferred: Player rolls damage
+→ Player result: "🎲 [1d8] → 5"
+
+declare("5 damage defeats Goblin 1!")
+update_character_state("Goblin 1", CharacterStateDelta(hp=-5))
 remove_adversary("Goblin 1")
-narrate("Goblin 1 collapses to the ground. Only Goblin 2 remains. What do you do?")
+narrate("<describe defeat, note remaining enemies, pass spotlight>")
 EndGameMasterTurn()
+
+=== EXPERIENCE VALIDATION EXAMPLE ===
 
 User: I try to break down the locked door!
 
-narrate("You brace yourself and prepare to force the door open.")
+narrate("<describe attempt>")
 player_roll_dice(2, "d12")
-> deferred: player will roll 2d12 with Experience
-# Player result: "Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
-# GM evaluates: The explanation doesn't make sense - "Royal Mage" is about magical knowledge and courtly connections, not physical strength
-narrate("'Royal Mage' represents your magical expertise and connections to royal courts, not physical might. Your explanation doesn't connect the Experience to breaking down a door with brute force.")
-update_character_state("pc", CharacterStateDelta(hope=+1))  # Refund 1 Hope (delta: +1, adds to current Hope)
-narrate("I'm refunding your Hope. Please roll again without using an Experience.")
+→ Deferred: Player rolls with Experience
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
+
+[EVALUATE EXPERIENCE: Does "Royal Mage" apply to breaking down a door with brute force?]
+[NO — "Royal Mage" represents magical knowledge and courtly connections, not physical strength]
+declare("Royal Mage doesn't apply here — it's about arcane knowledge, not physical strength. Refunding 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<ask for re-roll without Experience>")
 player_roll_dice(2, "d12")
-> deferred: player will roll 2d12
-# Player provides: Hope 7, Fear 5
-narrate("Hope 7, Fear 5 -- total is 7 + 5 + Might (+0) = 12. That succeeds! Hope is higher, so you gain 1 Hope.")
+→ Deferred: Player re-rolls
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:7 Fear:5 = 12"
+
+declare("Hope 7 + Fear 5 + Strength (+0) = 12 — success! Hope is higher, you gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<describe success>")
 EndGameMasterTurn()
 </example>
 
@@ -400,16 +485,17 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
     if len(rolls) == 1:
         result_str = f"🎲 [{dice_count}{dice_type}] → {rolls[0]}"
         logger.info(result_str)
-    elif len(rolls) == 2 and dice_type == "d12":
-        # Special formatting for Hope/Fear dice (Duality Dice)
-        hope, fear = rolls
-        result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
-        logger.info(result_str)
-        # Track Fear when Fear die is higher
-        if fear > hope:
-            ctx.deps.fear_pool += 1
-            logger.info(f"   😈 Fear pool: {ctx.deps.fear_pool}")
-            result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
+    # The GM doesn't roll Duality Dice, so we don't need to handle them here
+    # elif len(rolls) == 2 and dice_type == "d12":
+    #     # Special formatting for Hope/Fear dice (Duality Dice)
+    #     hope, fear = rolls
+    #     result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope} Fear:{fear}"
+    #     logger.info(result_str)
+    #     # Track Fear when Fear die is higher
+    #     if fear > hope:
+    #         ctx.deps.fear_pool += 1
+    #         logger.info(f"   😈 Fear pool: {ctx.deps.fear_pool}")
+    #         result_str += "; Fear is higher, so the GM gains 1 Fear and the spotlight will shift to the GM after the player's action."
     else:
         result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {sum(rolls)}"
         logger.info(result_str)
@@ -451,12 +537,22 @@ def player_take_damage(ctx: RunContext[GameState], damage: int) -> str:
 
 @agent.tool_plain
 def narrate(narration: str) -> None:
-    """Send text to the player. This is the only way the player sees your output.
+    """Send narrative text to the player—descriptions, dialogue, atmosphere.
 
     Args:
-        narration: Scene descriptions, dialogue, outcomes, or rules explanations.
+        narration: Immersive storytelling content (scene descriptions, NPC dialogue, sensory details).
     """
     logger.info(f"{Colors.GREEN}{narration}{Colors.RESET}")
+
+
+@agent.tool_plain
+def declare(ruling: str) -> None:
+    """Announce mechanical results, calculations, and rules to the player.
+
+    Args:
+        ruling: Mechanical announcements (roll results, hit/miss, damage calculations, threshold checks, Hope/Fear outcomes).
+    """
+    logger.info(f"{Colors.BLUE}{ruling}{Colors.RESET}")
 
 
 @agent.tool
@@ -1182,25 +1278,26 @@ What do you do?
                     # Continue the run with the player's results (no new user input needed)
                     current_input = ""
                     continue
+                # Normal completion - show token changes from the GM's turn
+                elif isinstance(result.output, EndGameMasterTurn):
+                    turn_result: EndGameMasterTurn = result.output
+                    if turn_result.notes:
+                        logger.info(f"💡 GM notes: {turn_result.notes}")
+                elif isinstance(result.output, str):
+                    logger.info(f"💡 GM: {result.output}")
                 else:
-                    # Normal completion - show token changes from the GM's turn
-                    if isinstance(result.output, EndGameMasterTurn):
-                        turn_result: EndGameMasterTurn = result.output
-                        if turn_result.internal_notes:
-                            logger.info(f"💡 GM notes: {turn_result.internal_notes}")
-                    else:
-                        # This shouldn't happen, but handle it gracefully
-                        logger.warning(f"Unexpected output type: {type(result.output)}")
+                    # This shouldn't happen, but handle it gracefully
+                    logger.warning(f"Unexpected output type: {type(result.output)}")
 
-                    # Update message history with all messages from this interaction
-                    message_history = result.all_messages()
-                    logger.info(
-                        f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
-                    )
+                # Update message history with all messages from this interaction
+                message_history = result.all_messages()
+                logger.info(
+                    f"{Colors.LIGHT_BLACK}Game state: {game_state.__dict__}{Colors.RESET}"
+                )
 
-                    # Store result for cost calculation
-                    # result_for_cost = result
-                    break
+                # Store result for cost calculation
+                # result_for_cost = result
+                break
 
         except Exception as e:
             logger.error(f"❌ Error: {e}")
