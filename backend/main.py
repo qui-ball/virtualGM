@@ -281,7 +281,6 @@ agent = Agent(
 - Never narrate the player character's thoughts, feelings, or actions
 
 ## Daggerheart Principles
-- **Ask questions and incorporate answers**: Invite the player to co-create details
 - **Play to find out**: Don't predetermine outcomes—let dice and choices shape the story
 - **Make GM moves with purpose**: Use soft moves to build tension, hard moves for consequences
 - **Manage the Fear economy**: Spend Fear to interrupt, activate features, or raise stakes
@@ -300,17 +299,23 @@ agent = Agent(
 You communicate exclusively through tool calls. The player only sees output from narrate() and declare(); any text outside of tool calls is invisible to them.
 
 You have access to the following tools:
-- narrate(text): Immersive storytelling—scene descriptions, NPC dialogue, sensory details, atmosphere. Keep it vivid but concise.
-- declare(text): Mechanical announcements—roll results, hit/miss calculations, damage thresholds, Hope/Fear outcomes. State the math clearly.
+- narrate(text): Story, fiction, dialogue, descriptions, atmosphere, prompts. Anything the characters experience or say.
+- declare(text): Math only. Numbers, calculations, mechanical outcomes. Example: "15 + 1 = 16 vs Evasion 10 — hit!" or "You mark 1 HP (5/6)"
 - roll_dice(count, type): Roll dice for GM/adversary actions only (e.g., adversary attacks, NPC actions). Do NOT use this for player actions.
-- player_roll_dice(count, type): Request the player to roll dice for their actions (attacks, damage, checks, etc.). The player will provide the result.
-  - Special case for Duality Dice: Always roll them together as a pair, i.e. player_roll_dice(2, "d12"), rather than rolling each die separately.
-  - IMPORTANT: If the player uses an Experience, they will provide an explanation in the roll result (e.g., "Player explanation: ..."). 
-    - You MUST evaluate whether the Experience explanation makes sense in context BEFORE proceeding with the roll result.
-    - If the explanation doesn't make sense: Narrate why it doesn't apply, use update_character_state to refund 1 Hope, and ask the player to roll again without using the Experience. Do NOT use the roll result with the Experience modifier.
-    - If it makes sense: Proceed with the roll result including the Experience modifier.
+- player_propose_action(): Ask the player how they want to approach an action and if they want to propose an Experience.
+  - Use this BEFORE player_roll_dice when the player attempts something that could use an Experience.
+  - Returns the player's approach description and any Experience proposal with explanation.
+  - Hope is NOT spent yet—you must validate the Experience first.
+  - After receiving the proposal, decide the trait and whether the Experience applies, then call player_roll_dice.
+- player_roll_dice(count, type, approved_experience=None): Request the player to roll dice.
+  - For Duality Dice: Always roll as a pair, i.e. player_roll_dice(2, "d12").
+  - If you validated an Experience from player_propose_action, pass approved_experience="Experience Name" to apply it.
+  - Hope is spent automatically when approved_experience is provided.
+  - If no Experience or you rejected the proposal, omit approved_experience or pass None.
+  - NEGOTIATION: The player can reject your ruling before rolling. If the result starts with "NEGOTIATION:",
+    the player is pushing back. Consider their argument, then call player_roll_dice again with your revised (or unchanged) ruling.
 - player_take_damage(damage): Apply damage to the PC. The player will be prompted to use armor slots before HP is marked.
-  - ALWAYS use this instead of update_character_state when the PC takes damage
+  - ALWAYS use this instead of update_character_state when the PC takes damage.
   - Narrate the attack and raw damage amount, then call this tool. Do NOT narrate the HP loss—the tool result will tell you what happened.
 - spend_fear(amount): Spend Fear tokens to take spotlight actions or activate GM abilities.
 - create_adversary(id, state): Create an adversary with stats (HP, thresholds, difficulty, etc.)
@@ -327,10 +332,8 @@ You have access to the following tools:
 <sequencing>
 Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
 
-IMPORTANT: When player_roll_dice returns a result with an Experience explanation, ALWAYS evaluate whether the explanation makes sense before using the roll result. If it doesn't make sense, reject it and ask for a re-roll.
-
 <example>
-This example shows proper tool sequencing, narrate vs declare usage, and spotlight management.
+This example shows proper tool sequencing, the two-phase Experience flow, and spotlight management.
 
 === COMBAT ENCOUNTER START ===
 
@@ -355,29 +358,39 @@ declare("You mark 1 HP. (5/6 remaining)")
 narrate("<pass spotlight to player>")
 EndGameMasterTurn()
 
-=== PLAYER TURN ===
+=== PLAYER TURN (TWO-PHASE EXPERIENCE FLOW) ===
 
-User: I attack Goblin 1 with my sword!
+User: I want to attack Goblin 1!
 
-[Player action - attack roll]
-narrate("<describe player's attack attempt>")
-player_roll_dice(2, "d12")
-→ Deferred: Player rolls Duality Dice
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 = 14; Fear is higher, so the GM gains 1 Fear..."
+[Phase 1: Get player's approach and Experience proposal BEFORE rolling]
+player_propose_action()
+→ Deferred: Player describes approach and optionally proposes Experience
+→ Player result: "Approach: I'll use my sword, aiming for its exposed flank
+   Experience proposed: Not On My Watch (+2)
+   Explanation: I'm protecting myself by taking out the threat before it can hurt me again
+   (Hope will be spent if you approve the Experience)"
 
-[Interpret the roll: 5 + 9 + Agility (+2) = 16 vs Difficulty 10]
-declare("Hope 5 + Fear 9 + Agility (+2) = 16 vs Difficulty 10 — hit! Fear is higher, so I gain 1 Fear.")
-narrate("<prompt for damage roll>")
+[GM evaluates: Does "Not On My Watch" apply to an offensive attack?]
+[YES — protecting oneself by eliminating a threat fits the Experience's theme]
+narrate("<acknowledge approach, describe attack>")
+declare("Not On My Watch applies — you're eliminating a threat to protect yourself. Agility check.")
+
+[Phase 2: Roll with approved Experience]
+player_roll_dice(2, "d12", approved_experience="Not On My Watch")
+→ Deferred: Player rolls (Hope spent automatically, +2 applied)
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 + Not On My Watch (+2) = 16; Fear is higher..."
+
+declare("Hope 5 + Fear 9 + Agility (+2) + Experience (+2) = 18 vs Difficulty 10 — hit! Fear is higher, I gain 1 Fear.")
+narrate("<prompt for damage>")
 player_roll_dice(1, "d8")
 → Deferred: Player rolls damage
 → Player result: "🎲 [1d8] → 6"
 
-[Apply damage using adversary thresholds: Minor 4, Major 8]
 declare("6 damage vs Minor 4 / Major 8 — marks 2 HP. Goblin 1: 1/3 HP remaining.")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
 narrate("<describe the wound>")
 
-[Fear was higher, so GM takes spotlight immediately]
+[Fear was higher, so GM takes spotlight]
 narrate("<Goblin 1 retaliates>")
 roll_dice(1, "d20")
 → Result: "🎲 [1d20] → 15"
@@ -390,36 +403,74 @@ player_take_damage(4)
 → Deferred: Player chooses armor
 → Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 4/6"
 declare("You mark 1 HP. (4/6 remaining)")
-
-[GM spends Fear for additional action]
-declare("Spending 1 Fear to spotlight Goblin 2.")
-spend_fear(1)
-→ Result: "Spent 1 Fear. Remaining: 1"
-narrate("<Goblin 2 attacks>")
-roll_dice(1, "d20")
-→ Result: "🎲 [1d20] → 10"
-declare("10 + 1 = 11 vs Evasion 10 — hit!")
-roll_dice(1, "d6")
-→ Result: "🎲 [1d6] → 3"
-narrate("<describe the hit>")
-declare("3 damage.")
-player_take_damage(3)
-→ Deferred: Player chooses armor
-→ Player result: "Player took 3 damage (below Minor 7 = 1 HP). HP: 3/6"
-declare("You mark 1 HP. (3/6 remaining)")
 narrate("<pass spotlight to player>")
 EndGameMasterTurn()
 
-=== PLAYER TURN (SUCCESS WITH HOPE) ===
+=== EXPERIENCE REJECTED EXAMPLE ===
+
+User: I try to break down the locked door!
+
+[Phase 1: Get approach and Experience proposal]
+player_propose_action()
+→ Deferred: Player describes approach
+→ Player result: "Approach: I'll shoulder-charge the door
+   Experience proposed: Royal Mage (+2)
+   Explanation: magic makes me stronger
+   (Hope will be spent if you approve the Experience)"
+
+[GM evaluates: Does "Royal Mage" apply to breaking down a door with brute force?]
+[NO — Royal Mage is about arcane knowledge and courtly connections, not physical strength]
+declare("Royal Mage doesn't apply here — it's about arcane knowledge, not physical strength.")
+narrate("<explain, then proceed without Experience>")
+
+[Phase 2: Roll WITHOUT approved Experience (Hope not spent)]
+player_roll_dice(2, "d12")
+→ Deferred: Player rolls (no Experience bonus)
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:7 Fear:5 = 12"
+
+declare("Hope 7 + Fear 5 + Strength (+0) = 12 — success! Hope is higher, you gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<describe door bursting open>")
+EndGameMasterTurn()
+
+=== PLAYER NEGOTIATES RULING ===
+
+User: I try to calm the wild strixwolf.
+
+[Phase 1: Get approach and Experience proposal]
+player_propose_action()
+→ Player result: "Approach: I extend my hand slowly, avoiding eye contact
+   Experience proposed: Royal Mage (+2)
+   Explanation: I've dealt with magical creatures at court
+   (Hope will be spent if you approve the Experience)"
+
+[GM evaluates: Royal Mage is arcane knowledge, not animal handling]
+declare("Royal Mage doesn't quite apply — it's arcane knowledge, not animal instincts. This is a Presence roll.")
+player_roll_dice(2, "d12")
+→ Player sees ruling, chooses to negotiate
+→ Player result: "NEGOTIATION: Royal Mage should apply because strixwolves are magical creatures, and I learned about their behavior studying at the royal menagerie."
+
+[GM reconsiders: That's a good argument! Strixwolves ARE magical creatures]
+declare("Good point — strixwolves are magical hybrids, and your courtly education included the royal menagerie. Royal Mage applies.")
+player_roll_dice(2, "d12", approved_experience="Royal Mage")
+→ Player accepts, rolls
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:8 Fear:4 + Royal Mage (+2) = 14"
+
+declare("Hope 8 + Fear 4 + Presence (+1) + Royal Mage (+2) = 15. Success with Hope! You gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<describe the strixwolf accepting you>")
+EndGameMasterTurn()
+
+=== SIMPLE ATTACK (NO EXPERIENCE) ===
 
 User: I finish off Goblin 1!
 
+[Simple attack - player doesn't need to propose Experience for every action]
 narrate("<describe attack attempt>")
 player_roll_dice(2, "d12")
-→ Deferred: Player rolls Duality Dice
+→ Deferred: Player rolls
 → Player result: "🎲 [2d12 Duality Dice] → Hope:11 Fear:3 = 14"
 
-[Hope is higher — player gains 1 Hope, GM does NOT gain Fear]
 declare("Hope 11 + Fear 3 + Agility (+2) = 16 vs Difficulty 10 — hit! Hope is higher, you gain 1 Hope.")
 update_character_state("pc", CharacterStateDelta(hope=+1))
 narrate("<prompt for damage>")
@@ -430,30 +481,7 @@ player_roll_dice(1, "d8")
 declare("5 damage defeats Goblin 1!")
 update_character_state("Goblin 1", CharacterStateDelta(hp=-5))
 remove_adversary("Goblin 1")
-narrate("<describe defeat, note remaining enemies, pass spotlight>")
-EndGameMasterTurn()
-
-=== EXPERIENCE VALIDATION EXAMPLE ===
-
-User: I try to break down the locked door!
-
-narrate("<describe attempt>")
-player_roll_dice(2, "d12")
-→ Deferred: Player rolls with Experience
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:6 Fear:4 + Royal Mage (+2) (Player explanation: magic makes me stronger) = 12"
-
-[EVALUATE EXPERIENCE: Does "Royal Mage" apply to breaking down a door with brute force?]
-[NO — "Royal Mage" represents magical knowledge and courtly connections, not physical strength]
-declare("Royal Mage doesn't apply here — it's about arcane knowledge, not physical strength. Refunding 1 Hope.")
-update_character_state("pc", CharacterStateDelta(hope=+1))
-narrate("<ask for re-roll without Experience>")
-player_roll_dice(2, "d12")
-→ Deferred: Player re-rolls
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:7 Fear:5 = 12"
-
-declare("Hope 7 + Fear 5 + Strength (+0) = 12 — success! Hope is higher, you gain 1 Hope.")
-update_character_state("pc", CharacterStateDelta(hope=+1))
-narrate("<describe success>")
+narrate("<describe defeat, pass spotlight>")
 EndGameMasterTurn()
 </example>
 
@@ -504,20 +532,40 @@ def roll_dice(ctx: RunContext[GameState], dice_count: int, dice_type: DiceType) 
 
 
 @agent.tool
+def player_propose_action(ctx: RunContext[GameState]) -> str:
+    """Ask the player how they want to approach an action, and if they want to propose using an Experience.
+
+    Use this BEFORE calling player_roll_dice when the player attempts something that could use an Experience.
+    The player will describe their approach and optionally propose an Experience with an explanation.
+    You must then validate the Experience before calling player_roll_dice.
+
+    Returns the player's approach and any Experience proposal (Hope is NOT spent yet).
+    """
+    raise CallDeferred(metadata={"tool": "player_propose_action"})
+
+
+@agent.tool
 def player_roll_dice(
-    ctx: RunContext[GameState], dice_count: int, dice_type: DiceType
+    ctx: RunContext[GameState],
+    dice_count: int,
+    dice_type: DiceType,
+    approved_experience: str | None = None,
 ) -> str:
     """Request the player to roll dice. This defers execution until the player provides their roll result.
 
     Args:
         dice_count: Number of dice to roll
         dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
+        approved_experience: Name of an Experience you validated and approved (e.g., "Streetwise Informant").
+                            If provided, 1 Hope will be spent and the Experience bonus applied.
+                            If None or omitted, no Experience is used.
     """
     raise CallDeferred(
         metadata={
             "tool": "player_roll_dice",
             "dice_count": dice_count,
             "dice_type": dice_type,
+            "approved_experience": approved_experience,
         }
     )
 
@@ -860,95 +908,160 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
 </current_game_state>"""
 
 
+def handle_player_propose_action(args: dict, game_state: GameState) -> str:
+    """Handle the player_propose_action deferred tool - ask player for approach and Experience proposal."""
+    pc = game_state.pc
+
+    # Step 1: Ask player to describe their approach
+    approach = input("📝 How do you want to approach this? ").strip()
+    if not approach:
+        approach = "(No specific approach described)"
+
+    # Step 2: Ask about Experience usage (but don't spend Hope yet - just propose)
+    experience_name = None
+    experience_modifier = 0
+    experience_explanation = None
+
+    if pc.hope is not None and pc.hope > 0 and pc.experiences:
+        # Show available Experiences first
+        experiences_list = list(pc.experiences.items())
+        logger.info(f"Your Experiences (Hope: {pc.hope}):")
+        for i, (name, mod) in enumerate(experiences_list, 1):
+            logger.info(f"  {i}. {name} (+{mod})")
+
+        while True:
+            use_experience = (
+                input("Propose using an Experience? [y/N]: ")
+                .strip()
+                .lower()
+            )
+
+            if use_experience in ("y", "yes"):
+                experiences_list = list(pc.experiences.items())
+
+                # Prompt for selection
+                while True:
+                    choice = input("Select Experience (number) or 'cancel': ").strip()
+
+                    if choice.lower() == "cancel":
+                        break  # Go back to "use experience?" prompt
+
+                    try:
+                        idx = int(choice) - 1
+                        if 0 <= idx < len(experiences_list):
+                            experience_name, experience_modifier = experiences_list[idx]
+
+                            # Prompt for explanation
+                            while True:
+                                explanation = input(
+                                    f"How does '{experience_name}' apply here? "
+                                ).strip()
+
+                                if explanation:
+                                    experience_explanation = explanation
+                                    logger.info(
+                                        f"   💭 Proposing: {experience_name} (+{experience_modifier})"
+                                    )
+                                    logger.info(f"   📖 Explanation: {explanation}")
+                                    break
+                                else:
+                                    logger.error("Please provide an explanation.")
+
+                            break
+                        else:
+                            logger.error(
+                                f"Invalid selection. Please enter 1-{len(experiences_list)}."
+                            )
+                    except ValueError:
+                        logger.error("Please enter a number or 'cancel'.")
+
+                if experience_name:
+                    break  # Exit "use experience?" loop
+            elif use_experience in ("n", "no", ""):
+                break
+            else:
+                logger.error("Please enter 'y' for yes or 'n' for no.")
+
+    # Build result for GM to evaluate
+    result_str = f"Approach: {approach}"
+    if experience_name:
+        result_str += (
+            f"\nExperience proposed: {experience_name} (+{experience_modifier})"
+        )
+        result_str += f"\nExplanation: {experience_explanation}"
+        result_str += "\n(Hope will be spent if you approve the Experience)"
+    else:
+        result_str += "\nNo Experience proposed."
+
+    return result_str
+
+
 def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
     """Handle the player_roll_dice deferred tool - prompt player to roll or auto-roll."""
     dice_count = args["dice_count"]
     dice_type = args["dice_type"]
+    approved_experience = args.get("approved_experience")
 
     if dice_count == 2 and dice_type == "d12":
-        # Duality Dice - modifiers can be applied
+        # Duality Dice
         pc = game_state.pc
 
-        # Track modifiers
-        experience_modifier = 0
-        experience_name = None
-        experience_explanation = None
-        hope_spent = 0
+        # Show GM's ruling and ask for confirmation before rolling
+        logger.info("━━━ GM's Ruling ━━━")
+        if approved_experience:
+            logger.info(f"  ✓ Experience approved: {approved_experience}")
+        else:
+            logger.info("  ✗ No Experience approved")
 
-        # Step 1: Prompt for Experience usage (if Hope available and Experiences exist)
-        if pc.hope is not None and pc.hope > 0 and pc.experiences:
-            while True:
-                use_experience = (
-                    input(
-                        f"Spend 1 Hope to Utilize an Experience? (Current Hope: {pc.hope}) [y/N]: "
+        # Ask player to accept or negotiate
+        while True:
+            confirm = input("Accept ruling and roll? [Y/n]: ").strip().lower()
+            if confirm in ("y", "yes", ""):
+                break  # Proceed with roll
+            elif confirm in ("n", "no"):
+                # Player wants to negotiate
+                negotiation = input("What would you like to negotiate? ").strip()
+                if negotiation:
+                    return f"NEGOTIATION: {negotiation}"
+                else:
+                    logger.info("No negotiation provided, proceeding with roll.")
+                    break
+            else:
+                logger.error("Please enter 'y' to accept or 'n' to negotiate.")
+
+        # Apply approved Experience if provided
+        experience_name = None
+        experience_modifier = 0
+
+        if approved_experience and pc.experiences:
+            if approved_experience in pc.experiences:
+                experience_name = approved_experience
+                experience_modifier = pc.experiences[approved_experience]
+                # Spend Hope now that GM has approved
+                if pc.hope is not None and pc.hope > 0:
+                    pc.hope -= 1
+                    logger.info(
+                        f"✓ Using {experience_name} (+{experience_modifier}), Hope: {pc.hope}"
                     )
-                    .strip()
-                    .lower()
+                else:
+                    logger.warning(f"Cannot use {experience_name} - no Hope available!")
+                    experience_name = None
+                    experience_modifier = 0
+            else:
+                logger.warning(
+                    f"Experience '{approved_experience}' not found in player's Experiences"
                 )
 
-                if use_experience in ("y", "yes"):
-                    # Show available Experiences
-                    experiences_list = list(pc.experiences.items())
-                    logger.info("Available Experiences:")
-                    for i, (name, mod) in enumerate(experiences_list, 1):
-                        logger.info(f"  {i}. {name} (+{mod})")
-
-                    # Prompt for selection
-                    while True:
-                        choice = input(
-                            "Select Experience (number) or 'cancel': "
-                        ).strip()
-
-                        if choice.lower() == "cancel":
-                            break  # Go back to "use experience?" prompt
-
-                        try:
-                            idx = int(choice) - 1
-                            if 0 <= idx < len(experiences_list):
-                                experience_name, experience_modifier = experiences_list[
-                                    idx
-                                ]
-
-                                # Prompt for explanation of how the Experience applies
-                                while True:
-                                    explanation = input(
-                                        f"How does '{experience_name}' apply to this situation? "
-                                    ).strip()
-
-                                    if explanation:
-                                        experience_explanation = explanation
-                                        logger.info(
-                                            f"   💭 {experience_name}: {explanation}"
-                                        )
-                                        break
-                                    else:
-                                        logger.error("Please provide an explanation.")
-
-                                hope_spent = 1
-                                pc.hope -= 1
-                                logger.info(
-                                    f"✓ Using {experience_name} (+{experience_modifier}), Hope: {pc.hope}"
-                                )
-                                break
-                            else:
-                                logger.error(
-                                    f"Invalid selection. Please enter 1-{len(experiences_list)}."
-                                )
-                        except ValueError:
-                            logger.error("Please enter a number or 'cancel'.")
-
-                    if hope_spent > 0:
-                        break  # Exit "use experience?" loop
-                elif use_experience in ("n", "no", ""):
-                    break
-                else:
-                    logger.error("Please enter 'y' for yes or 'n' for no.")
-
-        # Step 2: Prompt for actual dice roll
+        # Prompt for dice roll
         while True:
-            roll_input = input(
-                "🎲 Roll your Duality Dice (2d12) - Enter Hope and Fear separated by space (e.g., '5 9'), or press Enter to auto-roll: "
-            ).strip()
+            prompt = "🎲 Roll your Duality Dice (2d12)"
+            if experience_name:
+                prompt += f" with {experience_name} (+{experience_modifier})"
+            prompt += (
+                " - Enter Hope and Fear (e.g., '5 9'), or press Enter to auto-roll: "
+            )
+
+            roll_input = input(prompt).strip()
 
             if not roll_input:
                 # Auto-roll if user pressed Enter
@@ -957,7 +1070,6 @@ def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
                 break
             else:
                 try:
-                    # Parse input - split on whitespace and filter out non-numeric words like "and"
                     parts = [p for p in roll_input.split() if p.isdigit()]
                     if len(parts) >= 2:
                         hope_die = int(parts[0])
@@ -968,23 +1080,19 @@ def handle_player_roll_dice(args: dict, game_state: GameState) -> str:
                             logger.error("Values must be between 1 and 12.")
                             continue
                     else:
-                        logger.error(
-                            "Please enter two numbers (e.g., '5 9' or '5 and 9')."
-                        )
+                        logger.error("Please enter two numbers (e.g., '5 9').")
                         continue
                 except ValueError as e:
                     logger.error(f"Invalid input: {e}. Please enter two numbers.")
                     continue
 
-        # Step 3: Format result with modifiers
+        # Format result
         base_total = hope_die + fear_die
         total_with_mods = base_total + experience_modifier
 
         result_str = f"🎲 [2d12 Duality Dice] → Hope:{hope_die} Fear:{fear_die}"
         if experience_modifier > 0:
             result_str += f" + {experience_name} (+{experience_modifier})"
-            if experience_explanation:
-                result_str += f" (Player explanation: {experience_explanation})"
         result_str += f" = {total_with_mods}"
 
         logger.info(result_str)
@@ -1261,7 +1369,10 @@ What do you do?
                     for call in result.output.calls:
                         args = call.args_as_dict()
 
-                        if call.tool_name == "player_roll_dice":
+                        if call.tool_name == "player_propose_action":
+                            # Handle player proposing their approach + Experience
+                            result_str = handle_player_propose_action(args, game_state)
+                        elif call.tool_name == "player_roll_dice":
                             # Handle player dice roll
                             result_str = handle_player_roll_dice(args, game_state)
                         elif call.tool_name == "player_take_damage":
