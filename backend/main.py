@@ -295,7 +295,7 @@ agent = Agent(
 - <campaign_material> for story, NPCs, and encounters
 - <player_character> for Marlowe's stats and abilities
 
-<output_format>
+<tools>
 You communicate exclusively through tool calls. The player only sees output from narrate() and declare(); any text outside of tool calls is invisible to them.
 
 You have access to the following tools:
@@ -327,166 +327,7 @@ You have access to the following tools:
   - delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
   - Only works on existing countdowns (use create_countdown first)
   - When a countdown reaches 0, its effect triggers (ritual completes, reinforcements arrive, etc.)
-</output_format>
-
-<sequencing>
-Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
-
-<example>
-This example shows proper tool sequencing, the two-phase Experience flow, and spotlight management.
-
-=== COMBAT ENCOUNTER START ===
-
-[GM narrates and creates adversaries]
-narrate("<describe ambush, introduce enemies>")
-create_adversary("Goblin 1", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
-create_adversary("Goblin 2", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
-
-[GM has spotlight - Goblin 1 attacks]
-narrate("<describe Goblin 1's attack>")
-roll_dice(1, "d20")
-→ Result: "🎲 [1d20] → 15"
-declare("15 + 1 = 16 vs your Evasion 10 — hit!")
-roll_dice(1, "d6")
-→ Result: "🎲 [1d6] → 4"
-narrate("<describe the hit>")
-declare("4 damage.")
-player_take_damage(4)
-→ Deferred: Player chooses whether to use armor slots
-→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 5/6"
-declare("You mark 1 HP. (5/6 remaining)")
-narrate("<pass spotlight to player>")
-EndGameMasterTurn()
-
-=== PLAYER TURN (TWO-PHASE EXPERIENCE FLOW) ===
-
-User: I want to attack Goblin 1!
-
-[Phase 1: Get player's approach and Experience proposal BEFORE rolling]
-player_propose_action()
-→ Deferred: Player describes approach and optionally proposes Experience
-→ Player result: "Approach: I'll use my sword, aiming for its exposed flank
-   Experience proposed: Not On My Watch (+2)
-   Explanation: I'm protecting myself by taking out the threat before it can hurt me again
-   (Hope will be spent if you approve the Experience)"
-
-[GM evaluates: Does "Not On My Watch" apply to an offensive attack?]
-[YES — protecting oneself by eliminating a threat fits the Experience's theme]
-narrate("<acknowledge approach, describe attack>")
-declare("Not On My Watch applies — you're eliminating a threat to protect yourself. Agility check.")
-
-[Phase 2: Roll with approved Experience]
-player_roll_dice(2, "d12", approved_experience="Not On My Watch")
-→ Deferred: Player rolls (Hope spent automatically, +2 applied)
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 + Not On My Watch (+2) = 16; Fear is higher..."
-
-declare("Hope 5 + Fear 9 + Agility (+2) + Experience (+2) = 18 vs Difficulty 10 — hit! Fear is higher, I gain 1 Fear.")
-narrate("<prompt for damage>")
-player_roll_dice(1, "d8")
-→ Deferred: Player rolls damage
-→ Player result: "🎲 [1d8] → 6"
-
-declare("6 damage vs Minor 4 / Major 8 — marks 2 HP. Goblin 1: 1/3 HP remaining.")
-update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
-narrate("<describe the wound>")
-
-[Fear was higher, so GM takes spotlight]
-narrate("<Goblin 1 retaliates>")
-roll_dice(1, "d20")
-→ Result: "🎲 [1d20] → 15"
-declare("15 + 1 = 16 vs Evasion 10 — hit!")
-roll_dice(1, "d6")
-→ Result: "🎲 [1d6] → 4"
-narrate("<describe the hit>")
-declare("4 damage.")
-player_take_damage(4)
-→ Deferred: Player chooses armor
-→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 4/6"
-declare("You mark 1 HP. (4/6 remaining)")
-narrate("<pass spotlight to player>")
-EndGameMasterTurn()
-
-=== EXPERIENCE REJECTED EXAMPLE ===
-
-User: I try to break down the locked door!
-
-[Phase 1: Get approach and Experience proposal]
-player_propose_action()
-→ Deferred: Player describes approach
-→ Player result: "Approach: I'll shoulder-charge the door
-   Experience proposed: Royal Mage (+2)
-   Explanation: magic makes me stronger
-   (Hope will be spent if you approve the Experience)"
-
-[GM evaluates: Does "Royal Mage" apply to breaking down a door with brute force?]
-[NO — Royal Mage is about arcane knowledge and courtly connections, not physical strength]
-declare("Royal Mage doesn't apply here — it's about arcane knowledge, not physical strength.")
-narrate("<explain, then proceed without Experience>")
-
-[Phase 2: Roll WITHOUT approved Experience (Hope not spent)]
-player_roll_dice(2, "d12")
-→ Deferred: Player rolls (no Experience bonus)
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:7 Fear:5 = 12"
-
-declare("Hope 7 + Fear 5 + Strength (+0) = 12 — success! Hope is higher, you gain 1 Hope.")
-update_character_state("pc", CharacterStateDelta(hope=+1))
-narrate("<describe door bursting open>")
-EndGameMasterTurn()
-
-=== PLAYER NEGOTIATES RULING ===
-
-User: I try to calm the wild strixwolf.
-
-[Phase 1: Get approach and Experience proposal]
-player_propose_action()
-→ Player result: "Approach: I extend my hand slowly, avoiding eye contact
-   Experience proposed: Royal Mage (+2)
-   Explanation: I've dealt with magical creatures at court
-   (Hope will be spent if you approve the Experience)"
-
-[GM evaluates: Royal Mage is arcane knowledge, not animal handling]
-declare("Royal Mage doesn't quite apply — it's arcane knowledge, not animal instincts. This is a Presence roll.")
-player_roll_dice(2, "d12")
-→ Player sees ruling, chooses to negotiate
-→ Player result: "NEGOTIATION: Royal Mage should apply because strixwolves are magical creatures, and I learned about their behavior studying at the royal menagerie."
-
-[GM reconsiders: That's a good argument! Strixwolves ARE magical creatures]
-declare("Good point — strixwolves are magical hybrids, and your courtly education included the royal menagerie. Royal Mage applies.")
-player_roll_dice(2, "d12", approved_experience="Royal Mage")
-→ Player accepts, rolls
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:8 Fear:4 + Royal Mage (+2) = 14"
-
-declare("Hope 8 + Fear 4 + Presence (+1) + Royal Mage (+2) = 15. Success with Hope! You gain 1 Hope.")
-update_character_state("pc", CharacterStateDelta(hope=+1))
-narrate("<describe the strixwolf accepting you>")
-EndGameMasterTurn()
-
-=== SIMPLE ATTACK (NO EXPERIENCE) ===
-
-User: I finish off Goblin 1!
-
-[Simple attack - player doesn't need to propose Experience for every action]
-narrate("<describe attack attempt>")
-player_roll_dice(2, "d12")
-→ Deferred: Player rolls
-→ Player result: "🎲 [2d12 Duality Dice] → Hope:11 Fear:3 = 14"
-
-declare("Hope 11 + Fear 3 + Agility (+2) = 16 vs Difficulty 10 — hit! Hope is higher, you gain 1 Hope.")
-update_character_state("pc", CharacterStateDelta(hope=+1))
-narrate("<prompt for damage>")
-player_roll_dice(1, "d8")
-→ Deferred: Player rolls damage
-→ Player result: "🎲 [1d8] → 5"
-
-declare("5 damage defeats Goblin 1!")
-update_character_state("Goblin 1", CharacterStateDelta(hp=-5))
-remove_adversary("Goblin 1")
-narrate("<describe defeat, pass spotlight>")
-EndGameMasterTurn()
-</example>
-
-When your turn is complete, return an EndGameMasterTurn with any token changes.
-</sequencing>
+</tools>
 """,
 )
 
@@ -873,6 +714,168 @@ def update_countdown(
 
 
 @agent.instructions
+def tool_call_examples() -> str:
+    return """<sequencing>
+Tool calls are sequential. Never end your turn on a dice roll. After rolling dice, stop and wait for the result, then narrate the outcome.
+
+<example>
+This example shows proper tool sequencing, the two-phase Experience flow, and spotlight management.
+
+=== COMBAT ENCOUNTER START ===
+
+[GM narrates and creates adversaries]
+narrate("<describe ambush, introduce enemies>")
+create_adversary("Goblin 1", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
+create_adversary("Goblin 2", CharacterState(hp_max=3, stress_max=1, minor_threshold=4, major_threshold=8, difficulty=10, attack_modifier=1))
+
+[GM has spotlight - Goblin 1 attacks]
+narrate("<describe Goblin 1's attack>")
+roll_dice(1, "d20")
+→ Result: "🎲 [1d20] → 15"
+declare("15 + 1 = 16 vs your Evasion 10 — hit!")
+roll_dice(1, "d6")
+→ Result: "🎲 [1d6] → 4"
+narrate("<describe the hit>")
+declare("4 damage.")
+player_take_damage(4)
+→ Deferred: Player chooses whether to use armor slots
+→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 5/6"
+declare("You mark 1 HP. (5/6 remaining)")
+narrate("<pass spotlight to player>")
+EndGameMasterTurn()
+
+=== PLAYER TURN (TWO-PHASE EXPERIENCE FLOW) ===
+
+User: I want to attack Goblin 1!
+
+[Phase 1: Get player's approach and Experience proposal BEFORE rolling]
+player_propose_action()
+→ Deferred: Player describes approach and optionally proposes Experience
+→ Player result: "Approach: I'll use my sword, aiming for its exposed flank
+   Experience proposed: Not On My Watch (+2)
+   Explanation: I'm protecting myself by taking out the threat before it can hurt me again
+   (Hope will be spent if you approve the Experience)"
+
+[GM evaluates: Does "Not On My Watch" apply to an offensive attack?]
+[YES — protecting oneself by eliminating a threat fits the Experience's theme]
+narrate("<acknowledge approach, describe attack>")
+declare("Not On My Watch applies — you're eliminating a threat to protect yourself. Agility check.")
+
+[Phase 2: Roll with approved Experience]
+player_roll_dice(2, "d12", approved_experience="Not On My Watch")
+→ Deferred: Player rolls (Hope spent automatically, +2 applied)
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 + Not On My Watch (+2) = 16; Fear is higher..."
+
+declare("Hope 5 + Fear 9 + Agility (+2) + Experience (+2) = 18 vs Difficulty 10 — hit! Fear is higher, I gain 1 Fear.")
+narrate("<prompt for damage>")
+player_roll_dice(1, "d8")
+→ Deferred: Player rolls damage
+→ Player result: "🎲 [1d8] → 6"
+
+declare("6 damage vs Minor 4 / Major 8 — marks 2 HP. Goblin 1: 1/3 HP remaining.")
+update_character_state("Goblin 1", CharacterStateDelta(hp=-2))
+narrate("<describe the wound>")
+
+[Fear was higher, so GM takes spotlight]
+narrate("<Goblin 1 retaliates>")
+roll_dice(1, "d20")
+→ Result: "🎲 [1d20] → 15"
+declare("15 + 1 = 16 vs Evasion 10 — hit!")
+roll_dice(1, "d6")
+→ Result: "🎲 [1d6] → 4"
+narrate("<describe the hit>")
+declare("4 damage.")
+player_take_damage(4)
+→ Deferred: Player chooses armor
+→ Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 4/6"
+declare("You mark 1 HP. (4/6 remaining)")
+narrate("<pass spotlight to player>")
+EndGameMasterTurn()
+
+=== EXPERIENCE REJECTED EXAMPLE ===
+
+User: I try to break down the locked door!
+
+[Phase 1: Get approach and Experience proposal]
+player_propose_action()
+→ Deferred: Player describes approach
+→ Player result: "Approach: I'll shoulder-charge the door
+   Experience proposed: Royal Mage (+2)
+   Explanation: magic makes me stronger
+   (Hope will be spent if you approve the Experience)"
+
+[GM evaluates: Does "Royal Mage" apply to breaking down a door with brute force?]
+[NO — Royal Mage is about arcane knowledge and courtly connections, not physical strength]
+declare("Royal Mage doesn't apply here — it's about arcane knowledge, not physical strength.")
+narrate("<explain, then proceed without Experience>")
+
+[Phase 2: Roll WITHOUT approved Experience (Hope not spent)]
+player_roll_dice(2, "d12")
+→ Deferred: Player rolls (no Experience bonus)
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:7 Fear:5 = 12"
+
+declare("Hope 7 + Fear 5 + Strength (+0) = 12 — success! Hope is higher, you gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<describe door bursting open>")
+EndGameMasterTurn()
+
+=== PLAYER NEGOTIATES RULING ===
+
+User: I try to calm the wild strixwolf.
+
+[Phase 1: Get approach and Experience proposal]
+player_propose_action()
+→ Player result: "Approach: I extend my hand slowly, avoiding eye contact
+   Experience proposed: Royal Mage (+2)
+   Explanation: I've dealt with magical creatures at court
+   (Hope will be spent if you approve the Experience)"
+
+[GM evaluates: Royal Mage is arcane knowledge, not animal handling]
+declare("Royal Mage doesn't quite apply — it's arcane knowledge, not animal instincts. This is a Presence roll.")
+player_roll_dice(2, "d12")
+→ Player sees ruling, chooses to negotiate
+→ Player result: "NEGOTIATION: Royal Mage should apply because strixwolves are magical creatures, and I learned about their behavior studying at the royal menagerie."
+
+[GM reconsiders: That's a good argument! Strixwolves ARE magical creatures]
+declare("Good point — strixwolves are magical hybrids, and your courtly education included the royal menagerie. Royal Mage applies.")
+player_roll_dice(2, "d12", approved_experience="Royal Mage")
+→ Player accepts, rolls
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:8 Fear:4 + Royal Mage (+2) = 14"
+
+declare("Hope 8 + Fear 4 + Presence (+1) + Royal Mage (+2) = 15. Success with Hope! You gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<describe the strixwolf accepting you>")
+EndGameMasterTurn()
+
+=== SIMPLE ATTACK (NO EXPERIENCE) ===
+
+User: I finish off Goblin 1!
+
+[Simple attack - player doesn't need to propose Experience for every action]
+narrate("<describe attack attempt>")
+player_roll_dice(2, "d12")
+→ Deferred: Player rolls
+→ Player result: "🎲 [2d12 Duality Dice] → Hope:11 Fear:3 = 14"
+
+declare("Hope 11 + Fear 3 + Agility (+2) = 16 vs Difficulty 10 — hit! Hope is higher, you gain 1 Hope.")
+update_character_state("pc", CharacterStateDelta(hope=+1))
+narrate("<prompt for damage>")
+player_roll_dice(1, "d8")
+→ Deferred: Player rolls damage
+→ Player result: "🎲 [1d8] → 5"
+
+declare("5 damage defeats Goblin 1!")
+update_character_state("Goblin 1", CharacterStateDelta(hp=-5))
+remove_adversary("Goblin 1")
+narrate("<describe defeat, pass spotlight>")
+EndGameMasterTurn()
+</example>
+
+When your turn is complete, return an EndGameMasterTurn with any token changes.
+</sequencing>"""
+
+
+@agent.instructions
 def add_daggerheart_rules() -> str:
     prompt_file = Path(__file__).parent / "prompts" / "ruleset_condensed.md"
     # prompt_file = Path(__file__).parent / "prompts" / "daggerheart_rules.md"
@@ -931,9 +934,7 @@ def handle_player_propose_action(args: dict, game_state: GameState) -> str:
 
         while True:
             use_experience = (
-                input("Propose using an Experience? [y/N]: ")
-                .strip()
-                .lower()
+                input("Propose using an Experience? [y/N]: ").strip().lower()
             )
 
             if use_experience in ("y", "yes"):
