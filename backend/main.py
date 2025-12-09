@@ -295,6 +295,9 @@ agent = Agent(
 - <campaign_material> for story, NPCs, and encounters
 - <player_character> for Marlowe's stats and abilities
 
+## Clarifications
+- A critical hit is when the player rolls the same number on both Duality Dice.
+
 <tools>
 You communicate exclusively through tool calls. The player only sees output from narrate() and declare(); any text outside of tool calls is invisible to them.
 
@@ -735,13 +738,12 @@ roll_dice(1, "d20")
 declare("15 + 1 = 16 vs your Evasion 10 — hit!")
 roll_dice(1, "d6")
 → Result: "🎲 [1d6] → 4"
-narrate("<describe the hit>")
 declare("4 damage.")
 player_take_damage(4)
 → Deferred: Player chooses whether to use armor slots
 → Player result: "Player took 4 damage (below Minor 7 = 1 HP). HP: 5/6"
 declare("You mark 1 HP. (5/6 remaining)")
-narrate("<pass spotlight to player>")
+narrate("<narrate how the player takes the damage and pass spotlight to player>")
 EndGameMasterTurn()
 
 === PLAYER TURN (TWO-PHASE EXPERIENCE FLOW) ===
@@ -758,7 +760,6 @@ player_propose_action()
 
 [GM evaluates: Does "Not On My Watch" apply to an offensive attack?]
 [YES — protecting oneself by eliminating a threat fits the Experience's theme]
-narrate("<acknowledge approach, describe attack>")
 declare("Not On My Watch applies — you're eliminating a threat to protect yourself. Agility check.")
 
 [Phase 2: Roll with approved Experience]
@@ -766,8 +767,7 @@ player_roll_dice(2, "d12", approved_experience="Not On My Watch")
 → Deferred: Player rolls (Hope spent automatically, +2 applied)
 → Player result: "🎲 [2d12 Duality Dice] → Hope:5 Fear:9 + Not On My Watch (+2) = 16; Fear is higher..."
 
-declare("Hope 5 + Fear 9 + Agility (+2) + Experience (+2) = 18 vs Difficulty 10 — hit! Fear is higher, I gain 1 Fear.")
-narrate("<prompt for damage>")
+declare("Hope 5 + Fear 9 + Agility (+2) + Experience (+2) = 18 vs Difficulty 10 — hit! Fear is higher, I gain 1 Fear. Now roll for damage.")
 player_roll_dice(1, "d8")
 → Deferred: Player rolls damage
 → Player result: "🎲 [1d8] → 6"
@@ -783,7 +783,6 @@ roll_dice(1, "d20")
 declare("15 + 1 = 16 vs Evasion 10 — hit!")
 roll_dice(1, "d6")
 → Result: "🎲 [1d6] → 4"
-narrate("<describe the hit>")
 declare("4 damage.")
 player_take_damage(4)
 → Deferred: Player chooses armor
@@ -859,6 +858,7 @@ player_roll_dice(2, "d12")
 
 declare("Hope 11 + Fear 3 + Agility (+2) = 16 vs Difficulty 10 — hit! Hope is higher, you gain 1 Hope.")
 update_character_state("pc", CharacterStateDelta(hope=+1))
+declare("Now roll for damage.")
 narrate("<prompt for damage>")
 player_roll_dice(1, "d8")
 → Deferred: Player rolls damage
