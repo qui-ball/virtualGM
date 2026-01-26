@@ -1,9 +1,9 @@
-import { ResponsiveTestPage } from './pages/ResponsiveTestPage';
+import { LayoutTestPage } from './pages/LayoutTestPage';
 
 function App() {
-  // For now, show the responsive test page
+  // For now, show the layout test page
   // Replace this with your main app routing later
-  return <ResponsiveTestPage />;
+  return <LayoutTestPage />;
 }
 
 export default App;
