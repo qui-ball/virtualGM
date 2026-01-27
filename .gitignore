@@ -1,4 +1,23 @@
+# Environment files (exclude .env.example from being ignored)
 .env
+.env.local
+.env.*.local
+.env.docker
+.env.production
+.env.development
+!/.env.example
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Claude/Cursor
 .claude
 local/

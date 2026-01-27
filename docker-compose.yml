@@ -27,6 +27,8 @@ services:
     env_file:
       # Load environment variables from .env files (if they exist)
       # These are optional - docker-compose will continue if files don't exist
+      # Order matters: later files override earlier ones
+      - ./.env.docker  # Docker-specific overrides (optional)
       - ./frontend/.env
       - ./frontend/.env.local
     healthcheck:
