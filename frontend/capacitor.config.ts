@@ -23,6 +23,11 @@ const capacitorConfig: CapacitorConfig = {
   // Development server configuration for live reload
   // Only set server URL when VITE_CAPACITOR_DEV_SERVER_URL is provided
   // This enables live reload when testing on physical devices
+  // 
+  // Note: This configures the frontend dev server URL for live reload.
+  // The backend API URL is configured separately via VITE_API_URL environment variable
+  // and handled by src/utils/apiConfig.ts, which automatically detects the platform
+  // and sets the appropriate API URL (localhost for simulators, 10.0.2.2 for Android emulator, etc.)
   server: devServerUrl
     ? {
         url: devServerUrl,
