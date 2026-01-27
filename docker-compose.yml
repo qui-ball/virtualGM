@@ -1,0 +1,56 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # Build arguments for flexibility
+      # NODE_VERSION: Node.js version to use (default: 24.13.0, matches .nvmrc)
+      args:
+        NODE_VERSION: "24.13.0"
+    container_name: virtualgm-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend:/app
+      # Preserve node_modules (don't overwrite with host files)
+      - frontend-node-modules:/app/node_modules
+      # Exclude build artifacts from being overwritten
+      - /app/dist
+      - /app/.vite
+    environment:
+      # Node environment
+      - NODE_ENV=development
+      # Vite configuration
+      - VITE_HOST=0.0.0.0
+      - VITE_PORT=5173
+    env_file:
+      # Load environment variables from .env files (if they exist)
+      # These are optional - docker-compose will continue if files don't exist
+      - ./frontend/.env
+      - ./frontend/.env.local
+    healthcheck:
+      # Check if Vite dev server is responding
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - virtualgm-network
+    labels:
+      - "com.virtualgm.service=frontend"
+      - "com.virtualgm.version=0.1.0"
+    # Resource limits for development environment
+    mem_limit: 2g
+    mem_reservation: 512m
+    cpus: '2.0'
+
+volumes:
+  # Persistent volume for node_modules to survive container restarts
+  frontend-node-modules:
+
+networks:
+  virtualgm-network:
+    driver: bridge
