@@ -37,10 +37,7 @@ export function detectEnvironment(): Environment {
   // 'development' | 'production' | 'test' (when running tests)
   const mode = import.meta.env.MODE;
 
-  // NODE_ENV fallback for non-Vite contexts (e.g., Capacitor config)
-  const nodeEnv = import.meta.env.DEV ? 'development' : 'production';
-
-  // Prioritize Vite's MODE, fallback to NODE_ENV detection
+  // Prioritize Vite's MODE
   if (mode === 'test' || import.meta.env.VITEST) {
     return 'test';
   }
@@ -59,8 +56,13 @@ export function detectEnvironment(): Environment {
  */
 export function detectPlatform(): Platform {
   // Check if we're running in Capacitor
-  if (typeof window !== 'undefined' && (window as any).Capacitor) {
-    const capacitor = (window as any).Capacitor;
+  if (
+    typeof window !== 'undefined' &&
+    (window as Window & { Capacitor?: { getPlatform: () => string } }).Capacitor
+  ) {
+    const capacitor = (
+      window as Window & { Capacitor: { getPlatform: () => string } }
+    ).Capacitor;
     const platform = capacitor.getPlatform();
 
     if (platform === 'ios') {

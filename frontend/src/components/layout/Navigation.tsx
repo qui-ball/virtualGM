@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { NavLink } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,14 +47,15 @@ export interface NavigationProps {
 
 /**
  * Navigation component with mobile-friendly drawer menu
- * 
+ *
  * Features:
  * - Mobile-first responsive design
  * - Drawer menu on mobile (< 768px)
  * - Horizontal navigation on desktop
  * - Accessible with ARIA labels
  * - Touch-friendly (44x44px minimum touch targets)
- * 
+ * - React Router integration (uses NavLink for href items)
+ *
  * @example
  * ```tsx
  * <Navigation
@@ -74,11 +76,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   const navRef = useRef<HTMLElement>(null);
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Handle empty items array
-  if (!items || items.length === 0) {
-    return null;
-  }
 
   const handleItemClick = (item: NavItem) => {
     setIsMobileMenuOpen(false);
@@ -105,7 +102,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('mousedown', handleClickOutside);
@@ -121,6 +118,11 @@ export const Navigation: React.FC<NavigationProps> = ({
       }, 0);
     }
   }, [isMobileMenuOpen]);
+
+  // Handle empty items array (after all hooks to satisfy rules of hooks)
+  if (!items || items.length === 0) {
+    return null;
+  }
 
   return (
     <nav
@@ -166,17 +168,92 @@ export const Navigation: React.FC<NavigationProps> = ({
           )}
           role="menu"
         >
-          {items.map((item, index) => (
+          {items.map((item, index) => {
+            const baseClassName = cn(
+              'w-full text-left px-4 py-3',
+              'text-sm sm:text-base',
+              'min-h-[44px]', // Touch-friendly
+              'hover:bg-muted',
+              'focus:outline-none focus:bg-muted',
+              'transition-colors'
+            );
+
+            if (item.href) {
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.href}
+                  ref={index === 0 ? firstItemRef : undefined}
+                  className={({ isActive }) =>
+                    cn(
+                      baseClassName,
+                      (isActive || item.active) && 'bg-muted font-semibold'
+                    )
+                  }
+                  onClick={() => handleItemClick(item)}
+                  aria-current={item.active ? 'page' : undefined}
+                >
+                  {item.label}
+                </NavLink>
+              );
+            }
+
+            return (
+              <button
+                key={item.id}
+                ref={index === 0 ? firstItemRef : undefined}
+                className={cn(
+                  baseClassName,
+                  item.active && 'bg-muted font-semibold'
+                )}
+                onClick={() => handleItemClick(item)}
+                aria-current={item.active ? 'page' : undefined}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Desktop Horizontal Navigation */}
+      <div className="hidden md:flex items-center gap-1 lg:gap-2">
+        {items.map(item => {
+          const baseClassName = cn(
+            'px-3 py-2 lg:px-4 lg:py-2',
+            'text-sm lg:text-base',
+            'rounded-md',
+            'min-h-[44px]', // Touch-friendly
+            'hover:bg-muted',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'transition-colors',
+            'whitespace-nowrap'
+          );
+
+          if (item.href) {
+            return (
+              <NavLink
+                key={item.id}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    baseClassName,
+                    (isActive || item.active) && 'bg-muted font-semibold'
+                  )
+                }
+                onClick={() => handleItemClick(item)}
+                aria-current={item.active ? 'page' : undefined}
+              >
+                {item.label}
+              </NavLink>
+            );
+          }
+
+          return (
             <button
               key={item.id}
-              ref={index === 0 ? firstItemRef : undefined}
               className={cn(
-                'w-full text-left px-4 py-3',
-                'text-sm sm:text-base',
-                'min-h-[44px]', // Touch-friendly
-                'hover:bg-muted',
-                'focus:outline-none focus:bg-muted',
-                'transition-colors',
+                baseClassName,
                 item.active && 'bg-muted font-semibold'
               )}
               onClick={() => handleItemClick(item)}
@@ -184,32 +261,8 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               {item.label}
             </button>
-          ))}
-        </div>
-      )}
-
-      {/* Desktop Horizontal Navigation */}
-      <div className="hidden md:flex items-center gap-1 lg:gap-2">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            className={cn(
-              'px-3 py-2 lg:px-4 lg:py-2',
-              'text-sm lg:text-base',
-              'rounded-md',
-              'min-h-[44px]', // Touch-friendly
-              'hover:bg-muted',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-              'transition-colors',
-              'whitespace-nowrap',
-              item.active && 'bg-muted font-semibold'
-            )}
-            onClick={() => handleItemClick(item)}
-            aria-current={item.active ? 'page' : undefined}
-          >
-            {item.label}
-          </button>
-        ))}
+          );
+        })}
       </div>
     </nav>
   );

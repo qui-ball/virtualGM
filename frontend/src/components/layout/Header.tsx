@@ -22,13 +22,13 @@ export interface HeaderProps {
 
 /**
  * Header component for the application
- * 
+ *
  * Features:
  * - Responsive design (mobile-first)
  * - App branding/logo area
  * - Mobile-optimized layout
  * - Accessible navigation
- * 
+ *
  * @example
  * ```tsx
  * <Header appName="Virtual GM" />
@@ -85,9 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {children && (
-        <div className="flex items-center gap-2 sm:gap-4">
-          {children}
-        </div>
+        <div className="flex items-center gap-2 sm:gap-4">{children}</div>
       )}
     </header>
   );

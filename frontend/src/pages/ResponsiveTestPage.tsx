@@ -1,9 +1,9 @@
 /**
  * Responsive Test Page
- * 
+ *
  * This page demonstrates and tests responsive breakpoints.
  * Use this to verify that your responsive design works across different screen sizes.
- * 
+ *
  * Breakpoints:
  * - Mobile: < 640px (default, no prefix)
  * - Tablet (sm): >= 640px
@@ -23,7 +23,8 @@ export function ResponsiveTestPage() {
             Responsive Design Test
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
-            Resize your browser or view on different devices to see breakpoints in action
+            Resize your browser or view on different devices to see breakpoints
+            in action
           </p>
         </header>
 
@@ -44,12 +45,14 @@ export function ResponsiveTestPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Grid Layout Test</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((num) => (
+            {[1, 2, 3, 4, 5, 6].map(num => (
               <div
                 key={num}
                 className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center"
               >
-                <div className="text-2xl font-bold text-primary">Item {num}</div>
+                <div className="text-2xl font-bold text-primary">
+                  Item {num}
+                </div>
                 <div className="text-xs text-muted-foreground mt-2">
                   Responsive grid item
                 </div>
@@ -63,7 +66,8 @@ export function ResponsiveTestPage() {
           <h2 className="text-xl font-semibold">Typography Scaling</h2>
           <div className="bg-card border rounded-lg p-4 sm:p-6 md:p-8">
             <p className="text-sm sm:text-base md:text-lg lg:text-xl">
-              This text scales with screen size. On mobile it's smaller, on desktop it's larger.
+              This text scales with screen size. On mobile it's smaller, on
+              desktop it's larger.
             </p>
             <p className="text-xs sm:text-sm md:text-base mt-4 text-muted-foreground">
               Smaller text also scales appropriately for readability.
@@ -115,8 +119,12 @@ export function ResponsiveTestPage() {
             </p>
             <div className="mt-4 p-4 bg-muted rounded text-xs sm:text-sm font-mono">
               <div>Mobile: Full width</div>
-              <div className="sm:block hidden">Tablet (sm): Max-width container</div>
-              <div className="md:block hidden">Desktop (md+): Centered with max-width</div>
+              <div className="sm:block hidden">
+                Tablet (sm): Max-width container
+              </div>
+              <div className="md:block hidden">
+                Desktop (md+): Centered with max-width
+              </div>
             </div>
           </div>
         </section>
@@ -125,13 +133,13 @@ export function ResponsiveTestPage() {
   );
 }
 
-function BreakpointBadge({ 
-  name, 
-  prefix, 
-  minWidth 
-}: { 
-  name: string; 
-  prefix: string; 
+function BreakpointBadge({
+  name,
+  prefix,
+  minWidth,
+}: {
+  name: string;
+  prefix: string;
   minWidth: string;
 }) {
   return (

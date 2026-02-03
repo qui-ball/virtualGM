@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* CSS Variables for shadcn/ui (HSL format) */
 :root {
@@ -67,17 +67,17 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  
+
   --radius: var(--radius);
 
   /* Responsive Breakpoints
    * These define screen sizes where layout changes occur
    * Mobile-first approach: base styles are for mobile, then we add styles for larger screens
    */
-  --breakpoint-sm: 640px;   /* Small devices (tablets in portrait) */
-  --breakpoint-md: 768px;   /* Medium devices (tablets in landscape) */
-  --breakpoint-lg: 1024px;  /* Large devices (desktops) */
-  --breakpoint-xl: 1280px;  /* Extra large devices (large desktops) */
+  --breakpoint-sm: 640px; /* Small devices (tablets in portrait) */
+  --breakpoint-md: 768px; /* Medium devices (tablets in landscape) */
+  --breakpoint-lg: 1024px; /* Large devices (desktops) */
+  --breakpoint-xl: 1280px; /* Extra large devices (large desktops) */
   --breakpoint-2xl: 1536px; /* 2X large devices (very large desktops) */
 }
 

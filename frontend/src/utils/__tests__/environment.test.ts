@@ -11,8 +11,6 @@ import {
   isIOSSimulator,
   isAndroidEmulator,
   isPhysicalDevice,
-  type Environment,
-  type Platform,
 } from '../environment';
 
 describe('environment utilities', () => {
@@ -73,11 +71,11 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(detectPlatform()).toBe('browser');
     });
@@ -88,7 +86,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(detectPlatform()).toBe('ios');
     });
@@ -99,7 +97,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(detectPlatform()).toBe('android');
     });
@@ -108,11 +106,11 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(detectPlatform()).toBe('ios');
     });
@@ -121,11 +119,11 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (Linux; Android 11; Pixel 5)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(detectPlatform()).toBe('android');
     });
@@ -134,9 +132,9 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
-      global.navigator = undefined as any;
+      global.navigator = undefined as unknown as Navigator;
 
       expect(detectPlatform()).toBe('browser');
     });
@@ -149,7 +147,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isMobilePlatform()).toBe(true);
     });
@@ -160,7 +158,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isMobilePlatform()).toBe(true);
     });
@@ -169,7 +167,7 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isMobilePlatform()).toBe(false);
     });
@@ -180,7 +178,7 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       const context = getRuntimeContext();
 
@@ -199,7 +197,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       const context = getRuntimeContext();
 
@@ -220,7 +218,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isIOSSimulator()).toBe(false);
     });
@@ -231,11 +229,12 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Simulator',
-      } as any;
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Simulator',
+      } as unknown as Window & typeof globalThis;
 
       expect(isIOSSimulator()).toBe(true);
     });
@@ -246,11 +245,12 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) Xcode',
-      } as any;
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) Xcode',
+      } as unknown as Window & typeof globalThis;
 
       expect(isIOSSimulator()).toBe(true);
     });
@@ -261,11 +261,12 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
-      } as any;
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+      } as unknown as Window & typeof globalThis;
 
       expect(isIOSSimulator()).toBe(false);
     });
@@ -278,7 +279,7 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isAndroidEmulator()).toBe(false);
     });
@@ -289,11 +290,12 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
-        userAgent: 'Mozilla/5.0 (Linux; Android 11; sdk_gphone_x86 Build/RSR1.210722.001)',
-      } as any;
+        userAgent:
+          'Mozilla/5.0 (Linux; Android 11; sdk_gphone_x86 Build/RSR1.210722.001)',
+      } as unknown as Window & typeof globalThis;
 
       expect(isAndroidEmulator()).toBe(true);
     });
@@ -304,11 +306,11 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (Linux; Android 11; Genymotion)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isAndroidEmulator()).toBe(true);
     });
@@ -319,11 +321,12 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
-        userAgent: 'Mozilla/5.0 (Linux; Android 11; Pixel 5 Build/RQ3A.210805.001.A1)',
-      } as any;
+        userAgent:
+          'Mozilla/5.0 (Linux; Android 11; Pixel 5 Build/RQ3A.210805.001.A1)',
+      } as unknown as Window & typeof globalThis;
 
       expect(isAndroidEmulator()).toBe(false);
     });
@@ -334,7 +337,7 @@ describe('environment utilities', () => {
       global.window = {
         ...originalWindow,
         Capacitor: undefined,
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isPhysicalDevice()).toBe(false);
     });
@@ -345,11 +348,11 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (iPhone Simulator)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isPhysicalDevice()).toBe(false);
     });
@@ -360,11 +363,11 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (Linux; Android 11; sdk_gphone_x86)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isPhysicalDevice()).toBe(false);
     });
@@ -375,11 +378,11 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'ios',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isPhysicalDevice()).toBe(true);
     });
@@ -390,11 +393,11 @@ describe('environment utilities', () => {
         Capacitor: {
           getPlatform: () => 'android',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       global.navigator = {
         userAgent: 'Mozilla/5.0 (Linux; Android 11; Pixel 5)',
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       expect(isPhysicalDevice()).toBe(true);
     });

@@ -9,21 +9,20 @@ This directory contains the core layout components for the Virtual GM applicatio
 Application header with branding and optional actions.
 
 **Features:**
+
 - Responsive design (mobile-first)
 - Sticky positioning
 - App branding/logo area
 - Mobile-optimized
 
 **Usage:**
+
 ```tsx
 import { Header } from '@/components/layout';
 
-<Header 
-  appName="Virtual GM"
-  logo={<Logo />}
->
+<Header appName="Virtual GM" logo={<Logo />}>
   <UserMenu />
-</Header>
+</Header>;
 ```
 
 ### Navigation
@@ -31,12 +30,14 @@ import { Header } from '@/components/layout';
 Mobile-friendly navigation component with drawer menu.
 
 **Features:**
+
 - Drawer menu on mobile (< 768px)
 - Horizontal navigation on desktop
 - Touch-friendly (44x44px minimum targets)
 - Accessible with ARIA labels
 
 **Usage:**
+
 ```tsx
 import { Navigation } from '@/components/layout';
 
@@ -45,8 +46,8 @@ import { Navigation } from '@/components/layout';
     { id: 'home', label: 'Home', href: '/' },
     { id: 'campaigns', label: 'Campaigns', href: '/campaigns', active: true },
   ]}
-  onItemClick={(item) => console.log('Clicked:', item)}
-/>
+  onItemClick={item => console.log('Clicked:', item)}
+/>;
 ```
 
 ### ContentArea
@@ -54,18 +55,20 @@ import { Navigation } from '@/components/layout';
 Main content container with responsive padding and max-width options.
 
 **Features:**
+
 - Responsive padding
 - Flexible max-width options
 - Proper scroll handling
 - Mobile-optimized spacing
 
 **Usage:**
+
 ```tsx
 import { ContentArea } from '@/components/layout';
 
 <ContentArea maxWidth="container" padding="md">
   <YourContent />
-</ContentArea>
+</ContentArea>;
 ```
 
 ## Complete Layout Example
@@ -84,7 +87,7 @@ function AppLayout() {
       <Header appName="Virtual GM">
         <Navigation items={navItems} />
       </Header>
-      
+
       <ContentArea maxWidth="container" padding="md">
         {/* Your page content */}
       </ContentArea>
@@ -98,6 +101,7 @@ function AppLayout() {
 All components include comprehensive unit tests using Vitest and React Testing Library.
 
 Run tests:
+
 ```bash
 npm run test
 ```

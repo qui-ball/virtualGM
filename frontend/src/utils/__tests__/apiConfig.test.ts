@@ -10,12 +10,10 @@ import {
   getConnectionInfo,
   logConnectionInfo,
   testApiConnection,
-  type ApiConfig,
 } from '../apiConfig';
 import * as environment from '../environment';
 
 describe('apiConfig utilities', () => {
-  const originalEnv = import.meta.env;
   const originalWindow = global.window;
 
   beforeEach(() => {
@@ -36,6 +34,27 @@ describe('apiConfig utilities', () => {
       vi.spyOn(environment, 'detectPlatform').mockReturnValue('browser');
 
       expect(getApiBaseUrl()).toBe('http://custom-api.example.com:9000');
+    });
+
+    it('falls back to default when VITE_API_URL is invalid', () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+
+      vi.stubEnv('VITE_API_URL', 'not-a-valid-url');
+      vi.stubEnv('MODE', 'development');
+
+      vi.spyOn(environment, 'detectEnvironment').mockReturnValue('development');
+      vi.spyOn(environment, 'detectPlatform').mockReturnValue('browser');
+
+      const result = getApiBaseUrl();
+
+      expect(result).toBe('http://localhost:8000'); // Falls back to default
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid VITE_API_URL format')
+      );
+
+      consoleWarnSpy.mockRestore();
     });
 
     it('returns production URL in production environment', () => {
@@ -105,7 +124,7 @@ describe('apiConfig utilities', () => {
           origin: 'http://192.168.1.100:5173',
           hostname: '192.168.1.100',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       vi.spyOn(environment, 'detectEnvironment').mockReturnValue('development');
       vi.spyOn(environment, 'detectPlatform').mockReturnValue('ios');
@@ -127,7 +146,7 @@ describe('apiConfig utilities', () => {
           origin: 'http://localhost:5173',
           hostname: 'localhost',
         },
-      } as any;
+      } as unknown as Window & typeof globalThis;
 
       vi.spyOn(environment, 'detectEnvironment').mockReturnValue('development');
       vi.spyOn(environment, 'detectPlatform').mockReturnValue('ios');
@@ -311,9 +330,15 @@ describe('apiConfig utilities', () => {
 
   describe('logConnectionInfo', () => {
     it('logs connection information without throwing', () => {
-      const consoleSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
-      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'group')
+        .mockImplementation(() => {});
+      const consoleLogSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => {});
+      const consoleGroupEndSpy = vi
+        .spyOn(console, 'groupEnd')
+        .mockImplementation(() => {});
 
       logConnectionInfo();
 

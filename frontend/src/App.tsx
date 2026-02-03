@@ -1,9 +1,14 @@
-import { LayoutTestPage } from './pages/LayoutTestPage';
+import { RouterProvider } from 'react-router-dom';
+import { router } from './routes';
 
+/**
+ * Main App component
+ *
+ * Sets up React Router with the application's route configuration.
+ * All routing is handled through the router defined in `src/routes/index.tsx`.
+ */
 function App() {
-  // For now, show the layout test page
-  // Replace this with your main app routing later
-  return <LayoutTestPage />;
+  return <RouterProvider router={router} />;
 }
 
 export default App;

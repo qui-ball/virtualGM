@@ -1,9 +1,9 @@
 /**
  * Layout Test Page
- * 
+ *
  * This page tests the layout components (Header, Navigation, ContentArea)
  * at different breakpoints to verify mobile-first responsive design.
- * 
+ *
  * Use browser DevTools to test different viewport sizes:
  * - Mobile: < 640px (sm breakpoint)
  * - Tablet: 640px - 767px (sm to md)
@@ -22,14 +22,13 @@ const navItems = [
 ];
 
 export function LayoutTestPage() {
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header with Navigation */}
       <Header appName="Virtual GM">
-        <Navigation 
+        <Navigation
           items={navItems}
-          onItemClick={(item) => console.log('Clicked:', item)}
+          onItemClick={item => console.log('Clicked:', item)}
         />
       </Header>
 
@@ -46,7 +45,8 @@ export function LayoutTestPage() {
               <ViewportBadge name="Desktop (lg+)" min="1024px" max="∞" />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Resize your browser window or use DevTools device toolbar to test different breakpoints.
+              Resize your browser window or use DevTools device toolbar to test
+              different breakpoints.
             </p>
           </section>
 
@@ -55,7 +55,8 @@ export function LayoutTestPage() {
             <h2 className="text-xl font-semibold">Touch Target Size Test</h2>
             <div className="bg-card border rounded-lg p-4 sm:p-6">
               <p className="mb-4 text-sm text-muted-foreground">
-                All interactive elements should be at least 44x44px for mobile accessibility.
+                All interactive elements should be at least 44x44px for mobile
+                accessibility.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 <TouchTargetTest label="Button" size="small" />
@@ -69,23 +70,25 @@ export function LayoutTestPage() {
           {/* Layout Component Tests */}
           <section className="space-y-6">
             <h2 className="text-xl font-semibold">Layout Component Tests</h2>
-            
+
             {/* Header Test */}
             <div className="bg-card border rounded-lg p-4 sm:p-6">
               <h3 className="font-semibold mb-4">Header Component</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <strong>Mobile:</strong> Compact height (h-14), smaller padding
+                    <strong>Mobile:</strong> Compact height (h-14), smaller
+                    padding
                   </div>
                   <div>
                     <strong>Desktop:</strong> Taller (h-16), more padding
                   </div>
                 </div>
                 <div className="text-muted-foreground">
-                  ✓ Sticky positioning works<br />
-                  ✓ Responsive padding (px-4 → sm:px-6 → lg:px-8)<br />
-                  ✓ Responsive height (h-14 → sm:h-16)
+                  ✓ Sticky positioning works
+                  <br />
+                  ✓ Responsive padding (px-4 → sm:px-6 → lg:px-8)
+                  <br />✓ Responsive height (h-14 → sm:h-16)
                 </div>
               </div>
             </div>
@@ -96,18 +99,22 @@ export function LayoutTestPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <strong>Mobile (&lt; 768px):</strong> Hamburger menu → drawer
+                    <strong>Mobile (&lt; 768px):</strong> Hamburger menu →
+                    drawer
                   </div>
                   <div>
                     <strong>Desktop (≥ 768px):</strong> Horizontal navigation
                   </div>
                 </div>
                 <div className="text-muted-foreground">
-                  ✓ Drawer menu on mobile<br />
-                  ✓ Horizontal nav on desktop<br />
-                  ✓ Touch targets ≥ 44x44px<br />
-                  ✓ Keyboard navigation (Escape key)<br />
-                  ✓ Click-outside to close
+                  ✓ Drawer menu on mobile
+                  <br />
+                  ✓ Horizontal nav on desktop
+                  <br />
+                  ✓ Touch targets ≥ 44x44px
+                  <br />
+                  ✓ Keyboard navigation (Escape key)
+                  <br />✓ Click-outside to close
                 </div>
               </div>
             </div>
@@ -121,13 +128,15 @@ export function LayoutTestPage() {
                     <strong>Mobile:</strong> Full width, small padding (p-4)
                   </div>
                   <div>
-                    <strong>Desktop:</strong> Max-width container, large padding (lg:p-12)
+                    <strong>Desktop:</strong> Max-width container, large padding
+                    (lg:p-12)
                   </div>
                 </div>
                 <div className="text-muted-foreground">
-                  ✓ Responsive padding (p-4 → sm:p-6 → md:p-8 → lg:p-12)<br />
-                  ✓ Max-width container (max-w-7xl)<br />
-                  ✓ Centered on desktop (mx-auto)
+                  ✓ Responsive padding (p-4 → sm:p-6 → md:p-8 → lg:p-12)
+                  <br />
+                  ✓ Max-width container (max-w-7xl)
+                  <br />✓ Centered on desktop (mx-auto)
                 </div>
               </div>
             </div>
@@ -137,13 +146,15 @@ export function LayoutTestPage() {
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">Responsive Grid Test</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
                 <div
                   key={num}
                   className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center min-h-[100px] flex items-center justify-center"
                 >
                   <div>
-                    <div className="text-2xl font-bold text-primary">Item {num}</div>
+                    <div className="text-2xl font-bold text-primary">
+                      Item {num}
+                    </div>
                     <div className="text-xs text-muted-foreground mt-2">
                       Responsive grid
                     </div>
@@ -152,7 +163,8 @@ export function LayoutTestPage() {
               ))}
             </div>
             <p className="text-sm text-muted-foreground">
-              Grid: 1 column (mobile) → 2 columns (tablet) → 3 columns (desktop) → 4 columns (xl)
+              Grid: 1 column (mobile) → 2 columns (tablet) → 3 columns (desktop)
+              → 4 columns (xl)
             </p>
           </section>
 
@@ -193,13 +205,13 @@ export function LayoutTestPage() {
   );
 }
 
-function ViewportBadge({ 
-  name, 
-  min, 
-  max
-}: { 
-  name: string; 
-  min: string; 
+function ViewportBadge({
+  name,
+  min,
+  max,
+}: {
+  name: string;
+  min: string;
   max: string;
 }) {
   return (
@@ -212,11 +224,11 @@ function ViewportBadge({
   );
 }
 
-function TouchTargetTest({ 
-  label, 
-  size 
-}: { 
-  label: string; 
+function TouchTargetTest({
+  label,
+  size,
+}: {
+  label: string;
   size: 'small' | 'medium' | 'large' | 'icon';
 }) {
   const sizeClasses = {
@@ -241,4 +253,3 @@ function TouchTargetTest({
     </button>
   );
 }
-

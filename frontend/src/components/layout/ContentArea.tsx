@@ -33,13 +33,13 @@ export interface ContentAreaProps {
 
 /**
  * ContentArea component for main application content
- * 
+ *
  * Features:
  * - Responsive padding and spacing
  * - Proper scroll handling
  * - Flexible max-width options
  * - Mobile-optimized
- * 
+ *
  * @example
  * ```tsx
  * <ContentArea maxWidth="container" padding="md">
@@ -68,8 +68,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
   };
 
   return (
-    <main
-      id="main-content"
+    <div
+      data-testid="content-area"
       className={cn(
         'w-full',
         maxWidthClasses[maxWidth],
@@ -77,9 +77,8 @@ export const ContentArea: React.FC<ContentAreaProps> = ({
         scrollable && 'overflow-y-auto',
         className
       )}
-      role="main"
     >
       {children}
-    </main>
+    </div>
   );
 };

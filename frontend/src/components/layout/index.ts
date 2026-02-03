@@ -6,3 +6,5 @@ export type { NavigationProps, NavItem } from './Navigation';
 
 export { ContentArea } from './ContentArea';
 export type { ContentAreaProps } from './ContentArea';
+
+export { AppLayout } from './AppLayout';

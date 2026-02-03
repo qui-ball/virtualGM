@@ -24,10 +24,25 @@ export interface ApiConfig {
 }
 
 /**
+ * Validates if a string is a valid URL format
+ *
+ * @param url The URL string to validate
+ * @returns True if the URL is valid, false otherwise
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Gets the appropriate API base URL based on the current environment and platform
  *
  * Priority:
- * 1. VITE_API_URL environment variable (if set)
+ * 1. VITE_API_URL environment variable (if set and valid)
  * 2. Platform-specific defaults:
  *    - Browser: http://localhost:8000 (development) or production URL
  *    - iOS Simulator: http://localhost:8000 (can access host localhost)
@@ -40,10 +55,24 @@ export function getApiBaseUrl(): string {
   const environment = detectEnvironment();
   const platform = detectPlatform();
 
-  // If VITE_API_URL is explicitly set, use it (highest priority)
+  // If VITE_API_URL is explicitly set, validate and use it (highest priority)
   const explicitApiUrl = import.meta.env.VITE_API_URL;
   if (explicitApiUrl) {
-    return explicitApiUrl;
+    if (isValidUrl(explicitApiUrl)) {
+      return explicitApiUrl;
+    } else {
+      // Invalid URL provided - warn in development
+      if (
+        environment === 'development' &&
+        typeof console !== 'undefined' &&
+        console.warn
+      ) {
+        console.warn(
+          `⚠️ Invalid VITE_API_URL format: "${explicitApiUrl}". Falling back to platform-specific default.`
+        );
+      }
+      // Fall through to platform-specific defaults
+    }
   }
 
   // Production: use production API URL
@@ -78,7 +107,10 @@ export function getApiBaseUrl(): string {
       if (typeof window !== 'undefined' && window.location) {
         const currentUrl = window.location.origin;
         // If we're accessing via IP (not localhost), use that IP for API
-        if (!currentUrl.includes('localhost') && !currentUrl.includes('127.0.0.1')) {
+        if (
+          !currentUrl.includes('localhost') &&
+          !currentUrl.includes('127.0.0.1')
+        ) {
           try {
             const url = new URL(currentUrl);
             return `http://${url.hostname}:8000`;
@@ -91,9 +123,11 @@ export function getApiBaseUrl(): string {
       // Default fallback for physical devices (should be overridden via env var)
       // In development, this will likely fail - warn developers
       if (typeof console !== 'undefined' && console.warn) {
+        const detectedUrl = window.location?.origin || 'unknown';
         console.warn(
-          '⚠️ Physical device detected but API URL is localhost. ' +
-          'Set VITE_API_URL to your machine\'s IP address (e.g., http://192.168.1.100:8000)'
+          `⚠️ Physical device detected but API URL is localhost. ` +
+            `Current origin: ${detectedUrl}. ` +
+            `Set VITE_API_URL to your machine's IP address (e.g., http://192.168.1.100:8000)`
         );
       }
       return 'http://localhost:8000';
@@ -197,7 +231,9 @@ export function logConnectionInfo(): void {
  * @param healthEndpoint Optional health check endpoint (default: '/health')
  * @returns Promise resolving to true if connection successful, false otherwise
  */
-export async function testApiConnection(healthEndpoint: string = '/health'): Promise<boolean> {
+export async function testApiConnection(
+  healthEndpoint: string = '/health'
+): Promise<boolean> {
   try {
     const url = buildApiUrl(healthEndpoint);
     const response = await fetch(url, {
