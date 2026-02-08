@@ -240,7 +240,7 @@ When your turn is complete, return EndGameMasterTurn.
 @agent.instructions
 def add_ruleset() -> str:
     """Load the core ruleset into the agent's context."""
-    ruleset_path = Path(__file__).parent.parent / "rulesets" / "core-ruleset.md"
+    ruleset_path = Path(__file__).parent / "prompts" / "rulesets" / "core-ruleset.md"
     content = ruleset_path.read_text(encoding="utf-8").strip()
     return f"<ruleset>\n{content}\n</ruleset>"
 
@@ -259,6 +259,8 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
         )
         if pc.mana is not None:
             state_info.append(f"  Mana: {pc.mana}/{pc.mana_max}")
+        if pc.spells_known:
+            state_info.append(f"  Spells: {', '.join(pc.spells_known)}")
         if pc.conditions:
             state_info.append(f"  Conditions: {', '.join(pc.conditions)}")
 
@@ -635,24 +637,25 @@ def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
 # =============================================================================
 
 
-def create_test_character() -> CharacterState:
-    """Create a test character for development."""
+def create_marlowe_fairwind() -> CharacterState:
+    """Create Marlowe Fairwind, the pre-generated mage for the Sablewood one-shot."""
     return CharacterState(
-        name="Aldric",
-        character_class="warrior",
+        name="Marlowe Fairwind",
+        character_class="mage",
         level=1,
         xp=0,
-        stats=Stats(might=2, finesse=1, wit=0, presence=-1),
-        hp=12,  # 10 + 2 (Might)
-        hp_max=12,
-        evasion=11,  # 10 + 1 (Finesse)
-        mana=None,
-        mana_max=None,
-        class_abilities=["WAR-S1"],  # Weapon Focus
+        stats=Stats(might=-1, finesse=0, wit=2, presence=1),
+        hp=9,  # 10 + (-1) Might
+        hp_max=9,
+        evasion=11,  # 10 + 0 (Finesse) + 1 (Light Robes)
+        mana=7,  # 4 + 1 (level) + 2 (Wit)
+        mana_max=7,
+        class_abilities=["arcane_focus"],  # +1 to spell attack rolls
+        spells_known=["Arcane Bolt", "Shield", "Light", "Detect Magic"],
         gold=10,
-        inventory=["Longsword", "Shield", "Leather Armor"],
-        equipped_weapon="Longsword",
-        equipped_armor="Leather Armor",
+        inventory=["Staff", "Light Robes"],
+        equipped_weapon="Staff",
+        equipped_armor="Light Robes",
     )
 
 
@@ -664,9 +667,9 @@ async def run_chat():
     logger.info("=" * 50)
     logger.info("")
 
-    # Initialize game state with test character
+    # Initialize game state with pre-generated character
     game_state = GameState()
-    game_state.pc = create_test_character()
+    game_state.pc = create_marlowe_fairwind()
 
     logger.info(
         f"Character loaded: {game_state.pc.name} (Level {game_state.pc.level} {game_state.pc.character_class})"
