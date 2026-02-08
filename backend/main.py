@@ -202,6 +202,7 @@ agent = Agent(
     instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
 ## Core Responsibilities
+- Run the campaign provided in <campaign> tags, following its narrative structure
 - Narrate vivid, immersive scenes
 - Voice NPCs with distinct personalities
 - Adjudicate rules fairly using the provided ruleset
@@ -251,6 +252,16 @@ def add_ruleset() -> str:
     ruleset_path = Path(__file__).parent / "prompts" / "rulesets" / "core-ruleset.md"
     content = ruleset_path.read_text(encoding="utf-8").strip()
     return f"<ruleset>\n{content}\n</ruleset>"
+
+
+@agent.instructions
+def add_campaign() -> str:
+    """Load the one-shot campaign into the agent's context."""
+    campaign_path = (
+        Path(__file__).parent / "prompts" / "simplified_one_shot_campaign.md"
+    )
+    content = campaign_path.read_text(encoding="utf-8").strip()
+    return f"<campaign>\n{content}\n</campaign>"
 
 
 @agent.instructions
