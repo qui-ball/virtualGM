@@ -5,14 +5,21 @@ import os
 import random
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Union
 
 import click
 import dotenv
 import logfire
 from loguru import logger
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import (
+    Agent,
+    CallDeferred,
+    DeferredToolRequests,
+    DeferredToolResults,
+    ModelRetry,
+    RunContext,
+)
 
 dotenv.load_dotenv()
 
@@ -191,7 +198,7 @@ class EndGameMasterTurn(BaseModel):
 agent = Agent(
     "openrouter:deepseek/deepseek-v3.2",
     deps_type=GameState,
-    output_type=EndGameMasterTurn,
+    output_type=Union[EndGameMasterTurn, DeferredToolRequests],
     instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
 ## Core Responsibilities
@@ -218,6 +225,7 @@ Communicate through tool calls. The player only sees output from narrate().
 Tools:
 - narrate(text): All player-facing communication
 - roll_dice(count, dice_type): Roll dice for GM/enemy actions
+- ask_player_roll(count, dice_type, purpose): Request the player to roll dice for their actions (attacks, damage, checks). The player will provide the result.
 - create_enemy(enemy_id, state): Create an enemy with stats
 - remove_enemy(enemy_id): Remove a defeated enemy
 - update_character_state(target, field, value): Update PC or enemy state
@@ -352,6 +360,33 @@ def roll_dice(
 
     logger.info(result_str)
     return result_str
+
+
+@agent.tool
+def ask_player_roll(
+    ctx: RunContext[GameState],
+    dice_count: int,
+    dice_type: DiceType,
+    purpose: str,
+) -> str:
+    """Request the player to roll dice for their actions. This defers execution until the player provides their roll result.
+
+    Use this for player attacks, damage rolls, skill checks, etc. The player will see the purpose
+    and provide their roll result.
+
+    Args:
+        dice_count: Number of dice to roll
+        dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
+        purpose: Brief description of what the roll is for (e.g., "attack roll", "damage", "Wit check")
+    """
+    raise CallDeferred(
+        metadata={
+            "tool": "ask_player_roll",
+            "dice_count": dice_count,
+            "dice_type": dice_type,
+            "purpose": purpose,
+        }
+    )
 
 
 @agent.tool
@@ -633,6 +668,73 @@ def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
 
 
 # =============================================================================
+# Deferred Tool Handlers
+# =============================================================================
+
+
+def handle_ask_player_roll(args: dict, game_state: GameState) -> str:
+    """Handle the ask_player_roll deferred tool - prompt player to roll, auto-roll, or respond with text."""
+    dice_count = args["dice_count"]
+    dice_type = args["dice_type"]
+    purpose = args["purpose"]
+
+    sides = DICE_SIDES[dice_type]
+
+    while True:
+        roll_input = input(
+            f"🎲 Roll {dice_count}{dice_type} for {purpose} (or press Enter to auto-roll): "
+        ).strip()
+
+        if not roll_input:
+            # Auto-roll if user pressed Enter
+            rolls = [random.randint(1, sides) for _ in range(dice_count)]
+            break
+
+        # Try to parse as dice roll
+        if dice_count == 1:
+            # Single die - check if input is a valid number
+            if roll_input.isdigit():
+                roll_value = int(roll_input)
+                if 1 <= roll_value <= sides:
+                    rolls = [roll_value]
+                    break
+                else:
+                    logger.error(f"Value must be between 1 and {sides}.")
+                    continue
+        else:
+            # Multiple dice - try to parse as numbers
+            parts = [
+                p.strip()
+                for p in roll_input.replace(",", " ").split()
+                if p.strip().isdigit()
+            ]
+            if len(parts) == dice_count:
+                rolls = [int(x) for x in parts]
+                if all(1 <= r <= sides for r in rolls):
+                    break
+                else:
+                    logger.error(f"All values must be between 1 and {sides}.")
+                    continue
+
+        # Input is not a valid dice roll - treat as player response/question
+        logger.info(f"💬 Player response: {roll_input}")
+        return f"Player response (did not roll): {roll_input}"
+
+    # Format result string for successful roll
+    total = sum(rolls)
+    if dice_count == 1:
+        result_str = f"🎲 [{dice_count}{dice_type}] → {total}"
+        # Check for natural 20 on d20 rolls
+        if dice_type == "d20" and total == 20:
+            result_str += " (NATURAL 20 - CRITICAL HIT!)"
+    else:
+        result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+
+    logger.info(result_str)
+    return result_str
+
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -690,17 +792,47 @@ async def run_chat():
 
         logger.info("\n🤖 Game Master:")
         try:
-            result = await agent.run(
-                user_input,
-                deps=game_state,
-                message_history=message_history,
-            )
+            current_input = user_input
+            deferred_results = None
 
-            message_history = result.all_messages()
+            while True:
+                result = await agent.run(
+                    current_input,
+                    deps=game_state,
+                    message_history=message_history,
+                    deferred_tool_results=deferred_results,
+                )
 
-            if isinstance(result.output, EndGameMasterTurn):
-                if result.output.internal_notes:
-                    logger.debug(f"GM notes: {result.output.internal_notes}")
+                # Check if we have deferred tool requests (player interaction needed)
+                if isinstance(result.output, DeferredToolRequests):
+                    # Update message history with the deferred tool call
+                    message_history = result.all_messages()
+                    deferred_results = DeferredToolResults()
+
+                    for call in result.output.calls:
+                        args = call.args_as_dict()
+
+                        if call.tool_name == "ask_player_roll":
+                            # Handle player dice roll
+                            result_str = handle_ask_player_roll(args, game_state)
+                        else:
+                            logger.error(f"Unknown deferred tool: {call.tool_name}")
+                            result_str = f"Error: Unknown deferred tool {call.tool_name}"
+
+                        deferred_results.calls[call.tool_call_id] = result_str
+
+                    # Continue the run with the player's results (no new user input needed)
+                    current_input = ""
+                    continue
+                else:
+                    # Normal completion
+                    if isinstance(result.output, EndGameMasterTurn):
+                        if result.output.internal_notes:
+                            logger.debug(f"GM notes: {result.output.internal_notes}")
+
+                    # Update message history with all messages from this interaction
+                    message_history = result.all_messages()
+                    break
 
         except Exception as e:
             logger.error(f"Error: {e}")
