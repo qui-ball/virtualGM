@@ -68,12 +68,32 @@ export function ResponsiveTestPage() {
             Touch targets
           </h2>
           <p className="text-sm text-muted-foreground">
-            Interactive elements should have a minimum touch target of 44×44px. shadcn Button default size meets this.
+            Minimum touch target: <strong className="text-foreground">44×44px</strong> (--touch-target-min). Layout nav and header menu use 44px. shadcn Button default is h-9 (36px); use <code className="rounded bg-muted px-1">{'size="lg"'}</code> (40px) for primary actions on mobile when needed.
           </p>
           <div className="flex flex-wrap gap-4">
             <Button size="default">Default (h-9)</Button>
             <Button size="lg">Large (h-10)</Button>
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">
+            Viewport testing checklist
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Manually verify at each range (resize or use dev tools device toolbar):
+          </p>
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Mobile (&lt; 768px):</strong> Single-column layout, no horizontal scroll, header shows menu icon, nav in drawer, touch targets ≥ 44px for nav.
+            </li>
+            <li>
+              <strong className="text-foreground">Tablet (768px–1024px):</strong> 2-column grid where used, horizontal nav in header, content padding md.
+            </li>
+            <li>
+              <strong className="text-foreground">Desktop (&gt; 1024px):</strong> 3-column grid where used, full horizontal nav, content padding lg.
+            </li>
+          </ul>
         </section>
       </div>
     </div>

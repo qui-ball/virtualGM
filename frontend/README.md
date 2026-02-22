@@ -26,7 +26,11 @@ npm run type-check  # TypeScript check
 
 ## Responsive design
 
-Breakpoints (mobile-first): **mobile** &lt; 768px, **tablet** 768px+, **desktop** 1024px+. Use Tailwind prefixes `md:` and `lg:`; optional `useBreakpoint()` from `@/hooks` for JS. Run `npm run dev`, open the app, and click **Responsive test page** to verify breakpoints and layout.
+**Breakpoints (mobile-first):** **mobile** &lt; 768px, **tablet** 768px+, **desktop** 1024px+. Use Tailwind prefixes `md:` and `lg:`; optional `useBreakpoint()` from `@/hooks` for JS.
+
+**Touch targets:** Minimum 44×44px for interactive elements (CSS var `--touch-target-min`). Layout (Header, Navigation) uses 44px; shadcn Button default is 36px — use `size="lg"` for primary actions on mobile when needed.
+
+**Testing:** Run `npm run dev`, open the app, click **Responsive test page**, and use the viewport checklist there. Resize or use dev tools device toolbar to verify mobile, tablet, and desktop.
 
 ## React + TypeScript + Vite (template)
 
