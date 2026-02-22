@@ -35,7 +35,7 @@ export function Navigation({
       )}
       aria-label="Main navigation"
     >
-      {links.map((link) => {
+      {links.map(link => {
         const shared =
           'rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] min-w-[44px] inline-flex items-center justify-center touch-manipulation';
         if (link.href !== undefined) {

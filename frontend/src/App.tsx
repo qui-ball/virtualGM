@@ -5,6 +5,7 @@ import { Header, ContentArea } from '@/components/layout';
 import type { NavLink } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { ResponsiveTestPage } from '@/pages/ResponsiveTestPage';
+import { apiBaseUrl, isDev } from '@/config';
 import './styles/App.css';
 
 type View = 'home' | 'responsive-test';
@@ -27,7 +28,7 @@ function App() {
         ) : (
           <HomeContent
             count={count}
-            onCountClick={() => setCount((c) => c + 1)}
+            onCountClick={() => setCount(c => c + 1)}
           />
         )}
       </ContentArea>
@@ -52,13 +53,9 @@ function HomeContent({
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1 className="text-3xl font-bold text-foreground">
-        Vite + React
-      </h1>
+      <h1 className="text-3xl font-bold text-foreground">Vite + React</h1>
       <div className="card flex flex-col items-center gap-3">
-        <Button onClick={onCountClick}>
-          count is {count}
-        </Button>
+        <Button onClick={onCountClick}>count is {count}</Button>
         <p className="text-muted-foreground">
           Edit <code>src/App.tsx</code> and save to test HMR
         </p>
@@ -66,6 +63,11 @@ function HomeContent({
       <p className="read-the-docs">
         Click on the Vite and React logos to learn more
       </p>
+      {isDev && (
+        <p className="text-xs text-muted-foreground" data-testid="api-url">
+          API: {apiBaseUrl}
+        </p>
+      )}
     </div>
   );
 }

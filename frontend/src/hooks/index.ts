@@ -1,1 +1,6 @@
-export { useBreakpoint, useIsTabletOrUp, useIsDesktop, type Breakpoint } from './useBreakpoint';
+export {
+  useBreakpoint,
+  useIsTabletOrUp,
+  useIsDesktop,
+  type Breakpoint,
+} from './useBreakpoint';

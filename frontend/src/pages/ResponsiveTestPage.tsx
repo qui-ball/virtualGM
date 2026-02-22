@@ -16,7 +16,8 @@ export function ResponsiveTestPage() {
             Responsive design test
           </h1>
           <p className="text-muted-foreground">
-            Resize the window or use browser dev tools (device toolbar) to test breakpoints.
+            Resize the window or use browser dev tools (device toolbar) to test
+            breakpoints.
           </p>
           <div
             className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm"
@@ -33,13 +34,16 @@ export function ResponsiveTestPage() {
           </h2>
           <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
             <li>
-              <strong className="text-foreground">Mobile:</strong> &lt; 768px (default, no prefix)
+              <strong className="text-foreground">Mobile:</strong> &lt; 768px
+              (default, no prefix)
             </li>
             <li>
-              <strong className="text-foreground">Tablet:</strong> 768px+ (use <code className="rounded bg-muted px-1">md:</code>)
+              <strong className="text-foreground">Tablet:</strong> 768px+ (use{' '}
+              <code className="rounded bg-muted px-1">md:</code>)
             </li>
             <li>
-              <strong className="text-foreground">Desktop:</strong> 1024px+ (use <code className="rounded bg-muted px-1">lg:</code>)
+              <strong className="text-foreground">Desktop:</strong> 1024px+ (use{' '}
+              <code className="rounded bg-muted px-1">lg:</code>)
             </li>
           </ul>
         </section>
@@ -68,7 +72,12 @@ export function ResponsiveTestPage() {
             Touch targets
           </h2>
           <p className="text-sm text-muted-foreground">
-            Minimum touch target: <strong className="text-foreground">44×44px</strong> (--touch-target-min). Layout nav and header menu use 44px. shadcn Button default is h-9 (36px); use <code className="rounded bg-muted px-1">{'size="lg"'}</code> (40px) for primary actions on mobile when needed.
+            Minimum touch target:{' '}
+            <strong className="text-foreground">44×44px</strong>{' '}
+            (--touch-target-min). Layout nav and header menu use 44px. shadcn
+            Button default is h-9 (36px); use{' '}
+            <code className="rounded bg-muted px-1">{'size="lg"'}</code> (40px)
+            for primary actions on mobile when needed.
           </p>
           <div className="flex flex-wrap gap-4">
             <Button size="default">Default (h-9)</Button>
@@ -81,17 +90,27 @@ export function ResponsiveTestPage() {
             Viewport testing checklist
           </h2>
           <p className="text-sm text-muted-foreground">
-            Manually verify at each range (resize or use dev tools device toolbar):
+            Manually verify at each range (resize or use dev tools device
+            toolbar):
           </p>
           <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
             <li>
-              <strong className="text-foreground">Mobile (&lt; 768px):</strong> Single-column layout, no horizontal scroll, header shows menu icon, nav in drawer, touch targets ≥ 44px for nav.
+              <strong className="text-foreground">Mobile (&lt; 768px):</strong>{' '}
+              Single-column layout, no horizontal scroll, header shows menu
+              icon, nav in drawer, touch targets ≥ 44px for nav.
             </li>
             <li>
-              <strong className="text-foreground">Tablet (768px–1024px):</strong> 2-column grid where used, horizontal nav in header, content padding md.
+              <strong className="text-foreground">
+                Tablet (768px–1024px):
+              </strong>{' '}
+              2-column grid where used, horizontal nav in header, content
+              padding md.
             </li>
             <li>
-              <strong className="text-foreground">Desktop (&gt; 1024px):</strong> 3-column grid where used, full horizontal nav, content padding lg.
+              <strong className="text-foreground">
+                Desktop (&gt; 1024px):
+              </strong>{' '}
+              3-column grid where used, full horizontal nav, content padding lg.
             </li>
           </ul>
         </section>

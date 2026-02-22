@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -90,7 +90,7 @@ h1 {
 }
 
 /* Legacy base styles for raw <button> only (shadcn Button uses data-slot="button") */
-button:not([data-slot="button"]) {
+button:not([data-slot='button']) {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
@@ -101,11 +101,11 @@ button:not([data-slot="button"]) {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:not([data-slot="button"]):hover {
+button:not([data-slot='button']):hover {
   border-color: #646cff;
 }
-button:not([data-slot="button"]):focus,
-button:not([data-slot="button"]):focus-visible {
+button:not([data-slot='button']):focus,
+button:not([data-slot='button']):focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
@@ -117,7 +117,7 @@ button:not([data-slot="button"]):focus-visible {
   a:hover {
     color: #747bff;
   }
-  button:not([data-slot="button"]) {
+  button:not([data-slot='button']) {
     background-color: #f9f9f9;
   }
 }
