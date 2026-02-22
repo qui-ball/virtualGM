@@ -24,6 +24,10 @@ npm run build    # Production build
 npm run type-check  # TypeScript check
 ```
 
+## Responsive design
+
+Breakpoints (mobile-first): **mobile** &lt; 768px, **tablet** 768px+, **desktop** 1024px+. Use Tailwind prefixes `md:` and `lg:`; optional `useBreakpoint()` from `@/hooks` for JS. Run `npm run dev`, open the app, and click **Responsive test page** to verify breakpoints and layout.
+
 ## React + TypeScript + Vite (template)
 
 This project uses a minimal React + Vite setup with HMR and ESLint.

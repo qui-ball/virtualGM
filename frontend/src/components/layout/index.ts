@@ -1,15 +1,11 @@
 /**
  * Layout Components
  *
- * Export layout components from this file for easier imports.
- * Example: export { Header } from './Header';
- *
- * Layout components include:
- * - Header: App header/navigation bar
- * - Navigation: Navigation menu/drawer
- * - Footer: App footer
- * - ContentArea: Main content container
+ * Header: App branding + responsive nav (Sheet on mobile).
+ * Navigation: Link list (horizontal for header, vertical for drawer).
+ * ContentArea: Main content container with padding and scroll.
  */
 
-// Placeholder - add layout component exports here as they are created
-// Example: export { Header } from './Header';
+export { Header } from './Header';
+export { Navigation, type NavLink } from './Navigation';
+export { ContentArea } from './ContentArea';

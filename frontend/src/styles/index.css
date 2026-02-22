@@ -4,6 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Responsive breakpoints (mobile-first).
+ * Use Tailwind: default = mobile, md: = 768px+, lg: = 1024px+.
+ * --bp-* for JS/media or reference only.
+ */
+:root {
+  --bp-mobile-max: 767px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+}
+
 /* App base styles (complement Tailwind preflight) */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
