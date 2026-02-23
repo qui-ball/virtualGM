@@ -65,11 +65,14 @@ Reusable UI components used throughout the application:
 - `ErrorMessage.tsx` - Error message display
 
 #### Page Components (`src/pages/`)
-Full page/screen components that represent complete views:
+Full page/screen components that represent complete views. Each is used as a route element in `App.tsx`:
 - `HomePage.tsx` - Home page
-- `CharacterCreationPage.tsx` - Character creation page
-- `CampaignPage.tsx` - Campaign gameplay page
-- `CharacterSheetPage.tsx` - Character sheet view
+- `ResponsiveTestPage.tsx` - Responsive design test page
+- `NotFoundPage.tsx` - 404 placeholder
+
+### Routing
+
+The app uses **React Router** (`react-router-dom`). The router is set up in `main.tsx` (`BrowserRouter`) and routes are defined in `App.tsx` with `Routes` and `Route`. Current routes: `/` (Home), `/responsive-test` (Responsive test), and `*` (NotFound). The layout `Navigation` component uses `NavLink` for internal routes (with active styling) and supports external `href` and `onClick` buttons.
 
 ### Import Patterns
 
