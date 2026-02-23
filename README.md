@@ -17,6 +17,8 @@ Environment files are used for local and Docker configuration. **Do not commit s
 | `.env` | Local overrides and secrets (git-ignored). Create from `.env.example`. |
 | `.env.docker` | Loaded by Docker Compose for the backend service. Committed with safe defaults; add Docker-specific overrides or secrets here (or keep defaults). |
 
+Frontend has its own `.env*` in `frontend/` (Vite only reads from there). See **[docs/ENV_ANALYSIS.md](docs/ENV_ANALYSIS.md)** for a breakdown of what lives in each folder.
+
 ### Variable reference
 
 - **ENV** — Runtime: `development` or `production`. Default: `development`.
