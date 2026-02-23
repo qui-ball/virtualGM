@@ -6,3 +6,7 @@
 __pycache__/
 .claude
 local/
+
+# Launch script runtime (frontend PID and log)
+.launch-frontend.pid
+.launch-frontend.log

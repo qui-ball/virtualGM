@@ -69,3 +69,19 @@ To run the app in the browser on your phone or tablet while the dev server runs 
    - In `frontend/.env`: `VITE_API_URL=http://<host-ip>:8000`
    - Restart the Vite dev server after changing `.env`.
 5. Ensure your firewall allows incoming connections on 5173 and 8000 from the LAN.
+
+### Windows + WSL2
+
+When developing in WSL2, the IP shown as “WSL” (e.g. 172.18.x.x) is **not** reachable from your phone. Use the **Windows host IP** instead (the script shows it under “On your local network — use Windows host IP” when it detects WSL2; it comes from `/etc/resolv.conf`).
+
+For the page to load on your phone:
+
+1. **Port forwarding (PowerShell as Administrator):**  
+   Get the WSL IP: `wsl hostname -I` (use the first number). Then:
+   ```powershell
+   netsh interface portproxy add v4tov4 listenport=5173 listenaddress=0.0.0.0 connectport=5173 connectaddress=WSL_IP
+   netsh interface portproxy add v4tov4 listenport=8000 listenaddress=0.0.0.0 connectport=8000 connectaddress=WSL_IP
+   ```
+2. **Windows Firewall:** Allow inbound TCP on ports 5173 and 8000 (e.g. Windows Defender Firewall → Advanced → Inbound Rules → New Rule → Port → TCP 5173, 8000).
+
+Then on your phone open `http://<Windows-LAN-IP>:5173` (and set `VITE_API_URL=http://<Windows-LAN-IP>:8000` in `frontend/.env` if the app calls the API).
