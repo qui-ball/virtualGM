@@ -1,0 +1,19 @@
+# Git and IDE
+.git
+.gitignore
+.cursor
+.claude
+
+# Frontend (run locally for HMR; not built in root context)
+frontend/node_modules
+frontend/dist
+
+# Local env (loaded via env_file in compose)
+.env
+.env.*
+!.env.example
+
+# Docs and planning (not needed in images)
+local/
+*.md
+!README.md

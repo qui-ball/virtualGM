@@ -1,6 +1,40 @@
-# React + TypeScript + Vite
+# Virtual GM – Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite frontend for the Virtual GM RPG application (mobile-first responsive web app).
+
+**UI stack:** [Tailwind CSS](https://tailwindcss.com/) v4 (via `@tailwindcss/vite`) + [shadcn/ui](https://ui.shadcn.com/) (new-york style). Components live in `src/components/ui/`; add more with `npx shadcn@latest add <component>`.
+
+## Project structure
+
+Folder layout and conventions are documented in **[PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)**. Summary:
+
+- `src/components/` – Reusable UI (layout: Header, Nav, etc.; common: Button, Card, etc.)
+- `src/pages/` – Page-level views
+- `src/styles/` – Global styles and theme
+- `src/utils/` – Utility functions
+- `src/types/` – TypeScript type definitions
+- `src/App.tsx` / `src/main.tsx` – App root and entry point
+
+## Quick start
+
+```bash
+npm install
+npm run dev      # Development server (http://localhost:5173)
+npm run build    # Production build
+npm run type-check  # TypeScript check
+```
+
+## Responsive design
+
+**Breakpoints (mobile-first):** **mobile** &lt; 768px, **tablet** 768px+, **desktop** 1024px+. Use Tailwind prefixes `md:` and `lg:`; optional `useBreakpoint()` from `@/hooks` for JS.
+
+**Touch targets:** Minimum 44×44px for interactive elements (CSS var `--touch-target-min`). Layout (Header, Navigation) uses 44px; shadcn Button default is 36px — use `size="lg"` for primary actions on mobile when needed.
+
+**Testing:** Run `npm run dev`, open the app, click **Responsive test page**, and use the viewport checklist there. Resize or use dev tools device toolbar to verify mobile, tablet, and desktop.
+
+## React + TypeScript + Vite (template)
+
+This project uses a minimal React + Vite setup with HMR and ESLint.
 
 Currently, two official plugins are available:
 

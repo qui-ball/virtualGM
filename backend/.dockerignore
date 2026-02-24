@@ -1,0 +1,20 @@
+# Virtual env and cache
+.venv
+__pycache__
+*.py[cod]
+.python-version
+*.egg-info
+.eggs
+
+# Local and IDE
+.env
+.env.*
+!.env.example
+.claude
+*.md
+!README.md
+
+# Tests and dev (optional: remove if you want to run tests in image)
+.pytest_cache
+.coverage
+htmlcov

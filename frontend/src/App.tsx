@@ -1,34 +1,28 @@
-import { useState } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
+import { Routes, Route } from 'react-router-dom';
+import { Header, ContentArea } from '@/components/layout';
+import type { NavLink } from '@/components/layout';
+import { HomePage } from '@/pages/HomePage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ResponsiveTestPage } from '@/pages/ResponsiveTestPage';
 import './styles/App.css';
 
-function App() {
-  const [count, setCount] = useState(0);
+const navLinks: NavLink[] = [
+  { label: 'Home', to: '/' },
+  { label: 'Responsive test', to: '/responsive-test' },
+];
 
+function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount(count => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="flex min-h-svh flex-col">
+      <Header title="Virtual GM" navLinks={navLinks} />
+      <ContentArea>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/responsive-test" element={<ResponsiveTestPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </ContentArea>
+    </div>
   );
 }
 

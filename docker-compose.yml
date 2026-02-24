@@ -1,0 +1,36 @@
+# Virtual GM development stack.
+# Frontend: run locally (cd frontend && npm run dev) for best HMR.
+# Backend: runs in Docker; port 8000 reserved for future API.
+# Hot reload: ./backend is mounted into the container so code changes are visible
+# immediately. When you add an HTTP API (e.g. FastAPI), run uvicorn with --reload
+# so the server restarts on file changes (see backend Dockerfile and command below).
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: virtualgm-backend:latest
+    container_name: virtualgm-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source for hot reload: edit files locally, process in container sees changes
+      - ./backend:/app
+      - backend-cache:/app/.cache
+    env_file:
+      - .env.docker
+    environment:
+      - ENV=development
+    # For hot-reload dev server (when you have FastAPI/uvicorn), uncomment and set your app module:
+    # command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    # When backend has an HTTP API, add healthcheck and uncomment:
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]  # or wget
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  backend-cache:
