@@ -1,0 +1,353 @@
+{
+  "campaign_template": {
+    "name": "Touch of the Necromancer",
+    "description": "Sera, the PC's younger sister, takes a necromancer's curse meant for the player. The PC has limited time to gather three ingredients for a wizard's ritual to save her—or lose her forever.",
+    "publisher": "Virtual GM (sample campaign)",
+    "license": "Open / sample",
+    "ruleset_id": "virtualGM-custom-ruleset",
+    "estimated_sessions": "2–3",
+    "level_range": { "min": 1, "max": 3 },
+    "boss_battles": "None (all encounters are non-boss per ruleset)",
+    "summary": "Arc: The PC and Sera stumble into a ritual at an abandoned shrine (or burial mound). The necromancer Malachara targets the PC with a curse; Sera steps in and takes it. Malachara escapes. Sera's condition worsens (pale, decaying). In Hollowbridge, Matron Evaine recognizes it as a necromancer's curse: the temple's divine magic can ease suffering but cannot break something woven with death magic. She sends them to Aldric the Grey, a wizard who keeps the kind of arcane knowledge needed to undo such bindings—and who knows a counter-ritual that requires three ingredients. He stresses their importance once but does not mention that impure ingredients can cause the spell to backfire onto the caster's ally (the PC). The three ingredients can be gathered in any order. If the PC returns with all three in time, Aldric performs the ritual; outcomes depend on purity. If the PC fails to gather all three or the time counter reaches 0, Sera is lost. Objectives: Obtain dragon scale (or acceptable substitute), mercury (pure or impure), and mandrake roots; return to Aldric before the counter reaches 0; survive the ritual outcome. Themes and tone: Dark, brutal, time pressure. Guilt (curse was meant for the PC). Sacrifice and consequence. No boss battle; combat is non-boss only. GM guidance: Keep the clock palpable. Short rest −1, long rest −5; apply event-based deductions per chapter. Track ingredient purity. Do not reveal the backfire risk until it happens. Malachara is not confronted in this campaign (future campaign hook). Chapter order: Ch2, Ch3, Ch4 may be played in any order. Sera remains in Hollowbridge during Ch2–Ch4. Returning with fewer than three ingredients: Aldric refuses until all three are gathered; counter keeps running. Non-boss 0 HP: PC does not die; recovers with full HP/mana but suffers narrative setback. Optional Sera deterioration: at counter 20 noticeably worse; at 10 barely conscious.",
+    "time_counter": {
+      "starting_value": 35,
+      "short_rest_deduction": 1,
+      "long_rest_deduction": 5,
+      "notes": "Starts when curse is applied (end of Ch1). Travel to Hollowbridge after curse: −2 or −3. If counter reaches 0 or below, set to 0 and trigger time-out outcome (Sera lost)."
+    },
+    "npcs": [
+      {
+        "id": "npc-sera",
+        "name": "Sera",
+        "role": "ally",
+        "description": "PC's younger sister. Pale, slowly decaying after taking the curse; once lively, now fading. Brave and curious—her curiosity led them into the shrine.",
+        "interaction_notes": "She is the victim; the PC acts for her. She can speak briefly when conscious; use for emotional beats.",
+        "story_significance": "Central stake; her fate drives the campaign.",
+        "appears_in_chapters": ["ch1-prologue", "ch5-return"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-malachar",
+        "name": "Malachara",
+        "role": "enemy",
+        "description": "Necromancer. Gaunt, hollow-cheeked, dark robes, cold voice; presence feels wrong. Cast the curse and escaped.",
+        "interaction_notes": "Prologue only; she does not appear again in this campaign.",
+        "story_significance": "Villain; future campaign hook (revenge).",
+        "appears_in_chapters": ["ch1-prologue"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-evaine",
+        "name": "Matron Evaine",
+        "role": "quest_giver",
+        "description": "High Priestess. Tall, severe bearing, grey-streaked hair; voice firm but not unkind. Stern, regretful she cannot help; carries the weight of what she cannot fix.",
+        "interaction_notes": "Recognizes the curse as necromantic—the temple's blessings can soothe but not unravel death magic. She knows only someone with the right arcane counter-ritual can try; she directs the PC to Aldric the Grey and insists they go quickly.",
+        "story_significance": "Points to wizard path.",
+        "appears_in_chapters": ["ch2-dragon-scale"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-aldric",
+        "name": "Aldric the Grey",
+        "role": "quest_giver",
+        "description": "Wizard. Thin, grey-bearded, sharp eyes; robes and tower cluttered with books and oddities. Reclusive and prickly; values his time and his ingredients. He keeps knowledge of how to counter necromantic bindings—the kind of grey lore the temple does not touch.",
+        "interaction_notes": "Gives the ingredient list and later a hefty bill. Mentions importance of ingredients once. Does not warn that impure ingredients can backfire.",
+        "story_significance": "Performs the ritual; outcome depends on ingredients and time.",
+        "appears_in_chapters": ["ch2-dragon-scale", "ch5-return"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-torval",
+        "name": "Torval",
+        "role": "quest_giver",
+        "description": "Blacksmith in Hollowbridge. Burly, soot-smudged; gruff but keeps his word. Won't sell the dragon scale outright.",
+        "interaction_notes": "Offers errand: deliver sword to a noble in Northreach (e.g. Lord Cade or the bailiff; GM may name), collect payment, return. Orc bandits may try to steal it. If they fail or refuse: Torval can direct them to a trader who has lizardman scales, or GM may allow another source—lizardman's scale counts as impure.",
+        "story_significance": "Source of dragon scale or substitute.",
+        "appears_in_chapters": ["ch2-dragon-scale"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-vesper",
+        "name": "Vesper",
+        "role": "quest_giver",
+        "description": "Alchemist. Slight build, quick hands, faint chemical smell; speaks in short, practical bursts. Knows the abandoned mine; provides a detector for mercury in ore.",
+        "interaction_notes": "Gives vial of mercury from ore the PC helps obtain; keeps the rest, no charge.",
+        "story_significance": "Source of mercury; mine has undead.",
+        "appears_in_chapters": ["ch3-mercury"],
+        "is_unique": true
+      },
+      {
+        "id": "npc-mara",
+        "name": "Mara",
+        "role": "quest_giver",
+        "description": "Herbalist. Weather-worn face, green-stained fingers; calm and observant. Has or can get mandrake; drives a hard but fair bargain.",
+        "interaction_notes": "Price negotiable. Alternative: PC can seek mandrake in the elven forest (risk: rangers; ranger/elf PC may have advantage). Optional: wrong plant or wilted roots = impure (see Ch4).",
+        "story_significance": "Source of mandrake.",
+        "appears_in_chapters": ["ch4-mandrake"],
+        "is_unique": true
+      }
+    ],
+    "locations": [
+      {
+        "id": "loc-hollowbridge",
+        "name": "Hollowbridge",
+        "description": "Main hub. Contains the temple, Aldric's tower, Torval's forge, Vesper's shop, and Mara's herb shop (see sub-locations).",
+        "gm_notes": "Dark, urgent tone. Townsfolk may comment on Sera's condition.",
+        "connections": ["loc-temple", "loc-forge", "loc-alchemist", "loc-herbalist", "loc-aldric-tower", "loc-northreach", "loc-mine", "loc-forest"],
+        "appears_in_chapters": ["ch2-dragon-scale", "ch3-mercury", "ch4-mandrake", "ch5-return"]
+      },
+      {
+        "id": "loc-temple",
+        "name": "Temple of Hollowbridge",
+        "description": "Where Matron Evaine tends the faithful. Stone, candles, quiet.",
+        "gm_notes": "First stop for the desperate; Evaine's refusal sets the tone.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch2-dragon-scale"]
+      },
+      {
+        "id": "loc-forge",
+        "name": "Torval's forge",
+        "description": "Blacksmith's workshop; heat, soot, the dragon scale kept out of sight.",
+        "gm_notes": "Errand begins here.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch2-dragon-scale"]
+      },
+      {
+        "id": "loc-alchemist",
+        "name": "Vesper's shop",
+        "description": "Alchemist's workspace; vials, smells, the mercury detector.",
+        "gm_notes": "Mine directions and detector given here.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch3-mercury"]
+      },
+      {
+        "id": "loc-herbalist",
+        "name": "Mara's herb shop",
+        "description": "Herbalist's shop; drying plants, negotiated prices.",
+        "gm_notes": "Mandrake bought or commissioned here.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch4-mandrake"]
+      },
+      {
+        "id": "loc-northreach",
+        "name": "Northreach",
+        "description": "Next town; noble (e.g. Lord Cade) or bailiff expects the sword delivery.",
+        "gm_notes": "Brief stay; bandits on the road.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch2-dragon-scale"]
+      },
+      {
+        "id": "loc-shrine",
+        "name": "Abandoned shrine / burial mound",
+        "description": "Roadside; Sera is drawn by sounds or strange light. Where Malachara performs the ritual.",
+        "gm_notes": "Eerie; ritual remnants. No time counter here.",
+        "connections": [],
+        "appears_in_chapters": ["ch1-prologue"]
+      },
+      {
+        "id": "loc-mine",
+        "name": "Abandoned mine",
+        "description": "Where mercury-bearing ore can be found. Undead (zombies, skeletons).",
+        "gm_notes": "Claustrophobic; detector for mercury.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch3-mercury"]
+      },
+      {
+        "id": "loc-forest",
+        "name": "Elven forest",
+        "description": "Where mandrake can be foraged. Rangers may challenge trespassers.",
+        "gm_notes": "Ranger or elf PC: easier negotiation or passage. Optional: wrong plant or wilted roots = impure mandrake.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch4-mandrake"]
+      },
+      {
+        "id": "loc-aldric-tower",
+        "name": "Aldric's tower",
+        "description": "Where the ritual is performed. Cluttered, books and oddities.",
+        "gm_notes": "Final scene: ritual, then outcome.",
+        "connections": ["loc-hollowbridge"],
+        "appears_in_chapters": ["ch2-dragon-scale", "ch5-return"]
+      }
+    ],
+    "enemies": [
+      {
+        "id": "enemy-orc-bandit",
+        "name": "Orc bandit",
+        "evasion": 11,
+        "hp": 12,
+        "melee_attack": "d20 + 1 (Might) vs Evasion → 1d6 + 1 slashing (axe or sword)",
+        "ranged_attack": null,
+        "notes": "Aggressive; may try to grab the sword and run.",
+        "encounter": "Ch2 — road to/from Northreach (2–3 bandits)"
+      },
+      {
+        "id": "enemy-zombie",
+        "name": "Zombie",
+        "evasion": 9,
+        "hp": 14,
+        "melee_attack": "d20 + 0 (Might) vs Evasion → 1d4 + 0 bludgeoning (slam)",
+        "ranged_attack": null,
+        "notes": "Slow; Finesse 0. May grapple (Might or Finesse check DC 10 to escape).",
+        "encounter": "Ch3 — abandoned mine (1–2 zombies)"
+      },
+      {
+        "id": "enemy-skeleton",
+        "name": "Skeleton",
+        "evasion": 12,
+        "hp": 10,
+        "melee_attack": "d20 + 1 (Finesse) vs Evasion → 1d6 + 1 slashing (shortsword)",
+        "ranged_attack": "d20 + 1 (Finesse) vs Evasion → 1d6 + 1 piercing (shortbow), range narrative close",
+        "notes": "Brittle but quick.",
+        "encounter": "Ch3 — abandoned mine (1–2 skeletons)"
+      },
+      {
+        "id": "enemy-elven-ranger",
+        "name": "Elven ranger",
+        "evasion": 13,
+        "hp": 11,
+        "melee_attack": "d20 + 2 (Finesse) vs Evasion → 1d6 + 2 piercing (shortsword)",
+        "ranged_attack": "d20 + 2 (Finesse) vs Evasion → 1d6 + 2 piercing (shortbow)",
+        "notes": "Prefer to drive off trespassers; may demand surrender or retreat. Ranger/elf PC: advantage on Presence (parley) or Finesse (avoid).",
+        "encounter": "Ch4 — elven forest (1–2 rangers, optional)"
+      }
+    ],
+    "chapters": [
+      {
+        "id": "ch1-prologue",
+        "order": 1,
+        "name": "Prologue",
+        "summary": "PC and Sera stumble into Malachara's ritual. Curse was meant for the PC; Sera takes it. Malachara escapes. Time counter does not run until curse is applied.",
+        "estimated_session_length": "Short (first part of session 1)",
+        "level_range": [1, 1],
+        "gm_notes": {
+          "introduction": "Open with the pair traveling (toward or from somewhere). Sera notices the shrine/mound—sounds or strange light. She is curious and insists on looking. The PC can try to dissuade her but she goes anyway; the PC follows.",
+          "key_beats": "Enter the location → discover Malachara mid-ritual → she targets the PC → Sera steps in and takes the curse → Malachara escapes (do not allow a full fight; she finishes the curse and leaves). Describe Sera's condition beginning to change (pale, unwell). No time counter deductions in this chapter.",
+          "adaptation": "If the player tries to attack or block the curse, allow one action or reaction; the curse still lands on Sera (she interposes or the magic finds her). Do not let them prevent the curse or catch Malachara.",
+          "transition": "After Malachara leaves, the PC must get Sera to safety and seek help. Suggested default: They were traveling toward Hollowbridge when they passed the shrine; they continue to Hollowbridge and seek the temple (Evaine)."
+        },
+        "npc_ids": ["npc-malachar", "npc-sera"],
+        "location_ids": ["loc-shrine"],
+        "enemy_ids": [],
+        "story_elements": [
+          { "id": "ev1-discovery", "type": "event", "description": "Sera and PC discover the ritual.", "trigger_conditions": "When they enter the shrine/mound.", "gm_guidance": "Eerie atmosphere; Malachara at center of ritual.", "related_npcs": ["npc-malachar"], "related_locations": ["loc-shrine"] },
+          { "id": "ev1-curse", "type": "event", "description": "Malachara targets PC; Sera takes the curse.", "trigger_conditions": "After discovery; Malachara completes casting.", "gm_guidance": "Make the moment clear: curse was for PC, Sera steps in.", "related_npcs": ["npc-malachar", "npc-sera"], "related_locations": ["loc-shrine"] },
+          { "id": "ev1-escape", "type": "event", "description": "Malachara escapes.", "trigger_conditions": "After curse is applied.", "gm_guidance": "No prolonged combat; she withdraws.", "related_npcs": ["npc-malachar"], "related_locations": ["loc-shrine"] },
+          { "id": "tr1-to-ch2", "type": "transition", "description": "PC seeks help for Sera.", "trigger_conditions": "After Malachara is gone.", "gm_guidance": "Direct them toward Hollowbridge and the temple (Evaine).", "related_npcs": ["npc-sera"], "related_locations": [] }
+        ],
+        "time_counter_notes": "No deductions until the curse is applied. When curse is applied: Campaign time counter starts at 35 for the rest of the campaign."
+      },
+      {
+        "id": "ch2-dragon-scale",
+        "order": 2,
+        "name": "The Dragon Scale",
+        "summary": "PC is in Hollowbridge. Meets Matron Evaine, then Aldric. Learns of the three ingredients. This chapter covers obtaining the dragon scale (or lizardman substitute): Torval's errand to Northreach or alternate. The three ingredients can be gathered in any order; this chapter is one leg.",
+        "estimated_session_length": "Part of session 1–2",
+        "level_range": [1, 2],
+        "gm_notes": {
+          "introduction": "PC arrives in Hollowbridge with Sera. Temple first: Matron Evaine explains that the curse is necromantic—her prayers can comfort but not break it—and directs them to Aldric the Grey, who knows the counter-ritual. Then Aldric gives the list of three ingredients, stresses their importance once, does not mention impure-ingredient risk. Sera remains in Hollowbridge (temple or Aldric's care) while the PC gathers ingredients. This chapter focuses on the dragon scale.",
+          "key_beats": "Speak with Evaine → speak with Aldric (get full list) → speak with Torval → either (a) accept errand: travel to Northreach, deliver sword, collect payment, return (risk: orc bandits), or (b) fail/refuse errand and obtain a lizardman's scale instead (counts as impure). If they complete the errand and receive the real dragon scale, ingredient is pure.",
+          "time_deductions": "Travel Hollowbridge ↔ Northreach: −2 each way. Short rest −1, long rest −5.",
+          "adaptation": "If bandits steal the sword or PC drops to 0 HP, they can return and get a lizardman's scale (Torval directs to a trader). Track whether the scale is dragon (pure) or lizardman (impure)."
+        },
+        "npc_ids": ["npc-evaine", "npc-aldric", "npc-torval"],
+        "location_ids": ["loc-hollowbridge", "loc-temple", "loc-forge", "loc-aldric-tower", "loc-northreach"],
+        "enemy_ids": ["enemy-orc-bandit"],
+        "story_elements": [
+          { "id": "ev2-evaine", "type": "event", "description": "Evaine recognizes the necromantic curse; temple magic cannot undo it; she directs to Aldric.", "trigger_conditions": "When PC visits temple.", "gm_guidance": "She explains briefly why (divine vs death magic; only the right arcane ritual can try). Stern, regretful; urgency.", "related_npcs": ["npc-evaine"], "related_locations": ["loc-temple"] },
+          { "id": "ev2-aldric-list", "type": "event", "description": "Aldric gives three ingredients; stresses importance once.", "trigger_conditions": "When PC visits Aldric.", "gm_guidance": "Do not mention backfire.", "related_npcs": ["npc-aldric"], "related_locations": ["loc-aldric-tower"] },
+          { "id": "ev2-torval", "type": "hook", "description": "Torval offers errand for dragon scale.", "trigger_conditions": "When PC asks Torval.", "gm_guidance": "Errand: deliver sword to Northreach, return with payment.", "related_npcs": ["npc-torval"], "related_locations": ["loc-forge"] },
+          { "id": "ev2-bandits", "type": "event", "description": "Orc bandits attempt to take the sword.", "trigger_conditions": "On road to/from Northreach (as appropriate).", "gm_guidance": "Non-boss encounter.", "related_locations": [] },
+          { "id": "ev2-lizardman-option", "type": "consequence", "description": "If PC fails errand or chooses not to: lizardman's scale as substitute.", "trigger_conditions": "When PC cannot or will not complete errand.", "gm_guidance": "Mark ingredient as impure for ritual.", "related_npcs": ["npc-torval"], "related_locations": ["loc-forge"] },
+          { "id": "tr2-next", "type": "transition", "description": "Dragon scale (or substitute) obtained.", "trigger_conditions": "When PC has the scale.", "gm_guidance": "Move to next ingredient chapter (Ch3 or Ch4)—player's order.", "related_npcs": ["npc-torval"], "related_locations": [] }
+        ],
+        "time_counter_notes": "Short rest −1; long rest −5. Travel Hollowbridge ↔ Northreach: −2 per leg. Other delays: apply −1 or −2 as appropriate."
+      },
+      {
+        "id": "ch3-mercury",
+        "order": 3,
+        "name": "The Mercury",
+        "summary": "PC obtains mercury with Vesper's help: trip to the abandoned mine, use detector for mercury-bearing ore, face undead. Vesper prepares the vial. PC may choose to bring pure or impure ore (impure = backfire risk).",
+        "estimated_session_length": "Part of session 2",
+        "level_range": [1, 2],
+        "gm_notes": {
+          "introduction": "PC goes to Vesper (in Hollowbridge). Vesper knows the abandoned mine; gives a device that detects mercury in ore. He will prepare the vial from ore the PC collects; he keeps the rest, no charge.",
+          "key_beats": "Vesper explains the mine and gives the detector → travel to mine → find ore (detector indicates pure vs impure veins) → encounter undead (zombies, skeletons; non-boss) → return with ore → Vesper prepares vial. Choice: PC can deliberately collect impure ore; if so, mark mercury as impure for the ritual.",
+          "time_deductions": "Travel to/from mine: −2 each way. Short rest −1; long rest −5. Mine exploration: −1 per significant delay if used.",
+          "adaptation": "If the PC avoids combat and grabs ore quickly, allow it but still apply time for travel. Undead should feel threatening but not block progress entirely."
+        },
+        "npc_ids": ["npc-vesper"],
+        "location_ids": ["loc-hollowbridge", "loc-alchemist", "loc-mine"],
+        "enemy_ids": ["enemy-zombie", "enemy-skeleton"],
+        "story_elements": [
+          { "id": "ev3-vesper", "type": "event", "description": "Vesper gives detector and directions to mine.", "trigger_conditions": "When PC visits Vesper.", "gm_guidance": "No charge for vial; he keeps extra mercury.", "related_npcs": ["npc-vesper"], "related_locations": ["loc-alchemist"] },
+          { "id": "ev3-mine-undead", "type": "event", "description": "Undead in mine.", "trigger_conditions": "When PC is in mine.", "gm_guidance": "Non-boss; zombies and/or skeletons.", "related_locations": ["loc-mine"] },
+          { "id": "ev3-ore-choice", "type": "consequence", "description": "PC can take pure or impure ore.", "trigger_conditions": "When collecting ore.", "gm_guidance": "Impure = backfire risk at ritual.", "related_npcs": ["npc-vesper"], "related_locations": ["loc-mine"] },
+          { "id": "tr3-next", "type": "transition", "description": "Vial of mercury obtained.", "trigger_conditions": "When Vesper delivers vial.", "gm_guidance": "Move to next ingredient chapter.", "related_npcs": ["npc-vesper"], "related_locations": [] }
+        ],
+        "time_counter_notes": "Short rest −1; long rest −5. Travel to/from mine: −2 per leg. Optional: −1 for delays in mine."
+      },
+      {
+        "id": "ch4-mandrake",
+        "order": 4,
+        "name": "The Mandrake",
+        "summary": "PC obtains mandrake roots: buy from Mara (negotiable price) or forage in the elven forest. Forest option risks elven rangers (trespassing); ranger or elf PC may have advantage.",
+        "estimated_session_length": "Part of session 2–3",
+        "level_range": [1, 3],
+        "gm_notes": {
+          "introduction": "PC needs mandrake roots. Mara (herbalist in Hollowbridge) may have them for a negotiable price. Alternatively, PC can seek mandrake in the elven forest.",
+          "key_beats": "(Path A) Negotiate with Mara → pay (or persuade) → receive roots. (Path B) Travel to elven forest → forage → possibly confronted by elven rangers. Ranger/elf PC: advantage on negotiation or avoidance. Mandrake purity: From Mara or correctly foraged = pure. Optional impure: If PC forages and fails Wit or Finesse check, or takes wilted roots, treat as impure.",
+          "time_deductions": "Travel to/from forest: −2 per leg. Short rest −1; long rest −5.",
+          "adaptation": "If the PC cannot afford Mara and fails in the forest, they might return to Mara with a different offer or find another way; avoid deadlock."
+        },
+        "npc_ids": ["npc-mara"],
+        "location_ids": ["loc-hollowbridge", "loc-herbalist", "loc-forest"],
+        "enemy_ids": ["enemy-elven-ranger"],
+        "story_elements": [
+          { "id": "ev4-mara", "type": "hook", "description": "Mara has or can get mandrake; price negotiable.", "trigger_conditions": "When PC visits Mara.", "gm_guidance": "Presence-based negotiation possible.", "related_npcs": ["npc-mara"], "related_locations": ["loc-herbalist"] },
+          { "id": "ev4-forest", "type": "event", "description": "Elven forest: forage mandrake; rangers may challenge.", "trigger_conditions": "When PC enters forest.", "gm_guidance": "Ranger/elf PC: advantage on checks or leniency.", "related_locations": ["loc-forest"] },
+          { "id": "ev4-mandrake-impure", "type": "consequence", "description": "Optional: wrong plant or wilted roots = impure mandrake.", "trigger_conditions": "If PC forages and fails identification or takes bad roots.", "gm_guidance": "Call for Wit or Finesse check; failure = impure.", "related_locations": ["loc-forest"] },
+          { "id": "tr4-next", "type": "transition", "description": "Mandrake roots obtained.", "trigger_conditions": "When PC has roots.", "gm_guidance": "All three ingredients ready; move to Ch5.", "related_npcs": ["npc-mara"], "related_locations": [] }
+        ],
+        "time_counter_notes": "Short rest −1; long rest −5. Travel to/from forest: −2 per leg if used."
+      },
+      {
+        "id": "ch5-return",
+        "order": 5,
+        "name": "Return and Resolution",
+        "summary": "PC returns to Aldric with the three ingredients (or fails: missing ingredients or time counter 0). Aldric performs the ritual. Outcomes: Sera saved (all pure); Sera saved but curse transfers to PC (any impure); or Sera lost (incomplete or time out).",
+        "estimated_session_length": "End of session 2–3",
+        "level_range": [1, 3],
+        "gm_notes": {
+          "introduction": "When the PC has all three ingredients and returns to Aldric (or when time runs out or PC gives up), this chapter plays. If time counter reached 0 before return with all three: Aldric cannot help in time. Sera turns into a lich and escapes—campaign ends.",
+          "key_beats": "Return to Aldric → present ingredients → Aldric performs ritual. Do not reveal before the ritual that impure ingredients can backfire. After the ritual: All ingredients pure → spell succeeds, Sera restored, bill, bonus XP. Any ingredient impure → spell backfires, curse transfers to PC, Sera saved, PC becomes lich and is lost; prompt to save character copy (pre-lich).",
+          "time_deductions": "Any final travel or rest deductions. If counter reaches 0 before ritual: outcome A (Sera lost, campaign ends)."
+        },
+        "npc_ids": ["npc-aldric", "npc-sera"],
+        "location_ids": ["loc-hollowbridge", "loc-aldric-tower"],
+        "enemy_ids": [],
+        "story_elements": [
+          { "id": "ev5-time-out", "type": "consequence", "description": "Time counter 0 before return with all three.", "trigger_conditions": "Counter reaches 0.", "gm_guidance": "Aldric cannot help. Sera turns into a lich and escapes—campaign ends.", "related_npcs": ["npc-aldric", "npc-sera"], "related_locations": ["loc-aldric-tower"] },
+          { "id": "ev5-ritual", "type": "event", "description": "Aldric performs the removal spell.", "trigger_conditions": "When PC returns with all three ingredients.", "gm_guidance": "Do not warn about impure ingredients.", "related_npcs": ["npc-aldric", "npc-sera"], "related_locations": ["loc-aldric-tower"] },
+          { "id": "ev5-success", "type": "consequence", "description": "All pure: Sera restored; bill; bonus XP.", "trigger_conditions": "Ritual with all ingredients pure.", "gm_guidance": "Positive ending; bill can be paid in future adventures.", "related_npcs": ["npc-aldric", "npc-sera"], "related_locations": ["loc-aldric-tower"] },
+          { "id": "ev5-backfire", "type": "consequence", "description": "Any impure: curse transfers to PC; PC becomes lich.", "trigger_conditions": "Ritual with at least one impure ingredient.", "gm_guidance": "Sera saved; PC lost. Offer to save character copy (pre-lich).", "related_npcs": ["npc-aldric", "npc-sera"], "related_locations": ["loc-aldric-tower"] }
+        ],
+        "time_counter_notes": "Apply any final travel or rest deductions. If counter reaches 0 before ritual: outcome A (Sera lost, campaign ends)."
+      }
+    ],
+    "outcomes": [
+      { "condition": "Time counter reaches 0 before PC returns with all three ingredients", "outcome": "Aldric cannot help. Sera turns into a lich and escapes. Campaign ends." },
+      { "condition": "PC returns with all three; all ingredients pure", "outcome": "Spell succeeds. Sera restored. Aldric sends hefty bill (pay later). Bonus XP." },
+      { "condition": "PC returns with all three; any ingredient impure", "outcome": "Spell backfires. Curse transfers to PC. Sera saved. PC becomes lich and is lost. Prompt to save character copy (pre-lich)." }
+    ],
+    "ingredient_purity_reference": {
+      "dragon_scale": "Pure = real dragon scale (Torval's errand completed). Impure = lizardman's scale (substitute).",
+      "mercury": "Pure = ore from a pure vein; impure = deliberately or accidentally impure ore.",
+      "mandrake": "Pure = from Mara or correctly foraged in the forest. Optional impure: wrong plant or wilted roots when foraging."
+    }
+  },
+  "metadata": {
+    "format_version": "1.0",
+    "exported_at": "2025-02-23T00:00:00Z",
+    "source_file": "campaigns/touch-of-the-necromancer.md"
+  }
+}
