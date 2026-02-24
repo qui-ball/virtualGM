@@ -270,6 +270,7 @@ stop_frontend() {
     done
     [[ $reported -eq 0 ]] && ok "Frontend stopped (freed port ${FRONTEND_PORT})."
   fi
+  return 0
 }
 
 is_frontend_managed() {
@@ -442,23 +443,26 @@ cmd_up() {
 cmd_down() {
   local services=("$@")
   if [[ ${#services[@]} -eq 0 ]]; then
+    # Disable exit-on-error so we always run both frontend stop AND Docker down
+    set +e
     info "Stopping frontend..."
     stop_frontend
     wait_until_port_free $FRONTEND_PORT "Frontend" 10 || true
 
     info "Stopping backend (Docker)..."
-    if command -v docker >/dev/null 2>&1; then
-      COMPOSE_CMD=$(detect_compose) 2>/dev/null || true
-      if [[ -n "$COMPOSE_CMD" ]] && [[ -f "$COMPOSE_FILE" ]]; then
-        $COMPOSE_CMD -f "$COMPOSE_FILE" down || true
-      else
-        info "Docker Compose not available; skipping backend container stop."
-      fi
+    local compose_cmd=""
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+      compose_cmd=$(detect_compose 2>/dev/null) || true
+    fi
+    if [[ -n "$compose_cmd" ]] && [[ -f "$COMPOSE_FILE" ]]; then
+      $compose_cmd -f "$COMPOSE_FILE" down --remove-orphans
+      ok "Docker Compose down completed."
     else
-      info "Docker not available; skipping backend container stop."
+      warn "Docker not running or Compose not available; only frontend was stopped."
     fi
     wait_until_port_free $BACKEND_PORT "Backend" 15 || true
 
+    set -e
     ok "All services stopped. You can run ./launch.sh up again."
   else
     check_prereqs
