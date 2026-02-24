@@ -1,6 +1,7 @@
 """Virtual GM agent implementation for the custom simplified ruleset."""
 
 import asyncio
+import json
 import os
 import random
 import sys
@@ -20,6 +21,8 @@ from pydantic_ai import (
     ModelRetry,
     RunContext,
 )
+from pydantic_ai.messages import ThinkingPart
+from pydantic_ai.models.openrouter import OpenRouterModelSettings
 
 dotenv.load_dotenv()
 
@@ -53,6 +56,37 @@ else:
     logfire.configure(send_to_logfire=False)
 
 logfire.instrument_pydantic_ai()
+
+# Model presets: name -> (model_id, provider)
+MODEL_PRESETS: dict[str, tuple[str, str]] = {
+    "m2.5": ("minimax/minimax-m2.5", "sambanova"),
+    "deepseek": ("deepseek/deepseek-v3.2", ""),
+    "glm": ("z-ai/glm-4.7", "parasail,google-vertex"),
+}
+DEFAULT_MODEL = "m2.5"
+
+active_model = os.getenv("MODEL_PRESET", DEFAULT_MODEL)
+if active_model not in MODEL_PRESETS:
+    logger.warning(
+        f"Unknown preset '{active_model}', falling back to '{DEFAULT_MODEL}'"
+    )
+    active_model = DEFAULT_MODEL
+
+MODEL_NAME, OPENROUTER_PROVIDER = MODEL_PRESETS[active_model]
+
+
+def build_model_settings(provider: str) -> OpenRouterModelSettings:
+    if not provider:
+        return OpenRouterModelSettings()
+    return OpenRouterModelSettings(
+        openrouter_provider={
+            "order": [p.strip() for p in provider.split(",")],
+            "allow_fallbacks": True,
+        }
+    )
+
+
+model_settings = build_model_settings(OPENROUTER_PROVIDER)
 
 
 # =============================================================================
@@ -196,9 +230,10 @@ class EndGameMasterTurn(BaseModel):
 # =============================================================================
 
 agent = Agent(
-    "openrouter:deepseek/deepseek-v3.2",
+    f"openrouter:{MODEL_NAME}",
     deps_type=GameState,
     output_type=Union[EndGameMasterTurn, DeferredToolRequests],
+    end_strategy="exhaustive",
     instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
 ## Core Responsibilities
@@ -209,10 +244,30 @@ agent = Agent(
 - Track combat and manage enemies
 
 ## GM Style
-- Be descriptive but concise—paint scenes in 2-3 sentences
+- Be descriptive but concise—paint scenes in 2-3 sentences per beat
 - Use sensory details to immerse the player
 - Never narrate the player character's thoughts, feelings, or actions
+- Introduce NPCs through description first, not by name—let names come through dialogue or other characters
 - Ask the player what they want to do
+
+## Pacing
+- ONE story beat per turn, then return EndGameMasterTurn
+- A beat is one moment: arriving somewhere, a sound in the dark, an NPC speaking, a reveal behind a door
+- If the player could make a choice at any point in your narration, that is where you stop
+- When the player attempts something consequential, call for a roll BEFORE narrating the outcome
+- Treat each story_element in the campaign data as a separate beat—never merge multiple into one narration
+- Only reveal what the PC has learned through play so far—do not front-load NPC names, locations, or solutions from the campaign data
+- Fixed outcomes require MORE turns, not fewer—each step is its own beat with player input between
+- The player's actions always matter. If the outcome is fixed, they can still shape HOW it happens—wounding a fleeing villain, weakening a curse, learning something, or shifting what comes after
+
+## Skill Checks
+- When the player attempts something consequential—even if the campaign requires a specific result—call for a roll before narrating. The roll determines degree of success, side effects, or how the outcome plays out
+- Formula: d20 + stat modifier vs a difficulty you set (easy 8, moderate 12, hard 15)
+- Match the stat to the action:
+  - Might for force/endurance
+  - Finesse for agility/stealth
+  - Wit for perception/knowledge
+  - Presence for persuasion/intimidation
 
 ## Combat Rules Summary
 - Attack roll: d20 + stat modifier + ability bonuses vs target's Evasion
@@ -223,8 +278,15 @@ agent = Agent(
 ## Output Format
 Communicate through tool calls. The player only sees output from narrate().
 
+Each of your turns:
+1. Zero or more state-management tool calls
+2. narrate() to describe the current moment
+3. Return EndGameMasterTurn
+
+Stay within ONE story beat per turn. Do not advance to the next beat before returning EndGameMasterTurn. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
+
 Tools:
-- narrate(text): All player-facing communication
+- narrate(text): Player-facing narration for the current beat
 - roll_dice(count, dice_type): Roll dice for GM/enemy actions
 - ask_player_roll(count, dice_type, purpose): Request the player to roll dice for their actions (attacks, damage, checks). The player will provide the result.
 - create_enemy(enemy_id, state): Create an enemy with stats
@@ -258,9 +320,10 @@ def add_ruleset() -> str:
 def add_campaign() -> str:
     """Load the one-shot campaign into the agent's context."""
     campaign_path = (
-        Path(__file__).parent / "prompts" / "simplified_one_shot_campaign.md"
+        Path(__file__).parent / "campaigns" / "touch-of-the-necromancer.json"
     )
-    content = campaign_path.read_text(encoding="utf-8").strip()
+    data = json.loads(campaign_path.read_text(encoding="utf-8"))
+    content = json.dumps(data, indent=2)
     return f"<campaign>\n{content}\n</campaign>"
 
 
@@ -308,13 +371,15 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
 
 
 @agent.tool_plain
-def narrate(text: str) -> None:
-    """Send text to the player. This is the only way the player sees your output.
+def narrate(text: str) -> str:
+    """The only way the player sees your output. One story beat per turn—after narrating
+    the current moment, return EndGameMasterTurn before advancing to the next beat.
 
     Args:
-        text: Scene descriptions, dialogue, outcomes, or rules explanations.
+        text: Description, dialogue, or outcome for the current moment.
     """
     logger.info(f"{Colors.GREEN}{text}{Colors.RESET}")
+    return f"Narration was shown to the player: {text[:50]}..."
 
 
 @agent.tool_plain
@@ -750,25 +815,22 @@ def handle_ask_player_roll(args: dict, game_state: GameState) -> str:
 # =============================================================================
 
 
-def create_marlowe_fairwind() -> CharacterState:
-    """Create Marlowe Fairwind, the pre-generated mage for the Sablewood one-shot."""
+def create_player_character() -> CharacterState:
+    """Create Rowan Ashvale, the pre-generated ranger for Touch of the Necromancer."""
     return CharacterState(
-        name="Marlowe Fairwind",
-        character_class="mage",
+        name="Rowan Ashvale",
+        character_class="ranger",
         level=1,
         xp=0,
-        stats=Stats(might=-1, finesse=0, wit=2, presence=1),
-        hp=9,  # 10 + (-1) Might
-        hp_max=9,
-        evasion=11,  # 10 + 0 (Finesse) + 1 (Light Robes)
-        mana=7,  # 4 + 1 (level) + 2 (Wit)
-        mana_max=7,
-        class_abilities=["arcane_focus"],  # +1 to spell attack rolls
-        spells_known=["Arcane Bolt", "Shield", "Light", "Detect Magic"],
+        stats=Stats(might=0, finesse=2, wit=1, presence=-1),
+        hp=10,  # 10 + 0 (Might)
+        hp_max=10,
+        evasion=13,  # 10 + 2 (Finesse) + 1 (Leather Armor)
+        class_abilities=["steady_aim"],  # +1 to ranged attack rolls
         gold=10,
-        inventory=["Staff", "Light Robes"],
-        equipped_weapon="Staff",
-        equipped_armor="Light Robes",
+        inventory=["Longbow", "Shortsword", "Leather Armor", "Rope (50 ft)"],
+        equipped_weapon="Longbow",
+        equipped_armor="Leather Armor",
     )
 
 
@@ -776,13 +838,15 @@ async def run_chat():
     """Async chat loop."""
     logger.info("🎮 Virtual GM - Custom Ruleset")
     logger.info("=" * 50)
+    provider_info = f" via {OPENROUTER_PROVIDER}" if OPENROUTER_PROVIDER else ""
+    logger.info(f"Model: {MODEL_NAME}{provider_info}")
     logger.info("Type 'exit' or 'quit' to end")
     logger.info("=" * 50)
     logger.info("")
 
     # Initialize game state with pre-generated character
     game_state = GameState()
-    game_state.pc = create_marlowe_fairwind()
+    game_state.pc = create_player_character()
 
     logger.info(
         f"Character loaded: {game_state.pc.name} (Level {game_state.pc.level} {game_state.pc.character_class})"
@@ -803,16 +867,37 @@ async def run_chat():
 
         logger.info("\n🤖 Game Master:")
         try:
-            current_input = user_input
+            current_input: str | None = user_input
             deferred_results = None
 
             while True:
-                result = await agent.run(
-                    current_input,
+                run_kwargs: dict = dict(
                     deps=game_state,
                     message_history=message_history,
-                    deferred_tool_results=deferred_results,
+                    model_settings=model_settings,
                 )
+                if deferred_results is not None:
+                    run_kwargs["deferred_tool_results"] = deferred_results
+                if current_input:
+                    run_kwargs["user_prompt"] = current_input
+
+                is_first_call_tools_node = deferred_results is not None
+                async with agent.iter(**run_kwargs) as agent_run:
+                    async for node in agent_run:
+                        if Agent.is_call_tools_node(node):
+                            if is_first_call_tools_node:
+                                is_first_call_tools_node = False
+                                continue
+                            for part in node.model_response.parts:
+                                if (
+                                    isinstance(part, ThinkingPart)
+                                    and part.has_content()
+                                ):
+                                    logger.info(
+                                        f"{Colors.LIGHT_BLACK}💭 {part.content}{Colors.RESET}"
+                                    )
+
+                result = agent_run.result
 
                 # Check if we have deferred tool requests (player interaction needed)
                 if isinstance(result.output, DeferredToolRequests):
@@ -828,12 +913,14 @@ async def run_chat():
                             result_str = handle_ask_player_roll(args, game_state)
                         else:
                             logger.error(f"Unknown deferred tool: {call.tool_name}")
-                            result_str = f"Error: Unknown deferred tool {call.tool_name}"
+                            result_str = (
+                                f"Error: Unknown deferred tool {call.tool_name}"
+                            )
 
                         deferred_results.calls[call.tool_call_id] = result_str
 
                     # Continue the run with the player's results (no new user input needed)
-                    current_input = ""
+                    current_input = None
                     continue
                 else:
                     # Normal completion
@@ -852,7 +939,20 @@ async def run_chat():
 
 
 @click.command()
-def main():
+@click.option(
+    "--model",
+    "-m",
+    type=click.Choice(list(MODEL_PRESETS.keys()), case_sensitive=False),
+    default=None,
+    help="Model preset to use.",
+)
+def main(model: str | None):
+    if model:
+        global active_model, MODEL_NAME, OPENROUTER_PROVIDER, model_settings
+        active_model = model
+        MODEL_NAME, OPENROUTER_PROVIDER = MODEL_PRESETS[active_model]
+        agent.model = f"openrouter:{MODEL_NAME}"  # type: ignore[assignment]
+        model_settings = build_model_settings(OPENROUTER_PROVIDER)
     asyncio.run(run_chat())
 
 
