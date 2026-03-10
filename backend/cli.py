@@ -40,7 +40,7 @@ async def run_chat():
     game_state = GameState()
     game_state.pc = create_player_character()
     game_state.campaign_dir = str(
-        Path(__file__).parent / "campaigns" / "LostMineOfPhandelver"
+        Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted"
     )
 
     logger.info(

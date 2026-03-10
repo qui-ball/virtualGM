@@ -9,13 +9,14 @@ Back to Top
 
 
 
+
     - Introduction
 
     - Part 1: Goblin Arrows
 
     - Part 2: Phandalin
 
-    - Part 3: The Spider's Web
+    - Part 3: The Spider’s Web
 
     - Part 4: Wave Echo Cave
 
@@ -29,7 +30,7 @@ Jump to...Contents
 
 # Lost Mine of Phandelver
 
-> Explore this introductory adventure to get started playing a tabletop roleplaying game.
+> Explore this introductory adventure to get started playing the world’s greatest roleplaying game.
 >
 >  View Cover Art
 
@@ -57,10 +58,10 @@ Jump to...Contents
 - [Redbrand Ruffians](Phandalin.md#RedbrandRuffians)
 - [Redbrand Hideout](Phandalin.md#RedbrandHideout)
 
-### [Part 3: The Spider's Web](The_Spiders_Web.md)
+### [Part 3: The Spider’s Web](The_Spiders_Web.md)
 
 - [Triboar Trail](The_Spiders_Web.md#TriboarTrail)
-- [Conyberry and Agatha's Lair](The_Spiders_Web.md#ConyberryandAgathasLair)
+- [Conyberry and Agatha’s Lair](The_Spiders_Web.md#ConyberryandAgathasLair)
 - [Old Owl Well](The_Spiders_Web.md#OldOwlWell)
 - [Ruins of Thundertree](The_Spiders_Web.md#RuinsofThundertree)
 - [Wyvern Tor](The_Spiders_Web.md#WyvernTor)
