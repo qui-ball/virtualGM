@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from models import CharacterState, ConditionName, DiceType, EnemyState
+from game.models import CharacterState, ConditionName, DiceType, EnemyState
 
 
 # -- Requests --

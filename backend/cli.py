@@ -7,10 +7,9 @@ from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 import agent as agent_mod
-from agent import agent
-from agent_runner import run_agent_iter
-from models import EndGameMasterTurn, GameState, create_player_character
-from tools import handle_ask_player_roll
+from agent import agent, run_agent_iter
+from agent.tools import handle_ask_player_roll
+from game.models import EndGameMasterTurn, GameState, create_player_character
 
 
 # ANSI color codes for terminal output

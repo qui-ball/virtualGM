@@ -5,7 +5,7 @@ import random
 from loguru import logger
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 
-from models import (
+from game.models import (
     DICE_SIDES,
     XP_THRESHOLDS,
     ConditionName,
@@ -15,8 +15,8 @@ from models import (
 )
 
 # Import agent to register tools on it.
-# This module is imported at the bottom of agent.py, so `agent` is already created.
-from agent import agent
+# This module is imported at the bottom of agent/definition.py, so `agent` is already created.
+from agent.definition import agent
 
 
 # ANSI color codes for terminal output (used by narrate for CLI)

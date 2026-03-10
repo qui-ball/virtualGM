@@ -7,9 +7,9 @@ from loguru import logger
 from pydantic_ai import Agent, DeferredToolResults
 from pydantic_ai.messages import ThinkingPart
 
-import agent as agent_mod
-from agent import agent
-from models import GameState
+import agent.definition as agent_mod
+from agent.definition import agent
+from game.models import GameState
 
 
 async def run_agent_iter(

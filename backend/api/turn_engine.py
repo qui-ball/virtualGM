@@ -6,10 +6,10 @@ from collections.abc import AsyncGenerator
 from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
-from agent_runner import run_agent_iter
-from models import EndGameMasterTurn
-from schemas import GameStateSnapshot, PendingAction
-from session import PendingDeferred, Session
+from agent.runner import run_agent_iter
+from game.models import EndGameMasterTurn
+from api.schemas import GameStateSnapshot, PendingAction
+from game.session import PendingDeferred, Session
 
 
 def _snapshot(session: Session) -> dict:

@@ -8,16 +8,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from models import DICE_SIDES, GameState, create_player_character
-from schemas import (
+from game.models import DICE_SIDES, GameState, create_player_character
+from api.schemas import (
     CreateSessionRequest,
     CreateSessionResponse,
     MessageEntry,
     MessagesResponse,
     TurnRequest,
 )
-from session import store
-from turn_engine import stream_deferred_response, stream_turn
+from game.session import store
+from api.turn_engine import stream_deferred_response, stream_turn
 
 # Importing agent triggers config + tool registration
 import agent as agent_mod  # noqa: F401

@@ -9,7 +9,7 @@ from pydantic_ai import Agent, DeferredToolRequests, RunContext
 from pydantic_ai.models.openrouter import OpenRouterModelSettings
 
 import config  # noqa: F401 — triggers logging/logfire setup
-from models import EndGameMasterTurn, GameState
+from game.models import EndGameMasterTurn, GameState
 
 # Model presets: name -> (model_id, provider)
 MODEL_PRESETS: dict[str, tuple[str, str]] = {
@@ -140,7 +140,7 @@ When your turn is complete, return EndGameMasterTurn.
 @agent.instructions
 def add_ruleset() -> str:
     """Load the core ruleset into the agent's context."""
-    ruleset_path = Path(__file__).parent / "prompts" / "rulesets" / "core-ruleset.md"
+    ruleset_path = Path(__file__).parent.parent / "prompts" / "rulesets" / "core-ruleset.md"
     content = ruleset_path.read_text(encoding="utf-8").strip()
     return f"<ruleset>\n{content}\n</ruleset>"
 
@@ -149,7 +149,7 @@ def add_ruleset() -> str:
 def add_campaign() -> str:
     """Load the one-shot campaign into the agent's context."""
     campaign_path = (
-        Path(__file__).parent / "campaigns" / "touch-of-the-necromancer.json"
+        Path(__file__).parent.parent / "campaigns" / "touch-of-the-necromancer.json"
     )
     data = json.loads(campaign_path.read_text(encoding="utf-8"))
     content = json.dumps(data, indent=2)
@@ -195,4 +195,4 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
 
 
 # Register tools by importing the tools module
-import tools  # noqa: E402, F401
+import agent.tools  # noqa: E402, F401

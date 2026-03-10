@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai.messages import ModelMessage
 
-from models import GameState
+from game.models import GameState
 
 
 @dataclass
