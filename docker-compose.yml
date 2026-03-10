@@ -21,15 +21,13 @@ services:
       - .env.docker
     environment:
       - ENV=development
-    # For hot-reload dev server (when you have FastAPI/uvicorn), uncomment and set your app module:
-    # command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-    # When backend has an HTTP API, add healthcheck and uncomment:
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]  # or wget
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 3
-    #   start_period: 10s
+    command: ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:

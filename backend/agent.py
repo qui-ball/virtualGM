@@ -1,0 +1,190 @@
+"""Agent creation, model presets, and dynamic instructions."""
+
+import json
+import os
+from pathlib import Path
+from typing import Union
+
+from pydantic_ai import Agent, DeferredToolRequests, RunContext
+from pydantic_ai.models.openrouter import OpenRouterModelSettings
+
+import config  # noqa: F401 — triggers logging/logfire setup
+from models import EndGameMasterTurn, GameState
+
+# Model presets: name -> (model_id, provider)
+MODEL_PRESETS: dict[str, tuple[str, str]] = {
+    "m2.5": ("minimax/minimax-m2.5", "sambanova"),
+    "deepseek": ("deepseek/deepseek-v3.2", ""),
+    "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
+    "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba,parasail"),
+}
+DEFAULT_MODEL = "qwen3.5"
+
+active_model = os.getenv("MODEL_PRESET", DEFAULT_MODEL)
+if active_model not in MODEL_PRESETS:
+    from loguru import logger
+
+    logger.warning(
+        f"Unknown preset '{active_model}', falling back to '{DEFAULT_MODEL}'"
+    )
+    active_model = DEFAULT_MODEL
+
+MODEL_NAME, OPENROUTER_PROVIDER = MODEL_PRESETS[active_model]
+
+
+def build_model_settings(provider: str) -> OpenRouterModelSettings:
+    if not provider:
+        return OpenRouterModelSettings()
+    return OpenRouterModelSettings(
+        openrouter_provider={
+            "order": [p.strip() for p in provider.split(",")],
+            "allow_fallbacks": True,
+        }
+    )
+
+
+model_settings = build_model_settings(OPENROUTER_PROVIDER)
+
+
+# =============================================================================
+# Agent
+# =============================================================================
+
+agent = Agent(
+    f"openrouter:{MODEL_NAME}",
+    deps_type=GameState,
+    output_type=Union[EndGameMasterTurn, DeferredToolRequests],
+    end_strategy="exhaustive",
+    instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
+
+## Core Responsibilities
+- Run the campaign provided in <campaign> tags, following its narrative structure
+- Narrate vivid, immersive scenes
+- Voice NPCs with distinct personalities
+- Adjudicate rules fairly using the provided ruleset
+- Track combat and manage enemies
+
+## GM Style
+- Be descriptive but concise—paint scenes in 2-3 sentences per beat
+- Use sensory details to immerse the player
+- Never narrate the player character's thoughts, feelings, or actions
+- Introduce NPCs through description first, not by name—let names come through dialogue or other characters
+- Ask the player what they want to do
+
+## Pacing
+- ONE story beat per turn, then return EndGameMasterTurn
+- A beat is one moment: arriving somewhere, a sound in the dark, an NPC speaking, a reveal behind a door
+- If the player could make a choice at any point in your narration, that is where you stop
+- When the player attempts something consequential, call for a roll BEFORE narrating the outcome
+- Treat each story_element in the campaign data as a separate beat—never merge multiple into one narration
+- Only reveal what the PC has learned through play so far—do not front-load NPC names, locations, or solutions from the campaign data
+- Fixed outcomes require MORE turns, not fewer—each step is its own beat with player input between
+- The player's actions always matter. If the outcome is fixed, they can still shape HOW it happens—wounding a fleeing villain, weakening a curse, learning something, or shifting what comes after
+
+## Skill Checks
+- When the player attempts something consequential—even if the campaign requires a specific result—call for a roll before narrating. The roll determines degree of success, side effects, or how the outcome plays out
+- Formula: d20 + stat modifier vs a difficulty you set (easy 8, moderate 12, hard 15)
+- Match the stat to the action:
+  - Might for force/endurance
+  - Finesse for agility/stealth
+  - Wit for perception/knowledge
+  - Presence for persuasion/intimidation
+
+## Combat Rules Summary
+- Attack roll: d20 + stat modifier + ability bonuses vs target's Evasion
+- Damage: weapon/spell dice + stat modifier
+- Critical hit (natural 20): roll damage normally + add max damage dice, then add modifier once
+- Advantage/Disadvantage: roll 2d20, take higher/lower
+
+## Output Format
+Communicate through tool calls. The player only sees output from narrate().
+
+Each of your turns:
+1. Zero or more state-management tool calls
+2. narrate() to describe the current moment
+3. Return EndGameMasterTurn
+
+Stay within ONE story beat per turn. Do not advance to the next beat before returning EndGameMasterTurn. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
+
+Tools:
+- narrate(text): Player-facing narration for the current beat
+- roll_dice(count, dice_type): Roll dice for GM/enemy actions
+- ask_player_roll(count, dice_type, purpose): Request the player to roll dice for their actions (attacks, damage, checks). The player will provide the result.
+- create_enemy(enemy_id, state): Create an enemy with stats
+- remove_enemy(enemy_id): Remove a defeated enemy
+- update_character_state(target, field, value): Update PC or enemy state
+- apply_damage(target, amount): Apply damage to PC or enemy
+- apply_condition(target, condition): Apply a condition
+- remove_condition(target, condition): Remove a condition
+- create_countdown(name, value): Create a countdown tracker
+- update_countdown(name, delta): Update a countdown
+
+When your turn is complete, return EndGameMasterTurn.
+""",
+)
+
+
+# =============================================================================
+# Dynamic Instructions
+# =============================================================================
+
+
+@agent.instructions
+def add_ruleset() -> str:
+    """Load the core ruleset into the agent's context."""
+    ruleset_path = Path(__file__).parent / "prompts" / "rulesets" / "core-ruleset.md"
+    content = ruleset_path.read_text(encoding="utf-8").strip()
+    return f"<ruleset>\n{content}\n</ruleset>"
+
+
+@agent.instructions
+def add_campaign() -> str:
+    """Load the one-shot campaign into the agent's context."""
+    campaign_path = (
+        Path(__file__).parent / "campaigns" / "touch-of-the-necromancer.json"
+    )
+    data = json.loads(campaign_path.read_text(encoding="utf-8"))
+    content = json.dumps(data, indent=2)
+    return f"<campaign>\n{content}\n</campaign>"
+
+
+@agent.instructions
+def current_game_state(ctx: RunContext[GameState]) -> str:
+    """Inject current game state into the agent's context."""
+    state_info = []
+
+    if ctx.deps.pc:
+        pc = ctx.deps.pc
+        state_info.append(f"PC: {pc.name} (Level {pc.level} {pc.character_class})")
+        state_info.append(f"  HP: {pc.hp}/{pc.hp_max}, Evasion: {pc.evasion}")
+        state_info.append(
+            f"  Stats: Might {pc.stats.might:+d}, Finesse {pc.stats.finesse:+d}, Wit {pc.stats.wit:+d}, Presence {pc.stats.presence:+d}"
+        )
+        if pc.mana is not None:
+            state_info.append(f"  Mana: {pc.mana}/{pc.mana_max}")
+        if pc.spells_known:
+            state_info.append(f"  Spells: {', '.join(pc.spells_known)}")
+        if pc.conditions:
+            state_info.append(f"  Conditions: {', '.join(pc.conditions)}")
+
+    if ctx.deps.enemies:
+        state_info.append("Enemies:")
+        for eid, enemy in ctx.deps.enemies.items():
+            cond_str = f" [{', '.join(enemy.conditions)}]" if enemy.conditions else ""
+            state_info.append(
+                f"  {eid}: {enemy.hp}/{enemy.hp_max} HP, Evasion {enemy.evasion}{cond_str}"
+            )
+
+    if ctx.deps.countdowns:
+        state_info.append("Countdowns:")
+        for name, value in ctx.deps.countdowns.items():
+            state_info.append(f"  {name}: {value}")
+
+    if ctx.deps.time_counter is not None:
+        state_info.append(f"Chapter Time Counter: {ctx.deps.time_counter}")
+
+    return f"<current_game_state>\n{chr(10).join(state_info) if state_info else 'No active game state'}\n</current_game_state>"
+
+
+# Register tools by importing the tools module
+import tools  # noqa: E402, F401
