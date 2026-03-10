@@ -4,11 +4,9 @@ import asyncio
 from collections.abc import AsyncGenerator
 
 from loguru import logger
-from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
-from pydantic_ai.messages import ThinkingPart
+from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
-import agent as agent_mod
-from agent import agent
+from agent_runner import run_agent_iter
 from models import EndGameMasterTurn
 from schemas import GameStateSnapshot, PendingAction
 from session import PendingDeferred, Session
@@ -88,22 +86,17 @@ async def stream_turn(
 
     async def run():
         try:
-            async with agent.iter(
-                user_prompt=player_message,
+            def on_thinking(text: str):
+                logger.info(f"\033[90m💭 {text}\033[0m")
+                queue.put_nowait(("thinking", {"text": text}))
+
+            result = await run_agent_iter(
                 deps=gs,
                 message_history=session.message_history,
-                model_settings=agent_mod.model_settings,
-            ) as agent_run:
-                async for node in agent_run:
-                    if Agent.is_call_tools_node(node):
-                        for part in node.model_response.parts:
-                            if isinstance(part, ThinkingPart) and part.has_content():
-                                logger.info(f"\033[90m💭 {part.content}\033[0m")
-                                queue.put_nowait(
-                                    ("thinking", {"text": part.content})
-                                )
-
-            _handle_result(session, agent_run.result, queue)
+                user_prompt=player_message,
+                on_thinking=on_thinking,
+            )
+            _handle_result(session, result, queue)
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))
@@ -140,26 +133,17 @@ async def stream_deferred_response(
 
     async def run():
         try:
-            is_first_call_tools_node = True
-            async with agent.iter(
+            def on_thinking(text: str):
+                logger.info(f"\033[90m💭 {text}\033[0m")
+                queue.put_nowait(("thinking", {"text": text}))
+
+            result = await run_agent_iter(
                 deps=gs,
                 message_history=session.pending_deferred.messages_snapshot,
-                model_settings=agent_mod.model_settings,
                 deferred_tool_results=deferred_results,
-            ) as agent_run:
-                async for node in agent_run:
-                    if Agent.is_call_tools_node(node):
-                        if is_first_call_tools_node:
-                            is_first_call_tools_node = False
-                            continue
-                        for part in node.model_response.parts:
-                            if isinstance(part, ThinkingPart) and part.has_content():
-                                logger.info(f"\033[90m💭 {part.content}\033[0m")
-                                queue.put_nowait(
-                                    ("thinking", {"text": part.content})
-                                )
-
-            _handle_result(session, agent_run.result, queue)
+                on_thinking=on_thinking,
+            )
+            _handle_result(session, result, queue)
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))

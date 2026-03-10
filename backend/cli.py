@@ -4,11 +4,11 @@ import asyncio
 
 import click
 from loguru import logger
-from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
-from pydantic_ai.messages import ThinkingPart
+from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 import agent as agent_mod
 from agent import agent
+from agent_runner import run_agent_iter
 from models import EndGameMasterTurn, GameState, create_player_character
 from tools import handle_ask_player_roll
 
@@ -63,51 +63,18 @@ async def run_chat():
             deferred_results = None
 
             while True:
-                run_kwargs: dict = dict(
+                def on_thinking(text: str):
+                    logger.info(
+                        f"{Colors.LIGHT_BLACK}💭 {text}{Colors.RESET}"
+                    )
+
+                result = await run_agent_iter(
                     deps=game_state,
                     message_history=message_history,
-                    model_settings=agent_mod.model_settings,
+                    user_prompt=current_input,
+                    deferred_tool_results=deferred_results,
+                    on_thinking=on_thinking,
                 )
-                if deferred_results is not None:
-                    run_kwargs["deferred_tool_results"] = deferred_results
-                if current_input:
-                    run_kwargs["user_prompt"] = current_input
-
-                # Retry loop for transient OpenRouter errors
-                for attempt in range(agent_mod.MAX_RETRIES):
-                    try:
-                        is_first_call_tools_node = deferred_results is not None
-                        async with agent.iter(**run_kwargs) as agent_run:
-                            async for node in agent_run:
-                                if Agent.is_call_tools_node(node):
-                                    if is_first_call_tools_node:
-                                        is_first_call_tools_node = False
-                                        continue
-                                    for part in node.model_response.parts:
-                                        if (
-                                            isinstance(part, ThinkingPart)
-                                            and part.has_content()
-                                        ):
-                                            logger.info(
-                                                f"{Colors.LIGHT_BLACK}💭 {part.content}{Colors.RESET}"
-                                            )
-                        break  # Success, exit retry loop
-                    except Exception as e:
-                        error_str = str(e)
-                        is_transient = (
-                            "validation error" in error_str.lower()
-                            and ("input_value=None" in error_str or "'error'" in error_str)
-                        ) or "Server Error" in error_str
-                        if is_transient and attempt < agent_mod.MAX_RETRIES - 1:
-                            delay = agent_mod.RETRY_BASE_DELAY * (2 ** attempt)
-                            logger.warning(
-                                f"Transient OpenRouter error (attempt {attempt + 1}/{agent_mod.MAX_RETRIES}), retrying in {delay:.0f}s..."
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-                        raise
-
-                result = agent_run.result
 
                 # Check if we have deferred tool requests (player interaction needed)
                 if isinstance(result.output, DeferredToolRequests):
