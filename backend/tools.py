@@ -7,6 +7,7 @@ from pydantic_ai import CallDeferred, ModelRetry, RunContext
 
 from models import (
     DICE_SIDES,
+    XP_THRESHOLDS,
     ConditionName,
     DiceType,
     EnemyState,
@@ -27,8 +28,7 @@ class Colors:
 
 @agent.tool
 def narrate(ctx: RunContext[GameState], text: str) -> str:
-    """The only way the player sees your output. One story beat per turn—after narrating
-    the current moment, return EndGameMasterTurn before advancing to the next beat.
+    """Show text to the player.
 
     Args:
         text: Description, dialogue, or outcome for the current moment.
@@ -50,7 +50,7 @@ def roll_dice(
     advantage: bool = False,
     disadvantage: bool = False,
 ) -> str:
-    """Roll dice for GM/enemy actions.
+    """Roll dice and return the result.
 
     Args:
         dice_count: Number of dice to roll
@@ -106,10 +106,7 @@ def ask_player_roll(
     dice_type: DiceType,
     purpose: str,
 ) -> str:
-    """Request the player to roll dice for their actions. This defers execution until the player provides their roll result.
-
-    Use this for player attacks, damage rolls, skill checks, etc. The player will see the purpose
-    and provide their roll result.
+    """Request the player to roll dice. Defers execution until the player provides their result.
 
     Args:
         dice_count: Number of dice to roll
@@ -167,7 +164,7 @@ def create_enemy(
 
 @agent.tool
 def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
-    """Remove an enemy from the encounter (typically when defeated).
+    """Remove an enemy from the encounter.
 
     Args:
         enemy_id: The enemy identifier to remove
@@ -180,6 +177,19 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
     del ctx.deps.enemies[enemy_id]
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
+
+
+@agent.tool
+def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
+    """Toggle boss battle mode for the current encounter.
+
+    Args:
+        active: True to start a boss battle, False to end it
+    """
+    ctx.deps.is_boss_battle = active
+    status = "STARTED" if active else "ENDED"
+    logger.info(f"👑 Boss battle {status}")
+    return f"Boss battle {status}"
 
 
 @agent.tool
@@ -238,13 +248,6 @@ def apply_condition(
     ctx: RunContext[GameState], target: str, condition: ConditionName
 ) -> str:
     """Apply a condition to the player character or an enemy.
-
-    Conditions:
-    - poisoned: Disadvantage on all rolls (removed by rest or healing spell)
-    - stunned: Cannot take actions (removed after 1 turn or healing spell)
-    - frightened: Disadvantage on attack rolls (removed by rest or spell)
-    - restrained: Disadvantage on attacks and Evasion (escape via Might/Finesse check)
-    - prone: Disadvantage on attacks; attackers have advantage (stand up to remove)
 
     Args:
         target: "pc" for player character, or enemy_id for an enemy
@@ -355,10 +358,7 @@ def update_character_state(
 
 @agent.tool
 def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) -> str:
-    """Create a new countdown tracker.
-
-    Countdowns track looming events (rituals completing, reinforcements arriving, etc.).
-    When a countdown reaches 0, its effect triggers.
+    """Create a new countdown tracker. Triggers when it reaches 0.
 
     Args:
         name: Name/identifier for the countdown
@@ -402,6 +402,78 @@ def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
     if new_value == 0 and old_value > 0:
         return f"Countdown '{name}': {old_value} → 0 (TRIGGERED!)"
     return f"Countdown '{name}': {old_value} → {new_value}"
+
+
+@agent.tool
+def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
+    """Award experience points to the player character.
+
+    Args:
+        amount: XP to award (must be positive)
+        reason: Why the XP is being awarded (e.g., "defeated skeleton", "completed quest")
+    """
+    if ctx.deps.pc is None:
+        raise ModelRetry("No player character initialized.")
+    if amount <= 0:
+        raise ModelRetry("XP amount must be positive.")
+    if ctx.deps.in_combat:
+        raise ModelRetry("Cannot award XP during combat. Award XP after combat ends.")
+
+    pc = ctx.deps.pc
+    old_xp = pc.xp
+    pc.xp += amount
+
+    result = f"Awarded {amount} XP for '{reason}': {old_xp} → {pc.xp} XP"
+    logger.info(f"⭐ {result}")
+
+    # Check for level-up
+    if pc.level < 10:
+        next_threshold = XP_THRESHOLDS.get(pc.level + 1)
+        if next_threshold and pc.xp >= next_threshold:
+            old_level = pc.level
+            pc.level += 1
+            result += (
+                f"\n🎉 LEVEL UP! {old_level} → {pc.level}! "
+                f"The player must choose one: HP increase, +1 Evasion, or a class ability."
+            )
+            logger.info(f"🎉 Level up! {old_level} → {pc.level}")
+
+    return result
+
+
+@agent.tool
+def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
+    """Add an item to the player character's inventory.
+
+    Args:
+        item: Name of the item to add
+    """
+    if ctx.deps.pc is None:
+        raise ModelRetry("No player character initialized.")
+
+    ctx.deps.pc.inventory.append(item)
+    logger.info(f"🎒 Added '{item}' to inventory")
+    return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
+
+
+@agent.tool
+def remove_from_inventory(ctx: RunContext[GameState], item: str) -> str:
+    """Remove an item from the player character's inventory.
+
+    Args:
+        item: Name of the item to remove (must match exactly)
+    """
+    if ctx.deps.pc is None:
+        raise ModelRetry("No player character initialized.")
+
+    if item not in ctx.deps.pc.inventory:
+        raise ModelRetry(
+            f"Item '{item}' not in inventory. Current inventory: {ctx.deps.pc.inventory}"
+        )
+
+    ctx.deps.pc.inventory.remove(item)
+    logger.info(f"🎒 Removed '{item}' from inventory")
+    return f"Removed '{item}' from inventory. Inventory: {ctx.deps.pc.inventory}"
 
 
 # =============================================================================

@@ -73,21 +73,39 @@ async def run_chat():
                 if current_input:
                     run_kwargs["user_prompt"] = current_input
 
-                is_first_call_tools_node = deferred_results is not None
-                async with agent.iter(**run_kwargs) as agent_run:
-                    async for node in agent_run:
-                        if Agent.is_call_tools_node(node):
-                            if is_first_call_tools_node:
-                                is_first_call_tools_node = False
-                                continue
-                            for part in node.model_response.parts:
-                                if (
-                                    isinstance(part, ThinkingPart)
-                                    and part.has_content()
-                                ):
-                                    logger.info(
-                                        f"{Colors.LIGHT_BLACK}💭 {part.content}{Colors.RESET}"
-                                    )
+                # Retry loop for transient OpenRouter errors
+                for attempt in range(agent_mod.MAX_RETRIES):
+                    try:
+                        is_first_call_tools_node = deferred_results is not None
+                        async with agent.iter(**run_kwargs) as agent_run:
+                            async for node in agent_run:
+                                if Agent.is_call_tools_node(node):
+                                    if is_first_call_tools_node:
+                                        is_first_call_tools_node = False
+                                        continue
+                                    for part in node.model_response.parts:
+                                        if (
+                                            isinstance(part, ThinkingPart)
+                                            and part.has_content()
+                                        ):
+                                            logger.info(
+                                                f"{Colors.LIGHT_BLACK}💭 {part.content}{Colors.RESET}"
+                                            )
+                        break  # Success, exit retry loop
+                    except Exception as e:
+                        error_str = str(e)
+                        is_transient = (
+                            "validation error" in error_str.lower()
+                            and ("input_value=None" in error_str or "'error'" in error_str)
+                        ) or "Server Error" in error_str
+                        if is_transient and attempt < agent_mod.MAX_RETRIES - 1:
+                            delay = agent_mod.RETRY_BASE_DELAY * (2 ** attempt)
+                            logger.warning(
+                                f"Transient OpenRouter error (attempt {attempt + 1}/{agent_mod.MAX_RETRIES}), retrying in {delay:.0f}s..."
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        raise
 
                 result = agent_run.result
 

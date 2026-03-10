@@ -17,6 +17,7 @@ MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "deepseek": ("deepseek/deepseek-v3.2", ""),
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
     "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba,parasail"),
+    "gemini": ("google/gemini-3.1-flash-lite-preview", ""),
 }
 DEFAULT_MODEL = "qwen3.5"
 
@@ -44,6 +45,9 @@ def build_model_settings(provider: str) -> OpenRouterModelSettings:
 
 
 model_settings = build_model_settings(OPENROUTER_PROVIDER)
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 2.0  # seconds
 
 
 # =============================================================================
@@ -107,17 +111,21 @@ Each of your turns:
 Stay within ONE story beat per turn. Do not advance to the next beat before returning EndGameMasterTurn. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
 
 Tools:
-- narrate(text): Player-facing narration for the current beat
-- roll_dice(count, dice_type): Roll dice for GM/enemy actions
-- ask_player_roll(count, dice_type, purpose): Request the player to roll dice for their actions (attacks, damage, checks). The player will provide the result.
-- create_enemy(enemy_id, state): Create an enemy with stats
-- remove_enemy(enemy_id): Remove a defeated enemy
-- update_character_state(target, field, value): Update PC or enemy state
-- apply_damage(target, amount): Apply damage to PC or enemy
-- apply_condition(target, condition): Apply a condition
-- remove_condition(target, condition): Remove a condition
-- create_countdown(name, value): Create a countdown tracker
-- update_countdown(name, delta): Update a countdown
+- narrate(text): Player-facing narration. Use for ALL player-visible output — descriptions, dialogue, outcomes, questions.
+- roll_dice(count, dice_type): Use when the GM or an enemy needs a roll (enemy attacks, enemy initiative, random outcomes). Never use for player actions.
+- ask_player_roll(count, dice_type, purpose): Use when the PLAYER attempts something — attacks, damage, skill checks, saves. Defers until the player provides their result.
+- create_enemy(enemy_id, hp_max, evasion, ...): Use when enemies appear in the narrative. Set stats before combat begins.
+- remove_enemy(enemy_id): Use when an enemy is defeated, flees, or is otherwise removed from the encounter.
+- update_character_state(target, field, value): Use for simple numeric changes — spending gold, restoring mana, adjusting evasion. Not for damage (use apply_damage) or items (use inventory tools).
+- set_boss_battle(active): Use when a campaign-designated boss encounter begins (True) or ends (False). Must be set before any damage is dealt in the encounter.
+- apply_damage(target, amount): Use whenever a creature takes damage. Handles HP clamping and death/defeat logic automatically.
+- apply_condition(target, condition): Use when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone).
+- remove_condition(target, condition): Use when a condition expires, is healed, or is escaped.
+- award_xp(amount, reason): Use after battles, quests, or skill successes. Automatically checks for level-up. Only use outside combat.
+- add_to_inventory(item): Use when the PC picks up, buys, receives, or loots an item. Always call this — do not just narrate acquiring items.
+- remove_from_inventory(item): Use when the PC drops, sells, uses up, or loses an item. Always call this — do not just narrate losing items.
+- create_countdown(name, value): Use for timed narrative events — rituals completing, reinforcements arriving, a building collapsing.
+- update_countdown(name, delta): Use to tick countdowns forward or back as time passes or events occur.
 
 When your turn is complete, return EndGameMasterTurn.
 """,

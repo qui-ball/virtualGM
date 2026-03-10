@@ -11,6 +11,18 @@ from pydantic import BaseModel, Field
 
 DiceType = Literal["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
 
+XP_THRESHOLDS: dict[int, int] = {
+    2: 100,
+    3: 250,
+    4: 500,
+    5: 1_000,
+    6: 2_000,
+    7: 4_000,
+    8: 7_000,
+    9: 11_000,
+    10: 16_000,
+}
+
 DICE_SIDES: dict[DiceType, int] = {
     "d4": 4,
     "d6": 6,
