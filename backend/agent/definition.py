@@ -1,6 +1,5 @@
 """Agent creation, model presets, and dynamic instructions."""
 
-import json
 import os
 from pathlib import Path
 from typing import Union
@@ -16,8 +15,9 @@ MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "m2.5": ("minimax/minimax-m2.5", "sambanova"),
     "deepseek": ("deepseek/deepseek-v3.2", ""),
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
-    "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba,parasail"),
-    "gemini": ("google/gemini-3.1-flash-lite-preview", ""),
+    "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
+    "gemini-flash": ("google/gemini-3-flash-preview", ""),
+    "gemini-flash-lite": ("google/gemini-3.1-flash-lite-preview", ""),
 }
 DEFAULT_MODEL = "qwen3.5"
 
@@ -54,7 +54,7 @@ RETRY_BASE_DELAY = 2.0  # seconds
 # Agent
 # =============================================================================
 
-agent = Agent(
+gm_agent = Agent(
     f"openrouter:{MODEL_NAME}",
     deps_type=GameState,
     output_type=Union[EndGameMasterTurn, DeferredToolRequests],
@@ -62,7 +62,7 @@ agent = Agent(
     instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
 ## Core Responsibilities
-- Run the campaign provided in <campaign> tags, following its narrative structure
+- Run the campaign using the index in <campaign_index> tags and load sections as needed with load_campaign_section()
 - Narrate vivid, immersive scenes
 - Voice NPCs with distinct personalities
 - Adjudicate rules fairly using the provided ruleset
@@ -111,6 +111,8 @@ Each of your turns:
 Stay within ONE story beat per turn. Do not advance to the next beat before returning EndGameMasterTurn. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
 
 Tools:
+- load_campaign_section(section): Load a campaign section into context. Only load the section you need for the current scene. You can have at most 3 sections loaded at once — if at capacity, unload one first.
+- unload_campaign_section(section): Remove a loaded section to free a slot. Unload sections you no longer need before loading new ones.
 - narrate(text): Player-facing narration. Use for ALL player-visible output — descriptions, dialogue, outcomes, questions.
 - roll_dice(count, dice_type): Use when the GM or an enemy needs a roll (enemy attacks, enemy initiative, random outcomes). Never use for player actions.
 - ask_player_roll(count, dice_type, purpose): Use when the PLAYER attempts something — attacks, damage, skill checks, saves. Defers until the player provides their result.
@@ -137,26 +139,44 @@ When your turn is complete, return EndGameMasterTurn.
 # =============================================================================
 
 
-@agent.instructions
+@gm_agent.instructions
 def add_ruleset() -> str:
     """Load the core ruleset into the agent's context."""
-    ruleset_path = Path(__file__).parent.parent / "prompts" / "rulesets" / "core-ruleset.md"
+    ruleset_path = (
+        Path(__file__).parent.parent / "prompts" / "rulesets" / "core-ruleset.md"
+    )
     content = ruleset_path.read_text(encoding="utf-8").strip()
     return f"<ruleset>\n{content}\n</ruleset>"
 
 
-@agent.instructions
-def add_campaign() -> str:
-    """Load the one-shot campaign into the agent's context."""
-    campaign_path = (
-        Path(__file__).parent.parent / "campaigns" / "touch-of-the-necromancer.json"
-    )
-    data = json.loads(campaign_path.read_text(encoding="utf-8"))
-    content = json.dumps(data, indent=2)
-    return f"<campaign>\n{content}\n</campaign>"
+@gm_agent.instructions
+def add_campaign(ctx: RunContext[GameState]) -> str:
+    """Load the campaign index and any currently loaded sections into context."""
+    if ctx.deps.campaign_dir is None:
+        return ""
+
+    campaign_dir = Path(ctx.deps.campaign_dir)
+    index_path = campaign_dir / "index.md"
+    if not index_path.is_file():
+        return ""
+
+    index_content = index_path.read_text(encoding="utf-8").strip()
+    parts = [f"<campaign_index>\n{index_content}\n</campaign_index>"]
+
+    if ctx.deps.loaded_sections:
+        for section, content in ctx.deps.loaded_sections.items():
+            parts.append(
+                f'<campaign_section path="{section}">\n{content}\n</campaign_section>'
+            )
+    else:
+        parts.append(
+            "<campaign_sections>\nNo sections loaded. Use load_campaign_section(section) to load one.\n</campaign_sections>"
+        )
+
+    return "\n\n".join(parts)
 
 
-@agent.instructions
+@gm_agent.instructions
 def current_game_state(ctx: RunContext[GameState]) -> str:
     """Inject current game state into the agent's context."""
     state_info = []
@@ -195,4 +215,4 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
 
 
 # Register tools by importing the tools module
-import agent.tools  # noqa: E402, F401
+import agent.tools  # noqa: E402, F401 — registers tools on gm_agent

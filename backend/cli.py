@@ -1,13 +1,14 @@
 """CLI entry point — preserves the original interactive chat loop."""
 
 import asyncio
+from pathlib import Path
 
 import click
 from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 import agent as agent_mod
-from agent import agent, run_agent_iter
+from agent import gm_agent, run_agent_iter
 from agent.tools import handle_ask_player_roll
 from game.models import EndGameMasterTurn, GameState, create_player_character
 
@@ -38,6 +39,9 @@ async def run_chat():
     # Initialize game state with pre-generated character
     game_state = GameState()
     game_state.pc = create_player_character()
+    game_state.campaign_dir = str(
+        Path(__file__).parent / "campaigns" / "LostMineOfPhandelver"
+    )
 
     logger.info(
         f"Character loaded: {game_state.pc.name} (Level {game_state.pc.level} {game_state.pc.character_class})"
@@ -86,6 +90,10 @@ async def run_chat():
 
                         if call.tool_name == "ask_player_roll":
                             # Handle player dice roll
+                            logger.info(
+                                f"🎲 {args.get('purpose', 'Roll')} — "
+                                f"{args['dice_count']}{args['dice_type']}"
+                            )
                             result_str = handle_ask_player_roll(args, game_state)
                         else:
                             logger.error(f"Unknown deferred tool: {call.tool_name}")
@@ -128,7 +136,7 @@ def main(model: str | None):
         agent_mod.MODEL_NAME, agent_mod.OPENROUTER_PROVIDER = (
             agent_mod.MODEL_PRESETS[model]
         )
-        agent.model = f"openrouter:{agent_mod.MODEL_NAME}"  # type: ignore[assignment]
+        gm_agent.model = f"openrouter:{agent_mod.MODEL_NAME}"  # type: ignore[assignment]
         agent_mod.model_settings = agent_mod.build_model_settings(
             agent_mod.OPENROUTER_PROVIDER
         )

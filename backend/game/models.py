@@ -146,6 +146,11 @@ class GameState:
         self.initiative_order: list[str] = []  # Names in initiative order
         self.current_turn_index: int = 0
 
+        # Campaign context management
+        self.campaign_dir: str | None = None  # Path to campaign directory
+        self.loaded_sections: dict[str, str] = {}  # section_path -> content
+        self.max_loaded_sections: int = 3
+
         # Narration collection for API mode
         self.narrations: list[str] = []
 
@@ -160,19 +165,22 @@ class EndGameMasterTurn(BaseModel):
 
 
 def create_player_character() -> CharacterState:
-    """Create Rowan Ashvale, the pre-generated ranger for Touch of the Necromancer."""
+    """Create a pre-generated warrior for Lost Mine of Phandelver.
+
+    Human Fighter — a noble heir from Corlinn Hill seeking to civilize Phandalin.
+    """
     return CharacterState(
-        name="Rowan Ashvale",
-        character_class="ranger",
+        name="Aldric of Corlinn Hill",
+        character_class="warrior",
         level=1,
         xp=0,
-        stats=Stats(might=0, finesse=2, wit=1, presence=-1),
-        hp=10,  # 10 + 0 (Might)
-        hp_max=10,
-        evasion=13,  # 10 + 2 (Finesse) + 1 (Leather Armor)
-        class_abilities=["steady_aim"],  # +1 to ranged attack rolls
+        stats=Stats(might=2, finesse=1, wit=0, presence=-1),
+        hp=12,  # 10 + 2 (Might)
+        hp_max=12,
+        evasion=14,  # 10 + 1 (Finesse) + 3 (Chain Mail)
+        class_abilities=["weapon_focus"],  # WAR-S1: +1 to melee attack rolls
         gold=10,
-        inventory=["Longbow", "Shortsword", "Leather Armor", "Rope (50 ft)"],
-        equipped_weapon="Longbow",
-        equipped_armor="Leather Armor",
+        inventory=["Longsword", "Handaxe", "Chain Mail", "Explorer's Pack"],
+        equipped_weapon="Longsword",
+        equipped_armor="Chain Mail",
     )

@@ -7,7 +7,7 @@ from agent.definition import (
     OPENROUTER_PROVIDER,
     RETRY_BASE_DELAY,
     active_model,
-    agent,
+    gm_agent,
     build_model_settings,
     model_settings,
 )

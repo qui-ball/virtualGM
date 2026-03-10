@@ -8,7 +8,7 @@ from pydantic_ai import Agent, DeferredToolResults
 from pydantic_ai.messages import ThinkingPart
 
 import agent.definition as agent_mod
-from agent.definition import agent
+from agent.definition import gm_agent
 from game.models import GameState
 
 
@@ -19,7 +19,7 @@ async def run_agent_iter(
     deferred_tool_results: DeferredToolResults | None = None,
     on_thinking: Callable[[str], None] | None = None,
 ):
-    """Run agent.iter() with retry logic, returning the agent run result.
+    """Run gm_agent.iter() with retry logic, returning the agent run result.
 
     Callers inspect result.output for DeferredToolRequests vs EndGameMasterTurn.
     """
@@ -36,7 +36,7 @@ async def run_agent_iter(
     for attempt in range(agent_mod.MAX_RETRIES):
         try:
             is_first_call_tools_node = deferred_tool_results is not None
-            async with agent.iter(**run_kwargs) as agent_run:
+            async with gm_agent.iter(**run_kwargs) as agent_run:
                 async for node in agent_run:
                     if Agent.is_call_tools_node(node):
                         if is_first_call_tools_node:

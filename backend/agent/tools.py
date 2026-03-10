@@ -1,6 +1,7 @@
-"""Agent tool definitions — all @agent.tool and @agent.tool_plain functions."""
+"""Agent tool definitions — all @gm_agent.tool and @gm_agent.tool_plain functions."""
 
 import random
+from pathlib import Path
 
 from loguru import logger
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
@@ -16,7 +17,7 @@ from game.models import (
 
 # Import agent to register tools on it.
 # This module is imported at the bottom of agent/definition.py, so `agent` is already created.
-from agent.definition import agent
+from agent.definition import gm_agent
 
 
 # ANSI color codes for terminal output (used by narrate for CLI)
@@ -26,7 +27,7 @@ class Colors:
     RESET = "\033[0m"
 
 
-@agent.tool
+@gm_agent.tool
 def narrate(ctx: RunContext[GameState], text: str) -> str:
     """Show text to the player.
 
@@ -43,7 +44,58 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
     return f"Narration was shown to the player: {text[:50]}..."
 
 
-@agent.tool_plain
+@gm_agent.tool
+def load_campaign_section(ctx: RunContext[GameState], section: str) -> str:
+    """Load a campaign section into context. See the campaign index for available section paths.
+
+    Args:
+        section: Section path from the campaign index (e.g., "Part1_Goblin_Arrows/Goblin_Ambush")
+    """
+    if section in ctx.deps.loaded_sections:
+        return f"Section '{section}' is already loaded."
+
+    if len(ctx.deps.loaded_sections) >= ctx.deps.max_loaded_sections:
+        loaded = list(ctx.deps.loaded_sections.keys())
+        raise ModelRetry(
+            f"Cannot load — already at capacity ({ctx.deps.max_loaded_sections} sections loaded): {loaded}. "
+            f"Use unload_campaign_section to free a slot first."
+        )
+
+    if ctx.deps.campaign_dir is None:
+        raise ModelRetry("No campaign directory configured.")
+
+    file_path = Path(ctx.deps.campaign_dir) / f"{section}.md"
+    if not file_path.is_file():
+        raise ModelRetry(
+            f"Section '{section}' not found. Check the campaign index for valid section paths."
+        )
+
+    content = file_path.read_text(encoding="utf-8")
+    ctx.deps.loaded_sections[section] = content
+
+    logger.info(f"📖 Loaded campaign section: {section}")
+    return f"Loaded '{section}' into context."
+
+
+@gm_agent.tool
+def unload_campaign_section(ctx: RunContext[GameState], section: str) -> str:
+    """Remove a campaign section from context to free a slot.
+
+    Args:
+        section: Section path to unload
+    """
+    if section not in ctx.deps.loaded_sections:
+        loaded = list(ctx.deps.loaded_sections.keys())
+        raise ModelRetry(
+            f"Section '{section}' is not loaded. Currently loaded: {loaded}"
+        )
+
+    del ctx.deps.loaded_sections[section]
+    logger.info(f"📖 Unloaded campaign section: {section}")
+    return f"Unloaded '{section}' from context."
+
+
+@gm_agent.tool_plain
 def roll_dice(
     dice_count: int,
     dice_type: DiceType,
@@ -99,7 +151,7 @@ def roll_dice(
     return result_str
 
 
-@agent.tool
+@gm_agent.tool
 def ask_player_roll(
     ctx: RunContext[GameState],
     dice_count: int,
@@ -123,7 +175,7 @@ def ask_player_roll(
     )
 
 
-@agent.tool
+@gm_agent.tool
 def create_enemy(
     ctx: RunContext[GameState],
     enemy_id: str,
@@ -162,7 +214,7 @@ def create_enemy(
     return f"Created '{enemy_id}' with {hp_max} HP, Evasion {evasion}"
 
 
-@agent.tool
+@gm_agent.tool
 def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
     """Remove an enemy from the encounter.
 
@@ -179,7 +231,7 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
     return f"Removed '{enemy_id}'"
 
 
-@agent.tool
+@gm_agent.tool
 def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
     """Toggle boss battle mode for the current encounter.
 
@@ -192,7 +244,7 @@ def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
     return f"Boss battle {status}"
 
 
-@agent.tool
+@gm_agent.tool
 def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
     """Apply damage to the player character or an enemy.
 
@@ -243,7 +295,7 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
         )
 
 
-@agent.tool
+@gm_agent.tool
 def apply_condition(
     ctx: RunContext[GameState], target: str, condition: ConditionName
 ) -> str:
@@ -276,7 +328,7 @@ def apply_condition(
         )
 
 
-@agent.tool
+@gm_agent.tool
 def remove_condition(
     ctx: RunContext[GameState], target: str, condition: ConditionName
 ) -> str:
@@ -309,7 +361,7 @@ def remove_condition(
         )
 
 
-@agent.tool
+@gm_agent.tool
 def update_character_state(
     ctx: RunContext[GameState],
     target: str,
@@ -356,7 +408,7 @@ def update_character_state(
         )
 
 
-@agent.tool
+@gm_agent.tool
 def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) -> str:
     """Create a new countdown tracker. Triggers when it reaches 0.
 
@@ -380,7 +432,7 @@ def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) 
     return f"Created countdown '{name}' with value {initial_value}"
 
 
-@agent.tool
+@gm_agent.tool
 def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
     """Update an existing countdown by applying a delta.
 
@@ -404,7 +456,7 @@ def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
     return f"Countdown '{name}': {old_value} → {new_value}"
 
 
-@agent.tool
+@gm_agent.tool
 def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     """Award experience points to the player character.
 
@@ -441,7 +493,7 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     return result
 
 
-@agent.tool
+@gm_agent.tool
 def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
     """Add an item to the player character's inventory.
 
@@ -456,7 +508,7 @@ def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
     return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
 
 
-@agent.tool
+@gm_agent.tool
 def remove_from_inventory(ctx: RunContext[GameState], item: str) -> str:
     """Remove an item from the player character's inventory.
 
