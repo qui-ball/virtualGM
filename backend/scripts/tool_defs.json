@@ -1,0 +1,459 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "narrate",
+      "description": "Show text to the player. This is the ONLY way to communicate with the player \u2014 anything not passed through narrate() is invisible to them.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "ALL player-facing content: narration, dialogue, scene descriptions, and questions.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "load_campaign_section",
+      "description": "Load a campaign section into context. See the campaign index for available section paths.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "section": {
+            "description": "Section path from the campaign index (e.g., \"Part1_Goblin_Arrows/Goblin_Ambush\")",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "unload_campaign_section",
+      "description": "Remove a campaign section from context to free a slot.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "section": {
+            "description": "Section path to unload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "roll_dice",
+      "description": "Roll dice and return the result.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "dice_count": {
+            "description": "Number of dice to roll",
+            "type": "integer"
+          },
+          "dice_type": {
+            "description": "Type of die (d4, d6, d8, d10, d12, d20, d100)",
+            "enum": [
+              "d4",
+              "d6",
+              "d8",
+              "d10",
+              "d12",
+              "d20",
+              "d100"
+            ],
+            "type": "string"
+          },
+          "advantage": {
+            "default": false,
+            "description": "If True and rolling d20, roll 2d20 and take higher",
+            "type": "boolean"
+          },
+          "disadvantage": {
+            "default": false,
+            "description": "If True and rolling d20, roll 2d20 and take lower",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dice_count",
+          "dice_type"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "ask_player_roll",
+      "description": "Request the player to roll dice. Defers execution until the player provides their result.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "dice_count": {
+            "description": "Number of dice to roll",
+            "type": "integer"
+          },
+          "dice_type": {
+            "description": "Type of die (d4, d6, d8, d10, d12, d20, d100)",
+            "enum": [
+              "d4",
+              "d6",
+              "d8",
+              "d10",
+              "d12",
+              "d20",
+              "d100"
+            ],
+            "type": "string"
+          },
+          "purpose": {
+            "description": "Brief description of what the roll is for (e.g., \"attack roll\", \"damage\", \"Wit check\")",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dice_count",
+          "dice_type",
+          "purpose"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_enemy",
+      "description": "Create an enemy in the encounter.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "enemy_id": {
+            "description": "Unique identifier for the enemy (e.g., \"Goblin 1\")",
+            "type": "string"
+          },
+          "hp_max": {
+            "description": "Maximum hit points",
+            "type": "integer"
+          },
+          "evasion": {
+            "description": "Evasion value (target number to hit)",
+            "type": "integer"
+          },
+          "attack_modifier": {
+            "default": 0,
+            "description": "Bonus to attack rolls",
+            "type": "integer"
+          },
+          "damage": {
+            "default": "1d6",
+            "description": "Damage expression (e.g., \"1d6+2\")",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enemy_id",
+          "hp_max",
+          "evasion"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "remove_enemy",
+      "description": "Remove an enemy from the encounter.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "enemy_id": {
+            "description": "The enemy identifier to remove",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enemy_id"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_boss_battle",
+      "description": "Toggle boss battle mode for the current encounter.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "True to start a boss battle, False to end it",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "apply_damage",
+      "description": "Apply damage to the player character or an enemy.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "description": "\"pc\" for player character, or enemy_id for an enemy",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Damage amount to apply",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "amount"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "apply_condition",
+      "description": "Apply a condition to the player character or an enemy.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "description": "\"pc\" for player character, or enemy_id for an enemy",
+            "type": "string"
+          },
+          "condition": {
+            "description": "The condition to apply",
+            "enum": [
+              "poisoned",
+              "stunned",
+              "frightened",
+              "restrained",
+              "prone"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "condition"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "remove_condition",
+      "description": "Remove a condition from the player character or an enemy.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "description": "\"pc\" for player character, or enemy_id for an enemy",
+            "type": "string"
+          },
+          "condition": {
+            "description": "The condition to remove",
+            "enum": [
+              "poisoned",
+              "stunned",
+              "frightened",
+              "restrained",
+              "prone"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "condition"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update_character_state",
+      "description": "Update a numeric field on the player character or enemy by setting it to a new value.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "description": "\"pc\" for player character, or enemy_id for an enemy",
+            "type": "string"
+          },
+          "field": {
+            "description": "Field to update (hp, mana, evasion, gold, etc.)",
+            "type": "string"
+          },
+          "value": {
+            "description": "New value to set",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "field",
+          "value"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_countdown",
+      "description": "Create a new countdown tracker. Triggers when it reaches 0.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Name/identifier for the countdown",
+            "type": "string"
+          },
+          "initial_value": {
+            "description": "Starting value (must be >= 0)",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "initial_value"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update_countdown",
+      "description": "Update an existing countdown by applying a delta.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Name of the countdown",
+            "type": "string"
+          },
+          "delta": {
+            "description": "Change to apply (e.g., -1 to tick down, +1 to tick up)",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "delta"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "award_xp",
+      "description": "Award experience points to the player character.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "XP to award (must be positive)",
+            "type": "integer"
+          },
+          "reason": {
+            "description": "Why the XP is being awarded (e.g., \"defeated skeleton\", \"completed quest\")",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "reason"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "add_to_inventory",
+      "description": "Add an item to the player character's inventory.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "description": "Name of the item to add",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "remove_from_inventory",
+      "description": "Remove an item from the player character's inventory.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "description": "Name of the item to remove (must match exactly)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "type": "object"
+      }
+    }
+  }
+]
