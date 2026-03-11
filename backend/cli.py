@@ -10,7 +10,7 @@ from pydantic_ai import DeferredToolRequests, DeferredToolResults
 import agent as agent_mod
 from agent import gm_agent, run_agent_iter
 from agent.tools import handle_ask_player_roll
-from game.models import EndGameMasterTurn, GameState, create_player_character
+from game.models import GameState, create_player_character
 
 
 # ANSI color codes for terminal output
@@ -107,10 +107,9 @@ async def run_chat():
                     current_input = None
                     continue
                 else:
-                    # Normal completion
-                    if isinstance(result.output, EndGameMasterTurn):
-                        if result.output.internal_notes:
-                            logger.debug(f"GM notes: {result.output.internal_notes}")
+                    # Normal completion — output is the GM's internal notes string
+                    if isinstance(result.output, str) and result.output:
+                        logger.debug(f"GM notes: {result.output}")
 
                     # Update message history with all messages from this interaction
                     message_history = result.all_messages()

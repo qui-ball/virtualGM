@@ -8,7 +8,7 @@ from pydantic_ai import Agent, DeferredToolRequests, RunContext
 from pydantic_ai.models.openrouter import OpenRouterModelSettings
 
 import config  # noqa: F401 — triggers logging/logfire setup
-from game.models import EndGameMasterTurn, GameState
+from game.models import GameState
 
 # Model presets: name -> (model_id, provider)
 MODEL_PRESETS: dict[str, tuple[str, str]] = {
@@ -16,6 +16,7 @@ MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "deepseek": ("deepseek/deepseek-v3.2", ""),
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
     "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
+    "qwen3.5-27b": ("qwen/qwen3.5-27b", ""),
     "gemini-flash": ("google/gemini-3-flash-preview", ""),
     "gemini-flash-lite": ("google/gemini-3.1-flash-lite-preview", ""),
 }
@@ -57,7 +58,7 @@ RETRY_BASE_DELAY = 2.0  # seconds
 gm_agent = Agent(
     f"openrouter:{MODEL_NAME}",
     deps_type=GameState,
-    output_type=Union[EndGameMasterTurn, DeferredToolRequests],
+    output_type=Union[str, DeferredToolRequests],
     end_strategy="exhaustive",
     instructions="""You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
@@ -76,7 +77,7 @@ gm_agent = Agent(
 - Ask the player what they want to do
 
 ## Pacing
-- ONE story beat per turn, then return EndGameMasterTurn
+- ONE story beat per turn, then end your turn
 - A beat is one moment: arriving somewhere, a sound in the dark, an NPC speaking, a reveal behind a door
 - If the player could make a choice at any point in your narration, that is where you stop
 - When the player attempts something consequential, call for a roll BEFORE narrating the outcome
@@ -101,14 +102,14 @@ gm_agent = Agent(
 - Advantage/Disadvantage: roll 2d20, take higher/lower
 
 ## Output Format
-Communicate through tool calls. The player only sees output from narrate().
+Communicate through tool calls. The player ONLY sees output from narrate() — your final text response is private internal notes, not shown to the player.
 
 Each of your turns:
 1. Zero or more state-management tool calls
 2. narrate() to describe the current moment
-3. Return EndGameMasterTurn
+3. Return a short string with your private internal notes (continuity reminders, next-beat plans, etc.)
 
-Stay within ONE story beat per turn. Do not advance to the next beat before returning EndGameMasterTurn. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
+Stay within ONE story beat per turn. Do not advance to the next beat. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
 
 Tools:
 - load_campaign_section(section): Load a campaign section into context. Only load the section you need for the current scene. You can have at most 3 sections loaded at once — if at capacity, unload one first.
@@ -129,7 +130,7 @@ Tools:
 - create_countdown(name, value): Use for timed narrative events — rituals completing, reinforcements arriving, a building collapsing.
 - update_countdown(name, delta): Use to tick countdowns forward or back as time passes or events occur.
 
-When your turn is complete, return EndGameMasterTurn.
+When your turn is complete, return your internal notes string.
 """,
 )
 

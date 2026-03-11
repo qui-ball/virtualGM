@@ -7,7 +7,6 @@ from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 from agent.runner import run_agent_iter
-from game.models import EndGameMasterTurn
 from api.schemas import GameStateSnapshot, PendingAction
 from game.session import PendingDeferred, Session
 
@@ -59,9 +58,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
             )
         )
     else:
-        internal_notes = None
-        if isinstance(result.output, EndGameMasterTurn):
-            internal_notes = result.output.internal_notes
+        internal_notes = result.output if isinstance(result.output, str) else None
         session.message_history = result.all_messages()
         session.pending_deferred = None
         queue.put_nowait(

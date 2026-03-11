@@ -21,7 +21,7 @@ async def run_agent_iter(
 ):
     """Run gm_agent.iter() with retry logic, returning the agent run result.
 
-    Callers inspect result.output for DeferredToolRequests vs EndGameMasterTurn.
+    Callers inspect result.output for DeferredToolRequests vs str (internal notes).
     """
     run_kwargs: dict = dict(
         deps=deps,
