@@ -29,10 +29,10 @@ class Colors:
 
 @gm_agent.tool
 def narrate(ctx: RunContext[GameState], text: str) -> str:
-    """Show text to the player.
+    """Show text to the player. This is the ONLY way to communicate with the player — anything not passed through narrate() is invisible to them.
 
     Args:
-        text: Description, dialogue, or outcome for the current moment.
+        text: ALL player-facing content: narration, dialogue, scene descriptions, and questions.
     """
     # Collect narration for API consumers
     ctx.deps.narrations.append(text)

@@ -109,7 +109,7 @@ async def run_chat():
                 else:
                     # Normal completion — output is the GM's internal notes string
                     if isinstance(result.output, str) and result.output:
-                        logger.debug(f"GM notes: {result.output}")
+                        logger.info(f"GM notes: {result.output}")
 
                     # Update message history with all messages from this interaction
                     message_history = result.all_messages()

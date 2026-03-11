@@ -17,6 +17,7 @@ MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
     "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
     "qwen3.5-27b": ("qwen/qwen3.5-27b", ""),
+    "qwen3.5-122b": ("qwen/qwen3.5-122b-a10b", "alibaba"),
     "gemini-flash": ("google/gemini-3-flash-preview", ""),
     "gemini-flash-lite": ("google/gemini-3.1-flash-lite-preview", ""),
 }
@@ -74,7 +75,6 @@ gm_agent = Agent(
 - Use sensory details to immerse the player
 - Never narrate the player character's thoughts, feelings, or actions
 - Introduce NPCs through description first, not by name—let names come through dialogue or other characters
-- Ask the player what they want to do
 
 ## Pacing
 - ONE story beat per turn, then end your turn
@@ -102,12 +102,12 @@ gm_agent = Agent(
 - Advantage/Disadvantage: roll 2d20, take higher/lower
 
 ## Output Format
-Communicate through tool calls. The player ONLY sees output from narrate() — your final text response is private internal notes, not shown to the player.
+ALL player-visible text MUST go through narrate(). Your final text return is NEVER shown to the player — it is only for your own private notes.
 
 Each of your turns:
 1. Zero or more state-management tool calls
-2. narrate() to describe the current moment
-3. Return a short string with your private internal notes (continuity reminders, next-beat plans, etc.)
+2. narrate() to describe the current moment — this is the ONLY way to communicate with the player
+3. Return a short string (1-2 sentences max) with private internal notes only — e.g. "Goblins at full HP, player hasn't looted yet, next beat: reinforcements if stalling." NEVER repeat or rephrase narration. NEVER include "What do you do?" or any player-facing prompt in the return string.
 
 Stay within ONE story beat per turn. Do not advance to the next beat. A beat may involve multiple narrate() calls if they resolve a single action (e.g., narrating an attack setup, then its outcome after a roll), but the story must not move forward to a new moment.
 
