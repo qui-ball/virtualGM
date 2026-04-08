@@ -1,4 +1,4 @@
-# Environment files (keep .env.example as template; .env.docker has safe defaults and is committed)
+# Environment files: .env.example = template; .env.docker = Compose defaults (prefer local secrets in gitignored .env.development)
 .env
 .env.*
 !.env.example
@@ -10,3 +10,6 @@ local/
 # Launch script runtime (frontend PID and log)
 .launch-frontend.pid
 .launch-frontend.log
+
+# Editor — keep local only
+.vscode/
