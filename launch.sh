@@ -3,11 +3,13 @@
 # Virtual GM – development launch script
 # Usage: ./launch.sh [--wsl] [up|down|restart|logs|status] [service...]
 #
-#   ./launch.sh up          Start everything: backend (Docker) + frontend (npm run dev)
-#   ./launch.sh up backend  Start only backend (Docker)
+#   ./launch.sh up          Start everything: local Supabase (if supabase/config.toml exists) + backend (Docker) + frontend (npm run dev)
+#   ./launch.sh up backend  Start only backend (Docker); local Supabase is not started
+#   ./launch.sh up supabase Start only local Supabase CLI stack (see https://supabase.com/docs/guides/cli)
 #   ./launch.sh down        Stop backend and frontend (if started by this script)
 #   ./launch.sh --wsl up    Same as up, plus run PowerShell to allow mobile devices (WSL2 port forwarding + firewall)
-#   ./launch.sh restart     Restart backend (and optionally frontend)
+#   ./launch.sh restart     Full dev restart: stop frontend + Docker + local Supabase, then start again (same as down then up)
+#   ./launch.sh restart backend   Restart only the backend container (frontend left running)
 #   ./launch.sh logs        Docker logs
 #   ./launch.sh status      Show URLs and status
 #
@@ -23,6 +25,7 @@ FRONTEND_PID_FILE="${SCRIPT_DIR}/.launch-frontend.pid"
 WSL_NETWORK_SCRIPT="${SCRIPT_DIR}/scripts/wsl-network-access.ps1"
 BACKEND_PORT=8000
 FRONTEND_PORT=5173
+SUPABASE_CONFIG="${SCRIPT_DIR}/supabase/config.toml"
 
 # Set to 1 when --wsl is passed; then we run PowerShell for port forwarding + firewall (mobile access)
 LAUNCH_WSL=0
@@ -344,6 +347,56 @@ run_migrations() {
   return 0
 }
 
+# ---------- Local Supabase (CLI + Docker) ----------
+supabase_cli_available() {
+  command -v supabase >/dev/null 2>&1
+}
+
+supabase_local_configured() {
+  [[ -f "$SUPABASE_CONFIG" ]]
+}
+
+start_supabase_if_configured() {
+  supabase_local_configured || return 0
+  if ! supabase_cli_available; then
+    warn "supabase/config.toml found but supabase CLI is not in PATH. Install: https://supabase.com/docs/guides/cli — skipping local stack."
+    return 0
+  fi
+  info "Starting local Supabase (supabase start) ..."
+  if (cd "$SCRIPT_DIR" && supabase start --yes); then
+    ok "Local Supabase is running."
+  else
+    warn "supabase start failed. Fix Docker/CLI setup or remove supabase/ if you only use hosted Supabase."
+  fi
+}
+
+stop_supabase_if_configured() {
+  supabase_local_configured || return 0
+  supabase_cli_available || return 0
+  info "Stopping local Supabase (supabase stop) ..."
+  if (cd "$SCRIPT_DIR" && supabase stop --yes); then
+    ok "Local Supabase stopped."
+  else
+    warn "supabase stop returned an error (stack may already be stopped)."
+  fi
+}
+
+# Print local Supabase URLs after backend/frontend (hosted project URLs are not available from the CLI).
+show_supabase_urls() {
+  supabase_local_configured || return 0
+  if ! supabase_cli_available; then
+    return 0
+  fi
+  echo ""
+  if (cd "$SCRIPT_DIR" && supabase status >/dev/null 2>&1); then
+    echo -e "  ${CYAN}Supabase (local — from supabase CLI):${NC}"
+    (cd "$SCRIPT_DIR" && supabase status --output pretty 2>/dev/null) | sed 's/^/    /' || true
+  else
+    echo -e "  ${YELLOW}Supabase (local): not running. Run ${NC}$0 up${YELLOW} or:${NC} supabase start"
+  fi
+  echo ""
+}
+
 # ---------- Status and URL display ----------
 show_status_and_urls() {
   local compose_cmd=$1
@@ -392,6 +445,7 @@ show_status_and_urls() {
     fi
     echo ""
   fi
+  show_supabase_urls
   echo -e "  ${CYAN}Logs:${NC} $0 logs [service]"
   echo ""
   if $compose_cmd ps 2>/dev/null | grep -q Up; then
@@ -402,7 +456,27 @@ show_status_and_urls() {
 # ---------- Commands ----------
 cmd_up() {
   local services=("$@")
+  local want_supabase=0
+  local compose_services=()
+  local run_compose_all=0
+  local i
+  local compose_cmd
+
+  if [[ ${#services[@]} -eq 0 ]]; then
+    want_supabase=1
+    run_compose_all=1
+  else
+    for i in "${services[@]}"; do
+      if [[ "$i" == "supabase" ]]; then
+        want_supabase=1
+      else
+        compose_services+=("$i")
+      fi
+    done
+  fi
+
   check_prereqs
+  compose_cmd=$COMPOSE_CMD
   check_port $BACKEND_PORT "backend"
   # If our managed frontend is already running on 5173, don't warn about port in use
   local frontend_ignore_pid=""
@@ -411,28 +485,37 @@ cmd_up() {
     [[ -n "$frontend_ignore_pid" ]] && kill -0 "$frontend_ignore_pid" 2>/dev/null || frontend_ignore_pid=""
   fi
   check_port $FRONTEND_PORT "frontend" "$frontend_ignore_pid"
-  local compose_cmd=$COMPOSE_CMD
   if [[ "$LAUNCH_WSL" -eq 1 ]]; then
     echo ""
     setup_wsl_network_access
     echo ""
   fi
-  if [[ ${#services[@]} -eq 0 ]]; then
-    info "Building and starting all services..."
+
+  if [[ "$want_supabase" -eq 1 ]]; then
+    echo ""
+    start_supabase_if_configured
+    echo ""
+  fi
+
+  if [[ "$run_compose_all" -eq 1 ]]; then
+    info "Building and starting all Docker Compose services..."
     $compose_cmd -f "$COMPOSE_FILE" up -d --build
+  elif [[ ${#compose_services[@]} -gt 0 ]]; then
+    info "Building and starting: ${compose_services[*]}"
+    $compose_cmd -f "$COMPOSE_FILE" up -d --build "${compose_services[@]}"
   else
-    info "Building and starting: ${services[*]}"
-    $compose_cmd -f "$COMPOSE_FILE" up -d --build "${services[@]}"
+    info "No Docker Compose services requested (Supabase-only start)."
   fi
-  info "Waiting for containers to be ready..."
-  # When docker-compose healthcheck is defined, consider polling until healthy (e.g. docker compose ps --format json).
-  sleep 3
-  # Run migrations when present (placeholder section)
-  if ! run_migrations "$compose_cmd"; then
-    warn "Migrations did not run successfully. See above. Continuing."
+
+  if [[ "$run_compose_all" -eq 1 ]] || [[ ${#compose_services[@]} -gt 0 ]]; then
+    info "Waiting for containers to be ready..."
+    sleep 3
+    if ! run_migrations "$compose_cmd"; then
+      warn "Migrations did not run successfully. See above. Continuing."
+    fi
   fi
-  # When starting "all" (no service filter), also start the frontend dev server
-  if [[ ${#services[@]} -eq 0 ]]; then
+
+  if [[ "$run_compose_all" -eq 1 ]]; then
     echo ""
     start_frontend
   fi
@@ -462,6 +545,8 @@ cmd_down() {
     fi
     wait_until_port_free $BACKEND_PORT "Backend" 15 || true
 
+    stop_supabase_if_configured || true
+
     set -e
     ok "All services stopped. You can run ./launch.sh up again."
   else
@@ -473,9 +558,14 @@ cmd_down() {
 
 cmd_restart() {
   local services=("$@")
-  [[ ${#services[@]} -eq 0 ]] && services=(backend)
-  cmd_down "${services[@]}"
-  cmd_up "${services[@]}"
+  # No service names => full stack (frees 5173 by stopping the managed frontend). With names => only those Compose services.
+  if [[ ${#services[@]} -eq 0 ]]; then
+    cmd_down
+    cmd_up
+  else
+    cmd_down "${services[@]}"
+    cmd_up "${services[@]}"
+  fi
 }
 
 cmd_logs() {
@@ -521,9 +611,10 @@ main() {
       err "Unknown command: $cmd"
       echo "Usage: $0 [--wsl] {up|down|restart|logs|status} [service...]"
       echo "  --wsl    (WSL2 only) Run PowerShell to allow mobile devices (port forwarding + firewall). Use with: $0 --wsl up"
-      echo "  up       Start backend + frontend (or only listed Docker services)."
-      echo "  down     Stop backend and frontend (when no service names given)."
-      echo "  restart  Restart services (default: backend)."
+      echo "  up       Start local Supabase (if supabase/config.toml exists) + backend + frontend, or only listed services."
+      echo "           Use pseudo-service name 'supabase' for CLI stack only, or combine e.g. 'up backend supabase'."
+      echo "  down     Stop backend, frontend, and local Supabase (when no service names given)."
+      echo "  restart  Full stack restart (no args), or: restart <service> to restart only that Compose service (e.g. backend)."
       echo "  logs     Stream logs (all or specified service)."
       echo "  status   Show status and URLs (local + network)."
       exit 1

@@ -1,89 +1,32 @@
 # virtualGM
 
-## Development
+## Prerequisites
 
-- **Backend (Docker):** `./launch.sh up backend` — backend runs in Docker on port 8000.
-- **Frontend (local):** `cd frontend && npm run dev` — Vite dev server on port 5173 (best HMR).
+- **Docker** (daemon running)
+- **Node.js** + **npm** (for the frontend dev server)
+- **Supabase CLI** — only if you use local Supabase (`supabase/config.toml` in repo). [Install](https://supabase.com/docs/guides/cli/getting-started), then `supabase --version`.
 
-See `./launch.sh status` for URLs and `./launch.sh` for usage.
+## Setup
 
-## Environment variables
+1. Clone the repo and go to the project root.
 
-Environment files are used for local and Docker configuration. **Do not commit secrets**; only `.env.example` and `.env.docker` (with safe defaults) are intended for version control.
+2. **Environment** — copy examples and add secrets (nothing real should be committed):
+   - Root: `.env.example` → `.env` and/or `.env.development`; optional `.env.docker` tweaks for Compose.
+   - Frontend: `frontend/.env.example` → `frontend/.env.development` (Vite reads that on `npm run dev`).
+   - Set at least one LLM key in root env if you use the chat backend (`OPENROUTER_API_KEY` or `DEEPSEEK_API_KEY` — see `.env.example`).
 
-| File | Purpose |
-|------|--------|
-| `.env.example` | Template listing all supported variables. Copy to `.env` and fill in values for local development. |
-| `.env` | Local overrides and secrets (git-ignored). Create from `.env.example`. |
-| `.env.docker` | Loaded by Docker Compose for the backend service. Committed with safe defaults; add Docker-specific overrides or secrets here (or keep defaults). |
+3. **Supabase (local)** — after first `./launch.sh up` or `supabase start`, run `supabase status` (or `./launch.sh status`). Put the API URL and **anon/publishable** key in `frontend/.env.development` (`VITE_SUPABASE_*`). Put the **secret/service_role** key only in root `.env.development` or `.env.docker` (`SUPABASE_*`) if the backend needs it — never in the frontend.
 
-Frontend has its own `.env*` in `frontend/` (Vite only reads from there). See **[docs/ENV_ANALYSIS.md](docs/ENV_ANALYSIS.md)** for a breakdown of what lives in each folder.
+4. **Supabase (hosted)** — skip `supabase start`; set `VITE_SUPABASE_*` and optional `SUPABASE_*` from the Supabase dashboard (see `.env.example` files).
 
-### Variable reference
-
-- **ENV** — Runtime: `development` or `production`. Default: `development`.
-- **LOGURU_LEVEL** — Backend log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Default: `INFO`.
-- **LOGFIRE_TOKEN** — (Optional) Logfire token for observability. Leave unset to disable.
-- **LOGFIRE_ENVIRONMENT** — Logfire environment name. Default: `development`.
-- **OPENROUTER_API_KEY** — (Optional) API key for OpenRouter when using that LLM provider.
-- **DEEPSEEK_API_KEY** — (Optional) API key for DeepSeek when using that provider.
-- **VITE_API_URL** — (Frontend) Backend API base URL. Default for local dev: `http://localhost:8000`. For browser-on-device testing, set to your host IP (e.g. `http://192.168.1.10:8000`).
-
-### Testing environment loading
-
-Run the test script from the project root:
+## Run
 
 ```bash
-./test-env-loading.sh
+./launch.sh up        # Supabase (if CLI + config) + backend (Docker, :8000) + frontend (:5173)
+./launch.sh status    # URLs and local network hints
+./launch.sh down      # stop everything including local Supabase
 ```
 
-To also check that variables are present inside the running backend container:
+**Backend only:** `./launch.sh up backend` — then `cd frontend && npm run dev` if you need the UI.
 
-```bash
-./launch.sh up backend
-./test-env-loading.sh --in-container
-```
-
-## Responsive & browser testing
-
-### Mobile viewports (browser dev tools)
-
-Use your browser’s device toolbar to emulate mobile and tablet viewports:
-
-1. Open the app (e.g. http://localhost:5173).
-2. Open DevTools (F12 or right‑click → Inspect).
-3. Toggle **device toolbar** (Ctrl+Shift+M / Cmd+Shift+M) or the device icon in DevTools.
-4. Pick a device or set a custom width (e.g. 375px, 768px, 1024px).
-5. Refresh if needed and check layout, touch targets, and navigation (e.g. the responsive test page under “Responsive test”).
-
-Breakpoints: mobile &lt; 768px, tablet 768–1024px, desktop &gt; 1024px (see `frontend/src/styles/index.css` and Tailwind `md:` / `lg:`).
-
-### Browser on a physical device (phone/tablet)
-
-To run the app in the browser on your phone or tablet while the dev server runs on your machine:
-
-1. **Start backend and frontend** on your host:
-   - `./launch.sh up backend`
-   - `cd frontend && npm run dev`
-2. **Find your host’s LAN IP** (e.g. 192.168.1.10). On Linux: `ip addr` or `hostname -I`; on macOS: System Settings → Network; or run `./launch.sh status` and use the “On your local network” URL.
-3. **On the device**, open the frontend at `http://<host-ip>:5173` (Vite is started with `host: true` so it listens on all interfaces).
-4. **Backend from the device:** the app calls the backend at `VITE_API_URL`. From a phone, `localhost` is the phone itself, so set the API URL to your host machine:
-   - In `frontend/.env`: `VITE_API_URL=http://<host-ip>:8000`
-   - Restart the Vite dev server after changing `.env`.
-5. Ensure your firewall allows incoming connections on 5173 and 8000 from the LAN.
-
-### Windows + WSL2
-
-When developing in WSL2, the IP shown as “WSL” (e.g. 172.18.x.x) is **not** reachable from your phone. Use the **Windows host IP** instead (the script shows it under “On your local network — use Windows host IP” when it detects WSL2; it comes from `/etc/resolv.conf`).
-
-For the page to load on your phone:
-
-1. **Port forwarding (PowerShell as Administrator):**  
-   Get the WSL IP: `wsl hostname -I` (use the first number). Then:
-   ```powershell
-   netsh interface portproxy add v4tov4 listenport=5173 listenaddress=0.0.0.0 connectport=5173 connectaddress=WSL_IP
-   netsh interface portproxy add v4tov4 listenport=8000 listenaddress=0.0.0.0 connectport=8000 connectaddress=WSL_IP
-   ```
-2. **Windows Firewall:** Allow inbound TCP on ports 5173 and 8000 (e.g. Windows Defender Firewall → Advanced → Inbound Rules → New Rule → Port → TCP 5173, 8000).
-
-Then on your phone open `http://<Windows-LAN-IP>:5173` (and set `VITE_API_URL=http://<Windows-LAN-IP>:8000` in `frontend/.env` if the app calls the API).
+More detail on env layout: [docs/ENV_ANALYSIS.md](docs/ENV_ANALYSIS.md).

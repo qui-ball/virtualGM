@@ -1,6 +1,7 @@
 """FastAPI application — exposes session/turn endpoints for the chat UI."""
 
 import json
+import os
 import random
 
 from fastapi import FastAPI, HTTPException
@@ -24,9 +25,24 @@ import agent as agent_mod  # noqa: F401
 
 app = FastAPI(title="Virtual GM API")
 
+# CORS: browser origin must match when testing from another device (http://<LAN-IP>:5173).
+_env = os.getenv("ENV", "development")
+_cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_cors_origin_regex: str | None = None
+if _env == "development":
+    _cors_origin_regex = (
+        r"^https?://("
+        r"localhost|127\.0\.0\.1"
+        r"|192\.168\.\d{1,3}\.\d{1,3}"
+        r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+        r"|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}"
+        r")(:\d+)?$"
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
