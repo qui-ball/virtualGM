@@ -19,6 +19,7 @@ from api.schemas import (
 )
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
+from supabase_client import is_supabase_configured
 
 # Importing agent triggers config + tool registration
 import agent as agent_mod  # noqa: F401
@@ -51,7 +52,10 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "supabase_configured": is_supabase_configured(),
+    }
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
