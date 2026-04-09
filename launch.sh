@@ -3,7 +3,7 @@
 # Virtual GM – development launch script
 # Usage: ./launch.sh [--wsl] [up|down|restart|logs|status] [service...]
 #
-#   ./launch.sh up          Start everything: local Supabase (if supabase/config.toml exists) + backend (Docker) + frontend (npm run dev)
+#   ./launch.sh up          Start everything: local Supabase (if supabase/config.toml exists) + pending SQL migrations + backend (Docker) + frontend (npm run dev)
 #   ./launch.sh up backend  Start only backend (Docker); local Supabase is not started
 #   ./launch.sh up supabase Start only local Supabase CLI stack (see https://supabase.com/docs/guides/cli)
 #   ./launch.sh down        Stop backend and frontend (if started by this script)
@@ -309,20 +309,12 @@ setup_wsl_network_access() {
   fi
 }
 
-# ---------- Migration runner (placeholder for DB migrations) ----------
-# Run after dependent services (e.g. database) are ready.
-# When you add migrations (Alembic, Django, Supabase, scripts/migrate.sh), wire them here.
+# ---------- Database migrations ----------
+# Supabase: `apply_supabase_migrations` runs after `supabase start` (see cmd_up). Uses `supabase/migrations/*.sql`.
+# Other backends: run after Docker services are up (below).
 run_migrations() {
   local compose_cmd=$1
-  bold "Database migrations (placeholder)"
-  # ---- PLACEHOLDER: run migration files when present ----
-  # Add checks for your migration setup and run the appropriate command.
-  # Examples:
-  #   - Alembic:        $compose_cmd exec -T backend alembic upgrade head
-  #   - Django:         $compose_cmd exec -T backend python manage.py migrate
-  #   - scripts:        ./scripts/migrate.sh
-  #   - Supabase (CLI): supabase db push (or run from host after DB is up)
-  #
+  bold "Other database migrations"
   if [[ -f "${SCRIPT_DIR}/scripts/migrate.sh" ]]; then
     info "Running scripts/migrate.sh ..."
     if ! "${SCRIPT_DIR}/scripts/migrate.sh"; then
@@ -342,8 +334,7 @@ run_migrations() {
     ok "Migrations completed successfully."
     return 0
   fi
-  # No migration setup detected – skip silently so colleagues aren’t confused
-  info "No migration files or scripts found (scripts/migrate.sh, backend/alembic.ini, etc.). Skipping."
+  info "No scripts/migrate.sh or backend/alembic.ini found. Skipping (Supabase SQL migrations run earlier when local Supabase starts)."
   return 0
 }
 
@@ -365,9 +356,23 @@ start_supabase_if_configured() {
   info "Starting local Supabase (supabase start) ..."
   if (cd "$SCRIPT_DIR" && supabase start --yes); then
     ok "Local Supabase is running."
-  else
-    warn "supabase start failed. Fix Docker/CLI setup or remove supabase/ if you only use hosted Supabase."
+    return 0
   fi
+  warn "supabase start failed. Fix Docker/CLI setup or remove supabase/ if you only use hosted Supabase."
+  return 1
+}
+
+# Apply pending files under supabase/migrations/ to the local DB (new .sql files are applied in timestamp order).
+apply_supabase_migrations() {
+  supabase_local_configured || return 0
+  supabase_cli_available || return 0
+  bold "Supabase: applying pending migrations (supabase/migrations)..."
+  if ! (cd "$SCRIPT_DIR" && supabase migration up --yes); then
+    err "supabase migration up failed. Fix the SQL under supabase/migrations/, then try again (from repo root: supabase migration up --yes)."
+    return 1
+  fi
+  ok "Supabase database is up to date."
+  return 0
 }
 
 stop_supabase_if_configured() {
@@ -493,7 +498,13 @@ cmd_up() {
 
   if [[ "$want_supabase" -eq 1 ]]; then
     echo ""
-    start_supabase_if_configured
+    if ! start_supabase_if_configured; then
+      err "Aborting: local Supabase did not start."
+      exit 1
+    fi
+    if ! apply_supabase_migrations; then
+      exit 1
+    fi
     echo ""
   fi
 

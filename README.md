@@ -22,7 +22,7 @@
 ## Run
 
 ```bash
-./launch.sh up        # Supabase (if CLI + config) + backend (Docker, :8000) + frontend (:5173)
+./launch.sh up        # Local Supabase + `supabase migration up` (applies supabase/migrations/*.sql) + backend + frontend
 ./launch.sh status    # URLs and local network hints
 ./launch.sh down      # stop everything including local Supabase
 ```
