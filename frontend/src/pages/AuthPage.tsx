@@ -11,7 +11,7 @@ const inputClass =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50';
 
 /**
- * Email/password sign-in and sign-up. Uses Supabase Auth; styled for dark fantasy tone (`.dark` on `html`).
+ * Email/password sign-in and sign-up. Uses Supabase Auth; themed via `data-theme` + semantic tokens.
  */
 export function AuthPage() {
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ export function AuthPage() {
             role="tab"
             aria-selected={mode === 'signin'}
             className={cn(
-              'flex-1 rounded-sm px-3 py-2 font-medium transition-colors',
+              'flex-1 rounded-sm px-3 py-2 font-medium transition-[color,background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-default)]',
               mode === 'signin'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -115,7 +115,7 @@ export function AuthPage() {
             role="tab"
             aria-selected={mode === 'signup'}
             className={cn(
-              'flex-1 rounded-sm px-3 py-2 font-medium transition-colors',
+              'flex-1 rounded-sm px-3 py-2 font-medium transition-[color,background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-default)]',
               mode === 'signup'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'

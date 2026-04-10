@@ -13,6 +13,8 @@
 2. **Environment** — copy examples and add secrets (nothing real should be committed):
    - Root: `.env.example` → `.env` and/or `.env.development`; optional `.env.docker` tweaks for Compose.
    - Frontend: `frontend/.env.example` → `frontend/.env.development` (Vite reads that on `npm run dev`).
+   - **Local vs hosted Supabase:** `.env.development` should use `http://127.0.0.1:54321` and keys from `supabase status` when the CLI stack is running; use dashboard URL + keys only for hosted dev if you skip local Supabase.
+   - **Production / CI:** templates are `.env.production.example` (root and `frontend/`). Copy to gitignored `.env.production` or set the same variables as pipeline secrets before `vite build` / container deploy so production traffic never shares credentials with local `.env.development`.
    - Set at least one LLM key in root env if you use the chat backend (`OPENROUTER_API_KEY` or `DEEPSEEK_API_KEY` — see `.env.example`).
 
 3. **Supabase (local)** — after first `./launch.sh up` or `supabase start`, run `supabase status` (or `./launch.sh status`). Put the API URL and **anon/publishable** key in `frontend/.env.development` (`VITE_SUPABASE_*`). Put the **secret/service_role** key only in root `.env.development` or `.env.docker` (`SUPABASE_URL`, `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY`) if the backend needs it — never in the frontend.
@@ -20,6 +22,8 @@
    **Backend client:** use `get_supabase_service_client()` from [`backend/supabase_client.py`](backend/supabase_client.py) for server-only calls (this key **bypasses RLS**). Use it only when an operation cannot be done safely with the user’s JWT via the frontend.
 
 4. **Supabase (hosted)** — skip `supabase start`; set `VITE_SUPABASE_*` and optional `SUPABASE_*` from the Supabase dashboard (see `.env.example` files).
+
+5. **UI themes (spec)** — preset theme ids and `users.theme_preference` default **`dark-fantasy`** are defined in [local/feature/03-ui-design-system/](local/feature/03-ui-design-system/) and [local/steering/04-data-models-schemas.md](local/steering/04-data-models-schemas.md). Implementation is tracked there.
 
 ## Run
 

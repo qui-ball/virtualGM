@@ -14,7 +14,7 @@ create table public.users (
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   preferred_ruleset_id uuid,
-  theme_preference varchar(20) default 'dark',
+  theme_preference varchar(20) default 'dark-fantasy',
   subscription_tier varchar(50) default 'free',
   subscription_expires_at timestamptz
 );

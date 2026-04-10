@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Navigation, type NavLink } from './Navigation';
 import { useIsTabletOrUp } from '@/hooks';
 import { useAuth } from '@/auth';
+import { ThemeSelect } from '@/theme';
 
 type HeaderProps = {
   /** App name or logo label */
@@ -37,6 +38,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
       </div>
 
       <div className="flex min-h-[44px] flex-1 items-center justify-end gap-2 md:gap-3">
+        <ThemeSelect />
         {!authLoading && user ? (
           <span
             className="hidden max-w-[160px] truncate text-xs text-muted-foreground md:inline"

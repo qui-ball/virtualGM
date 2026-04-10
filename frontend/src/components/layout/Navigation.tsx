@@ -42,7 +42,7 @@ export function Navigation({
     >
       {links.map(link => {
         const shared =
-          'rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] min-w-[44px] inline-flex items-center justify-center touch-manipulation';
+          'rounded-md px-3 py-2 text-sm font-medium text-foreground transition-[color,background-color] duration-[var(--duration-base)] ease-[var(--ease-default)] hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] min-w-[44px] inline-flex items-center justify-center touch-manipulation';
         const activeClass = 'bg-accent text-accent-foreground';
         if (link.to !== undefined) {
           return (

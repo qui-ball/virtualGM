@@ -10,6 +10,7 @@
 #   ./launch.sh --wsl up    Same as up, plus run PowerShell to allow mobile devices (WSL2 port forwarding + firewall)
 #   ./launch.sh restart     Full dev restart: stop frontend + Docker + local Supabase, then start again (same as down then up)
 #   ./launch.sh restart backend   Restart only the backend container (frontend left running)
+#   ./launch.sh restart frontend Restart only the Vite dev server (not a Docker service; same as stop/start npm run dev)
 #   ./launch.sh logs        Docker logs
 #   ./launch.sh status      Show URLs and status
 #
@@ -573,6 +574,15 @@ cmd_restart() {
   if [[ ${#services[@]} -eq 0 ]]; then
     cmd_down
     cmd_up
+  elif [[ ${#services[@]} -eq 1 ]] && [[ "${services[0]}" == "frontend" ]]; then
+    # Frontend is not in docker-compose.yml; it runs via npm run dev (see start_frontend).
+    check_prereqs
+    info "Restarting local frontend (Vite on port ${FRONTEND_PORT})..."
+    stop_frontend
+    wait_until_port_free "$FRONTEND_PORT" "Frontend" 10 || true
+    start_frontend
+    echo ""
+    show_status_and_urls "$COMPOSE_CMD"
   else
     cmd_down "${services[@]}"
     cmd_up "${services[@]}"
@@ -625,7 +635,7 @@ main() {
       echo "  up       Start local Supabase (if supabase/config.toml exists) + backend + frontend, or only listed services."
       echo "           Use pseudo-service name 'supabase' for CLI stack only, or combine e.g. 'up backend supabase'."
       echo "  down     Stop backend, frontend, and local Supabase (when no service names given)."
-      echo "  restart  Full stack restart (no args), or: restart <service> to restart only that Compose service (e.g. backend)."
+      echo "  restart  Full stack restart (no args), restart frontend (Vite only), or restart <compose-service> (e.g. backend)."
       echo "  logs     Stream logs (all or specified service)."
       echo "  status   Show status and URLs (local + network)."
       exit 1

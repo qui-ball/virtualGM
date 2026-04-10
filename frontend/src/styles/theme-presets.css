@@ -1,0 +1,785 @@
+/*
+ * Ten preset themes — full semantic tokens (colour, type stacks, shape, elevation, motion).
+ * Loaded after index.css so :root fallbacks apply first. See local/feature/03-ui-design-system/design.md.
+ * Neon Syndicate: static glow tokens only — no pulsing keyframes (seizure-safety).
+ */
+
+/* dark-fantasy — aligned with local/steering/03-ui-design-styleguide.md */
+[data-theme='dark-fantasy'] {
+  color-scheme: dark;
+
+  --ds-font-sans: system-ui, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  --ds-font-display: var(--ds-font-sans);
+
+  --ds-radius-xs: 0.25rem;
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.75rem;
+  --ds-radius-lg: 1rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #a855f7;
+
+  --glow-primary: 0 0 12px rgb(124 58 237 / 0.35);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-layer-sm: 0 2px 8px rgb(0 0 0 / 0.3);
+  --shadow-layer-md: 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-layer-lg: 0 8px 24px rgb(0 0 0 / 0.4);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 150ms;
+  --duration-base: 225ms;
+  --duration-slow: 300ms;
+  --duration-modal-close: 300ms;
+  --duration-modal-open: 500ms;
+
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #0a0e1a;
+  --foreground: #f3f4f6;
+  --card: #1e2838;
+  --card-foreground: #f3f4f6;
+  --popover: #2a3441;
+  --popover-foreground: #f3f4f6;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: #1e2838;
+  --secondary-foreground: #f3f4f6;
+  --muted: #141b2d;
+  --muted-foreground: #9ca3af;
+  --accent: #2a3441;
+  --accent-foreground: #f3f4f6;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #2a3441;
+  --input: #2a3441;
+  --ring: #7c3aed;
+  --warning: #f59e0b;
+  --warning-foreground: #0a0e1a;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --tertiary-foreground: #6b7280;
+  --disabled-foreground: #4b5563;
+  --chart-1: #7c3aed;
+  --chart-2: #a855f7;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #3b82f6;
+  --sidebar: #141b2d;
+  --sidebar-foreground: #f3f4f6;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e2838;
+  --sidebar-accent-foreground: #f3f4f6;
+  --sidebar-border: #2a3441;
+  --sidebar-ring: #7c3aed;
+}
+
+/* sylvan-elven — Sylvan Covenant: forest, mist, silver-gold */
+[data-theme='sylvan-elven'] {
+  color-scheme: dark;
+
+  --ds-font-display: 'Cormorant Garamond', serif;
+  --ds-font-sans: 'Source Sans 3', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.375rem;
+  --ds-radius-sm: 0.625rem;
+  --ds-radius-md: 0.875rem;
+  --ds-radius-lg: 1.125rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #dcc07a;
+
+  --glow-primary: 0 0 14px rgb(201 169 98 / 0.35);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 3px rgb(0 0 0 / 0.25);
+  --shadow-layer-sm: 0 4px 12px rgb(0 20 15 / 0.35);
+  --shadow-layer-md: 0 8px 20px rgb(0 25 18 / 0.4);
+  --shadow-layer-lg: 0 12px 32px rgb(0 15 12 / 0.45);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 200ms;
+  --duration-base: 280ms;
+  --duration-slow: 380ms;
+  --duration-modal-close: 320ms;
+  --duration-modal-open: 480ms;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #0c1912;
+  --foreground: #e8f0eb;
+  --card: #152b22;
+  --card-foreground: #e8f0eb;
+  --popover: #1e3830;
+  --popover-foreground: #e8f0eb;
+  --primary: #c9a962;
+  --primary-foreground: #0c1912;
+  --secondary: #152b22;
+  --secondary-foreground: #e8f0eb;
+  --muted: #0f2419;
+  --muted-foreground: #9cb5aa;
+  --accent: #1e3830;
+  --accent-foreground: #e8f0eb;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #2d4f40;
+  --input: #2d4f40;
+  --ring: #c9a962;
+  --warning: #d97706;
+  --warning-foreground: #0c1912;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --info: #0d9488;
+  --info-foreground: #ffffff;
+  --tertiary-foreground: #7d9a8c;
+  --disabled-foreground: #4b5c54;
+  --chart-1: #c9a962;
+  --chart-2: #6b9080;
+  --chart-3: #059669;
+  --chart-4: #d97706;
+  --chart-5: #0d9488;
+  --sidebar: #0f2419;
+  --sidebar-foreground: #e8f0eb;
+  --sidebar-primary: #c9a962;
+  --sidebar-primary-foreground: #0c1912;
+  --sidebar-accent: #152b22;
+  --sidebar-accent-foreground: #e8f0eb;
+  --sidebar-border: #2d4f40;
+  --sidebar-ring: #c9a962;
+}
+
+/* bastion-city — Bastion Command: gunmetal, hazard amber */
+[data-theme='bastion-city'] {
+  color-scheme: dark;
+
+  --ds-font-display: Staatliches, sans-serif;
+  --ds-font-sans: 'Roboto Condensed', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.125rem;
+  --ds-radius-sm: 0.25rem;
+  --ds-radius-md: 0.375rem;
+  --ds-radius-lg: 0.5rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #fbbf24;
+
+  --glow-primary: 0 0 8px rgb(245 158 11 / 0.25);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-layer-sm: 0 2px 6px rgb(0 0 0 / 0.45);
+  --shadow-layer-md: 0 4px 10px rgb(0 0 0 / 0.5);
+  --shadow-layer-lg: 0 8px 18px rgb(0 0 0 / 0.55);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 200ms;
+  --duration-modal-close: 180ms;
+  --duration-modal-open: 280ms;
+
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #1a1d23;
+  --foreground: #e8eaed;
+  --card: #242830;
+  --card-foreground: #e8eaed;
+  --popover: #2c3140;
+  --popover-foreground: #e8eaed;
+  --primary: #f59e0b;
+  --primary-foreground: #1a1d23;
+  --secondary: #242830;
+  --secondary-foreground: #e8eaed;
+  --muted: #151820;
+  --muted-foreground: #9aa3b2;
+  --accent: #2c3140;
+  --accent-foreground: #e8eaed;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #3d4556;
+  --input: #3d4556;
+  --ring: #f59e0b;
+  --warning: #ea580c;
+  --warning-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+  --tertiary-foreground: #64748b;
+  --disabled-foreground: #475569;
+  --chart-1: #f59e0b;
+  --chart-2: #64748b;
+  --chart-3: #16a34a;
+  --chart-4: #ea580c;
+  --chart-5: #2563eb;
+  --sidebar: #151820;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #f59e0b;
+  --sidebar-primary-foreground: #1a1d23;
+  --sidebar-accent: #242830;
+  --sidebar-accent-foreground: #e8eaed;
+  --sidebar-border: #3d4556;
+  --sidebar-ring: #f59e0b;
+}
+
+/* arcanum-spire — Arcanum Spire: indigo, violet / teal glow */
+[data-theme='arcanum-spire'] {
+  color-scheme: dark;
+
+  --ds-font-display: Cinzel, serif;
+  --ds-font-sans: 'Source Sans 3', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.25rem;
+  --ds-radius-sm: 0.4375rem;
+  --ds-radius-md: 0.6875rem;
+  --ds-radius-lg: 0.9375rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #c4b5fd;
+
+  --glow-primary: 0 0 18px rgb(167 139 250 / 0.4);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-layer-sm: 0 2px 10px rgb(30 20 80 / 0.35);
+  --shadow-layer-md: 0 4px 16px rgb(40 30 100 / 0.4);
+  --shadow-layer-lg: 0 10px 28px rgb(0 0 0 / 0.45);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 180ms;
+  --duration-base: 280ms;
+  --duration-slow: 360ms;
+  --duration-modal-close: 300ms;
+  --duration-modal-open: 520ms;
+
+  --ease-out: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #090b14;
+  --foreground: #e8e6f0;
+  --card: #12182a;
+  --card-foreground: #e8e6f0;
+  --popover: #1a2340;
+  --popover-foreground: #e8e6f0;
+  --primary: #a78bfa;
+  --primary-foreground: #090b14;
+  --secondary: #12182a;
+  --secondary-foreground: #e8e6f0;
+  --muted: #0d1220;
+  --muted-foreground: #94a3c8;
+  --accent: #134e4a;
+  --accent-foreground: #ccfbf1;
+  --destructive: #f87171;
+  --destructive-foreground: #090b14;
+  --border: #2d3a5c;
+  --input: #2d3a5c;
+  --ring: #2dd4bf;
+  --warning: #fbbf24;
+  --warning-foreground: #090b14;
+  --success: #34d399;
+  --success-foreground: #090b14;
+  --info: #38bdf8;
+  --info-foreground: #090b14;
+  --tertiary-foreground: #7c8db5;
+  --disabled-foreground: #4f5f8a;
+  --chart-1: #a78bfa;
+  --chart-2: #2dd4bf;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #38bdf8;
+  --sidebar: #0d1220;
+  --sidebar-foreground: #e8e6f0;
+  --sidebar-primary: #a78bfa;
+  --sidebar-primary-foreground: #090b14;
+  --sidebar-accent: #12182a;
+  --sidebar-accent-foreground: #e8e6f0;
+  --sidebar-border: #2d3a5c;
+  --sidebar-ring: #2dd4bf;
+}
+
+/* grave-veil — Grave Veil: blue-green desat, bone, sickly accents */
+[data-theme='grave-veil'] {
+  color-scheme: dark;
+
+  --ds-font-display: Spectral, serif;
+  --ds-font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.125rem;
+  --ds-radius-sm: 0.25rem;
+  --ds-radius-md: 0.375rem;
+  --ds-radius-lg: 0.5rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #94b89a;
+
+  --glow-primary: 0 0 10px rgb(107 144 128 / 0.22);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-layer-sm: 0 3px 10px rgb(10 20 25 / 0.45);
+  --shadow-layer-md: 0 6px 16px rgb(5 15 22 / 0.5);
+  --shadow-layer-lg: 0 10px 24px rgb(0 0 0 / 0.5);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 220ms;
+  --duration-base: 320ms;
+  --duration-slow: 420ms;
+  --duration-modal-close: 340ms;
+  --duration-modal-open: 560ms;
+
+  --ease-out: cubic-bezier(0.55, 0.06, 0.45, 0.94);
+  --ease-in-out: cubic-bezier(0.55, 0.06, 0.45, 0.94);
+  --ease-default: var(--ease-in-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #101418;
+  --foreground: #f2ede4;
+  --card: #1a2229;
+  --card-foreground: #f2ede4;
+  --popover: #222c35;
+  --popover-foreground: #f2ede4;
+  --primary: #7c9885;
+  --primary-foreground: #101418;
+  --secondary: #1a2229;
+  --secondary-foreground: #f2ede4;
+  --muted: #151c22;
+  --muted-foreground: #8a9ba8;
+  --accent: #222c35;
+  --accent-foreground: #f2ede4;
+  --destructive: #b91c1c;
+  --destructive-foreground: #fef2f2;
+  --border: #2a3540;
+  --input: #2a3540;
+  --ring: #a3b18a;
+  --warning: #ca8a04;
+  --warning-foreground: #101418;
+  --success: #4d7c5c;
+  --success-foreground: #f2ede4;
+  --info: #5b7c99;
+  --info-foreground: #f2ede4;
+  --tertiary-foreground: #6b7d8c;
+  --disabled-foreground: #4a5763;
+  --chart-1: #7c9885;
+  --chart-2: #8a9ba8;
+  --chart-3: #4d7c5c;
+  --chart-4: #ca8a04;
+  --chart-5: #5b7c99;
+  --sidebar: #151c22;
+  --sidebar-foreground: #f2ede4;
+  --sidebar-primary: #7c9885;
+  --sidebar-primary-foreground: #101418;
+  --sidebar-accent: #1a2229;
+  --sidebar-accent-foreground: #f2ede4;
+  --sidebar-border: #2a3540;
+  --sidebar-ring: #a3b18a;
+}
+
+/* iron-horde — Iron Horde: iron, rust, brutal corners */
+[data-theme='iron-horde'] {
+  color-scheme: dark;
+
+  --ds-font-display: Teko, sans-serif;
+  --ds-font-sans: 'Barlow Condensed', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.125rem;
+  --ds-radius-sm: 0.125rem;
+  --ds-radius-md: 0.1875rem;
+  --ds-radius-lg: 0.25rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #ea580c;
+
+  --glow-primary: 0 0 6px rgb(220 76 26 / 0.3);
+  --border-width-strong: 3px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-layer-sm: 0 2px 4px rgb(0 0 0 / 0.55);
+  --shadow-layer-md: 0 4px 8px rgb(0 0 0 / 0.6);
+  --shadow-layer-lg: 0 6px 14px rgb(0 0 0 / 0.65);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 90ms;
+  --duration-base: 120ms;
+  --duration-slow: 160ms;
+  --duration-modal-close: 140ms;
+  --duration-modal-open: 220ms;
+
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #181410;
+  --foreground: #e7e0d8;
+  --card: #241f1a;
+  --card-foreground: #e7e0d8;
+  --popover: #2e2720;
+  --popover-foreground: #e7e0d8;
+  --primary: #dc4c1a;
+  --primary-foreground: #ffffff;
+  --secondary: #241f1a;
+  --secondary-foreground: #e7e0d8;
+  --muted: #14110e;
+  --muted-foreground: #a89888;
+  --accent: #2e2720;
+  --accent-foreground: #e7e0d8;
+  --destructive: #991b1b;
+  --destructive-foreground: #ffffff;
+  --border: #3d342c;
+  --input: #3d342c;
+  --ring: #f97316;
+  --warning: #ea580c;
+  --warning-foreground: #ffffff;
+  --success: #65a30d;
+  --success-foreground: #181410;
+  --info: #78716c;
+  --info-foreground: #e7e0d8;
+  --tertiary-foreground: #8c7f72;
+  --disabled-foreground: #57534e;
+  --chart-1: #dc4c1a;
+  --chart-2: #a89888;
+  --chart-3: #65a30d;
+  --chart-4: #ea580c;
+  --chart-5: #78716c;
+  --sidebar: #14110e;
+  --sidebar-foreground: #e7e0d8;
+  --sidebar-primary: #dc4c1a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #241f1a;
+  --sidebar-accent-foreground: #e7e0d8;
+  --sidebar-border: #3d342c;
+  --sidebar-ring: #f97316;
+}
+
+/* clockwork — Aetherworks: brass, copper, mechanical rhythm */
+[data-theme='clockwork'] {
+  color-scheme: dark;
+
+  --ds-font-display: 'Share Tech Mono', monospace;
+  --ds-font-sans: 'Exo 2', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.125rem;
+  --ds-radius-sm: 0.1875rem;
+  --ds-radius-md: 0.3125rem;
+  --ds-radius-lg: 0.4375rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #dbb656;
+
+  --glow-primary: 0 0 10px rgb(201 160 74 / 0.3);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-layer-sm: 0 2px 6px rgb(40 32 20 / 0.4);
+  --shadow-layer-md: 0 4px 12px rgb(30 25 15 / 0.45);
+  --shadow-layer-lg: 0 8px 20px rgb(0 0 0 / 0.45);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 150ms;
+  --duration-base: 150ms;
+  --duration-slow: 200ms;
+  --duration-modal-close: 180ms;
+  --duration-modal-open: 300ms;
+
+  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-in-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #1c1a16;
+  --foreground: #ebe6dc;
+  --card: #26231e;
+  --card-foreground: #ebe6dc;
+  --popover: #302b24;
+  --popover-foreground: #ebe6dc;
+  --primary: #c9a04a;
+  --primary-foreground: #1c1a16;
+  --secondary: #26231e;
+  --secondary-foreground: #ebe6dc;
+  --muted: #161410;
+  --muted-foreground: #a89f90;
+  --accent: #3d2e1f;
+  --accent-foreground: #f5e6d3;
+  --destructive: #b45309;
+  --destructive-foreground: #1c1a16;
+  --border: #4a4236;
+  --input: #4a4236;
+  --ring: #e8c547;
+  --warning: #d97706;
+  --warning-foreground: #1c1a16;
+  --success: #6b8f3a;
+  --success-foreground: #ebe6dc;
+  --info: #78716c;
+  --info-foreground: #ebe6dc;
+  --tertiary-foreground: #8a8174;
+  --disabled-foreground: #5c554a;
+  --chart-1: #c9a04a;
+  --chart-2: #b87333;
+  --chart-3: #6b8f3a;
+  --chart-4: #d97706;
+  --chart-5: #78716c;
+  --sidebar: #161410;
+  --sidebar-foreground: #ebe6dc;
+  --sidebar-primary: #c9a04a;
+  --sidebar-primary-foreground: #1c1a16;
+  --sidebar-accent: #26231e;
+  --sidebar-accent-foreground: #ebe6dc;
+  --sidebar-border: #4a4236;
+  --sidebar-ring: #e8c547;
+}
+
+/* neon-syndicate — Neon Syndicate: magenta / cyan; static glow only (no flash/pulse) */
+[data-theme='neon-syndicate'] {
+  color-scheme: dark;
+
+  --ds-font-display: Orbitron, sans-serif;
+  --ds-font-sans: Rajdhani, system-ui, sans-serif;
+
+  --ds-radius-xs: 0.125rem;
+  --ds-radius-sm: 0.125rem;
+  --ds-radius-md: 0.25rem;
+  --ds-radius-lg: 0.375rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #f0abfc;
+
+  --glow-primary: 0 0 16px rgb(232 121 249 / 0.35);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-layer-sm: 0 2px 8px rgb(0 0 0 / 0.55);
+  --shadow-layer-md: 0 4px 14px rgb(20 0 40 / 0.45);
+  --shadow-layer-lg: 0 8px 24px rgb(0 20 40 / 0.5);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 100ms;
+  --duration-base: 125ms;
+  --duration-slow: 150ms;
+  --duration-modal-close: 130ms;
+  --duration-modal-open: 220ms;
+
+  --ease-out: linear;
+  --ease-in-out: linear;
+  --ease-default: linear;
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: linear;
+
+  --background: #070708;
+  --foreground: #e8e8f0;
+  --card: #12121a;
+  --card-foreground: #e8e8f0;
+  --popover: #1a1824;
+  --popover-foreground: #e8e8f0;
+  --primary: #e879f9;
+  --primary-foreground: #070708;
+  --secondary: #12121a;
+  --secondary-foreground: #e8e8f0;
+  --muted: #0d0d12;
+  --muted-foreground: #a0a0b8;
+  --accent: #0e7490;
+  --accent-foreground: #ecfeff;
+  --destructive: #fb7185;
+  --destructive-foreground: #070708;
+  --border: #2a2438;
+  --input: #2a2438;
+  --ring: #22d3ee;
+  --warning: #fbbf24;
+  --warning-foreground: #070708;
+  --success: #4ade80;
+  --success-foreground: #070708;
+  --info: #22d3ee;
+  --info-foreground: #070708;
+  --tertiary-foreground: #71717a;
+  --disabled-foreground: #52525b;
+  --chart-1: #e879f9;
+  --chart-2: #22d3ee;
+  --chart-3: #4ade80;
+  --chart-4: #fbbf24;
+  --chart-5: #a78bfa;
+  --sidebar: #0d0d12;
+  --sidebar-foreground: #e8e8f0;
+  --sidebar-primary: #e879f9;
+  --sidebar-primary-foreground: #070708;
+  --sidebar-accent: #12121a;
+  --sidebar-accent-foreground: #e8e8f0;
+  --sidebar-border: #2a2438;
+  --sidebar-ring: #22d3ee;
+}
+
+/* brass-steam — Brass Eclipse: sepia, brass, velvet motion */
+[data-theme='brass-steam'] {
+  color-scheme: dark;
+
+  --ds-font-display: 'IM Fell English', serif;
+  --ds-font-sans: Lora, serif;
+
+  --ds-radius-xs: 0.25rem;
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.75rem;
+  --ds-radius-lg: 1rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #e4b86a;
+
+  --glow-primary: 0 0 12px rgb(212 162 76 / 0.28);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(20 10 5 / 0.35);
+  --shadow-layer-sm: 0 3px 10px rgb(0 0 0 / 0.4);
+  --shadow-layer-md: 0 6px 16px rgb(10 5 0 / 0.45);
+  --shadow-layer-lg: 0 10px 28px rgb(0 0 0 / 0.5);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 200ms;
+  --duration-base: 260ms;
+  --duration-slow: 380ms;
+  --duration-modal-close: 300ms;
+  --duration-modal-open: 480ms;
+
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-in-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #201814;
+  --foreground: #efe8de;
+  --card: #2c241e;
+  --card-foreground: #efe8de;
+  --popover: #3a3028;
+  --popover-foreground: #efe8de;
+  --primary: #d4a24c;
+  --primary-foreground: #201814;
+  --secondary: #2c241e;
+  --secondary-foreground: #efe8de;
+  --muted: #181310;
+  --muted-foreground: #b5a899;
+  --accent: #3a3028;
+  --accent-foreground: #efe8de;
+  --destructive: #b91c1c;
+  --destructive-foreground: #fef2f2;
+  --border: #4a3f36;
+  --input: #4a3f36;
+  --ring: #e8bc64;
+  --warning: #d97706;
+  --warning-foreground: #201814;
+  --success: #6b8f3a;
+  --success-foreground: #efe8de;
+  --info: #8b7355;
+  --info-foreground: #efe8de;
+  --tertiary-foreground: #8c7d6d;
+  --disabled-foreground: #5c5248;
+  --chart-1: #d4a24c;
+  --chart-2: #8b7355;
+  --chart-3: #6b8f3a;
+  --chart-4: #d97706;
+  --chart-5: #a16207;
+  --sidebar: #181310;
+  --sidebar-foreground: #efe8de;
+  --sidebar-primary: #d4a24c;
+  --sidebar-primary-foreground: #201814;
+  --sidebar-accent: #2c241e;
+  --sidebar-accent-foreground: #efe8de;
+  --sidebar-border: #4a3f36;
+  --sidebar-ring: #e8bc64;
+}
+
+/* ember-dragon — Ember Crown: obsidian red, ember orange, warm elevation */
+[data-theme='ember-dragon'] {
+  color-scheme: dark;
+
+  --ds-font-display: Cinzel, serif;
+  --ds-font-sans: 'DM Sans', system-ui, sans-serif;
+
+  --ds-radius-xs: 0.25rem;
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.625rem;
+  --ds-radius-lg: 0.875rem;
+  --radius: var(--ds-radius-md);
+  --primary-hover: #fb923c;
+
+  --glow-primary: 0 0 20px rgb(249 115 22 / 0.25);
+  --border-width-strong: 2px;
+
+  --shadow-layer-xs: 0 1px 2px rgb(40 10 5 / 0.4);
+  --shadow-layer-sm: 0 4px 12px rgb(30 8 5 / 0.5);
+  --shadow-layer-md: 0 8px 20px rgb(20 5 0 / 0.55);
+  --shadow-layer-lg: 0 14px 32px rgb(10 0 0 / 0.6);
+  --shadow-card: var(--shadow-layer-sm);
+
+  --duration-fast: 160ms;
+  --duration-base: 220ms;
+  --duration-slow: 300ms;
+  --duration-modal-close: 280ms;
+  --duration-modal-open: 460ms;
+
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-default: var(--ease-out);
+
+  --tw-duration: var(--duration-base);
+  --tw-ease: var(--ease-default);
+
+  --background: #120a0a;
+  --foreground: #f5ebe5;
+  --card: #1f1210;
+  --card-foreground: #f5ebe5;
+  --popover: #2c1814;
+  --popover-foreground: #f5ebe5;
+  --primary: #f97316;
+  --primary-foreground: #120a0a;
+  --secondary: #1f1210;
+  --secondary-foreground: #f5ebe5;
+  --muted: #180e0c;
+  --muted-foreground: #c4a99f;
+  --accent: #2c1814;
+  --accent-foreground: #f5ebe5;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #442822;
+  --input: #442822;
+  --ring: #fb923c;
+  --warning: #eab308;
+  --warning-foreground: #120a0a;
+  --success: #84cc16;
+  --success-foreground: #120a0a;
+  --info: #fdba74;
+  --info-foreground: #120a0a;
+  --tertiary-foreground: #a18276;
+  --disabled-foreground: #6b5348;
+  --chart-1: #f97316;
+  --chart-2: #fb923c;
+  --chart-3: #84cc16;
+  --chart-4: #eab308;
+  --chart-5: #fdba74;
+  --sidebar: #180e0c;
+  --sidebar-foreground: #f5ebe5;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #120a0a;
+  --sidebar-accent: #1f1210;
+  --sidebar-accent-foreground: #f5ebe5;
+  --sidebar-border: #442822;
+  --sidebar-ring: #fb923c;
+}

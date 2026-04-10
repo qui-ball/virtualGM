@@ -5,6 +5,39 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <!-- FOWT: IDS order + norm() must stay aligned with frontend/src/theme/theme-ids.ts + normalize-theme-id.ts -->
+    <script>
+      (function () {
+        var KEY = 'virtualgm-ui-theme';
+        var IDS = [
+          'dark-fantasy',
+          'sylvan-elven',
+          'bastion-city',
+          'arcanum-spire',
+          'grave-veil',
+          'iron-horde',
+          'clockwork',
+          'neon-syndicate',
+          'brass-steam',
+          'ember-dragon',
+        ];
+        function norm(raw) {
+          var id = raw && typeof raw === 'string' ? raw.trim() : '';
+          if (!id) return 'dark-fantasy';
+          if (id === 'dark') return 'dark-fantasy';
+          for (var i = 0; i < IDS.length; i++) {
+            if (IDS[i] === id) return id;
+          }
+          return 'dark-fantasy';
+        }
+        try {
+          var t = norm(localStorage.getItem(KEY));
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark-fantasy');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
