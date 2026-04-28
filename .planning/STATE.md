@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-28T14:58:44.933Z"
+last_updated: "2026-04-28T15:10:32Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # State: virtualGM — Generalist Backend
@@ -25,23 +25,24 @@ progress:
 ## Current Position
 
 Phase: 01 (generalist-harness-cli) — EXECUTING
-Plan: 2 of 4 (next)
+Plan: 3 of 4 (next)
 
 - **Milestone:** v1 (viability spike)
 - **Phase:** 1 — Generalist Harness + CLI
-- **Plan:** 01-01 complete; next is 01-02 (world template + per-session bootstrap)
-- **Status:** Executing Phase 01 (1/4 plans complete)
-- **Progress:** [██▌□□□□□□□] 25% (1/4 plans complete in only phase)
+- **Plan:** 01-02 complete; next is 01-03 (pydantic-ai agent + 5 generic tools + system prompt)
+- **Status:** Executing Phase 01 (2/4 plans complete)
+- **Progress:** [█████□□□□□] 50% (2/4 plans complete in only phase)
 
 ## Performance Metrics
 
-- **v1 Requirements:** 14 total, 14 mapped, 2 complete (HARN-02, HARN-03)
+- **v1 Requirements:** 14 total, 14 mapped, 4 complete (HARN-02, HARN-03, WORLD-01, WORLD-02)
 - **Phases:** 1 total, 0 complete
-- **Plans:** 4 total, 1 complete
+- **Plans:** 4 total, 2 complete
 
 | Phase-Plan | Tasks | Files | Tests | Duration | Completed |
 |------------|-------|-------|-------|----------|-----------|
 | 01-01 — sandbox primitive | 2 | 6 | 9/9 passing | ~8 min | 2026-04-28 |
+| 01-02 — world template + bootstrap | 2 | 9 | 6/6 passing | ~3 min | 2026-04-28 |
 
 ## Accumulated Context
 
@@ -55,10 +56,12 @@ Plan: 2 of 4 (next)
 - **Skip domain research** — tech stack (`pydantic-ai`, JSON files, CLI) is already known.
 - **(01-01) Symlink confinement is implicit:** `Path.resolve()` follows symlinks, then `root in resolved.parents` rejects external targets. No separate symlink walk required.
 - **(01-01) Bash uses `["bash", "-c", command]` explicit list, never `shell=True`** — avoids double-shell parsing while preserving full Bash inside the spawned shell. Matches HARN-03 / accepted risk T-01-05.
+- **(01-02) Tests build their own template via `tmp_path`** — decouples test stability from on-disk seed content; future plans can edit campaign copy without touching test_world.py.
+- **(01-02) Session ID = `uuid.uuid4().hex[:12]`** — 48 bits of entropy, sufficient for single-user CLI; threat T-02-02 documents acceptance.
+- **(01-02) PC schema in template** mirrors `backend/game/models.py`: name, character_class, level, xp, stats {might/finesse/wit/presence}, hp, hp_max, evasion, mana, conditions, gold, inventory. Plan 01-03's system prompt will treat this as the contract.
 
 ### Open Todos
 
-- Execute Plan 01-02 (world template + per-session bootstrap, WORLD-01/WORLD-02)
 - Execute Plan 01-03 (pydantic-ai agent + 5 generic tools + system prompt, HARN-01/HARN-02/HARN-04)
 - Execute Plan 01-04 (CLI entry point + turn loop + playtest checkpoint, CLI-01..04, WORLD-03, PLAY-01..03)
 
@@ -74,12 +77,12 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-01 (sandbox primitive) complete; 9/9 tests passing; `backend_generalist.sandbox.{resolve_in_sandbox, run_bash_in_sandbox, SandboxEscapeError}` available for downstream plans.
+**Last session ended:** 2026-04-28 — Plan 01-02 (world template + per-session bootstrap) complete; 6/6 world tests passing (15/15 overall — no regression on Plan 01-01 sandbox); `backend_generalist.world.create_session_world` and `template_world/` available for downstream plans.
 
 **Next session should:**
 
-1. Execute Plan 01-02 — world directory template + per-session bootstrap (WORLD-01, WORLD-02). It will route every file write through `resolve_in_sandbox` from this plan.
-2. Then 01-03 (pydantic-ai agent + 5 generic tools wrapping the sandbox primitives) and 01-04 (CLI + turn loop + playtest).
+1. Execute Plan 01-03 — pydantic-ai agent + 5 generic tools (Read/Write/Edit/Glob/Bash) + system prompt (HARN-01/HARN-02/HARN-04). Tools will wrap `backend_generalist.sandbox.{resolve_in_sandbox, run_bash_in_sandbox}` from Plan 01-01.
+2. Then 01-04 (CLI + turn loop + playtest) — calls `create_session_world()` from Plan 01-02 at startup.
 
 **Files of record:**
 

@@ -16,8 +16,8 @@ Requirements for the viability spike. All map to roadmap phases.
 
 ### World
 
-- [ ] **WORLD-01**: World directory template defined under `backend_generalist/` (e.g. `template_world/`) containing campaign/, pc.json, world/ scratch area, rules/ as needed
-- [ ] **WORLD-02**: At session start, the CLI copies the template into a per-session directory (e.g. `sessions/<id>/`) — agent works on the copy
+- [x] **WORLD-01**: World directory template defined under `backend_generalist/` (e.g. `template_world/`) containing campaign/, pc.json, world/ scratch area, rules/ as needed — shipped in Plan 01-02 (`backend_generalist/template_world/`, 7 seed files)
+- [x] **WORLD-02**: At session start, the CLI copies the template into a per-session directory (e.g. `sessions/<id>/`) — agent works on the copy — mechanism shipped in Plan 01-02 (`backend_generalist.world.create_session_world`); CLI wiring in Plan 01-04
 - [ ] **WORLD-03**: State persists between turns within a session (the JSON files on disk ARE the state)
 
 ### CLI
@@ -70,8 +70,8 @@ Deferred — only relevant if v1 demonstrates viability.
 | HARN-02 | Phase 1 | Complete (Plan 01-01) |
 | HARN-03 | Phase 1 | Complete (Plan 01-01) |
 | HARN-04 | Phase 1 | Pending |
-| WORLD-01 | Phase 1 | Pending |
-| WORLD-02 | Phase 1 | Pending |
+| WORLD-01 | Phase 1 | Complete (Plan 01-02) |
+| WORLD-02 | Phase 1 | Complete (Plan 01-02) |
 | WORLD-03 | Phase 1 | Pending |
 | CLI-01 | Phase 1 | Pending |
 | CLI-02 | Phase 1 | Pending |
@@ -85,8 +85,8 @@ Deferred — only relevant if v1 demonstrates viability.
 - v1 requirements: 14 total
 - Mapped to phases: 14 ✓
 - Unmapped: 0
-- Complete: 2 (HARN-02, HARN-03)
+- Complete: 4 (HARN-02, HARN-03, WORLD-01, WORLD-02)
 
 ---
 *Requirements defined: 2026-04-28*
-*Last updated: 2026-04-28 — traceability populated by roadmap creation*
+*Last updated: 2026-04-28 — WORLD-01 and WORLD-02 closed by Plan 01-02*
