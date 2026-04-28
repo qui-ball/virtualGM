@@ -28,13 +28,17 @@ Prove that a GM agent can run end-to-end with no domain tools — just generic p
   3. State continuity is observable across turns: HP, inventory, scene context, NPC status, etc. survive correctly because the agent edits the JSON files in the session world dir, and inspecting those files mid-session reflects the in-fiction state.
   4. Ctrl-C cleanly exits the CLI without corrupting the session directory; resuming inspection (e.g. `cat sessions/<id>/pc.json`) shows the last persisted state intact.
   5. All filesystem and shell tool calls are sandboxed to the active session world directory — the agent cannot Read/Write/Edit/Bash outside that directory tree (verified by inspecting tool wrappers / attempted escape).
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 01-01-PLAN.md — Sandbox primitive + backend_generalist package skeleton (HARN-02, HARN-03)
+  - [ ] 01-02-PLAN.md — World directory template + per-session bootstrap (WORLD-01, WORLD-02)
+  - [ ] 01-03-PLAN.md — pydantic-ai agent + 5 generic tools + system prompt (HARN-01, HARN-02, HARN-04)
+  - [ ] 01-04-PLAN.md — CLI entry point + turn loop + human playtest checkpoint (CLI-01..04, WORLD-03, PLAY-01..03)
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Generalist Harness + CLI | 0/0 | Not started | - |
+| 1. Generalist Harness + CLI | 0/4 | Not started | - |
 
 ## Coverage
 
