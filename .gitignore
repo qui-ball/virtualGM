@@ -13,3 +13,9 @@ local/
 
 # Recorded session data (potentially large)
 backend/recordings/
+
+# Per-session world directories created by backend_generalist CLI
+/sessions/
+
+# macOS metadata
+.DS_Store
