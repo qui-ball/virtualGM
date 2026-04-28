@@ -1,8 +1,11 @@
 {
+  "campaign": "Lost Mine of Phandelver",
+  "current_part": "Part1_Goblin_Arrows",
+  "current_section": "campaign/Part1_Goblin_Arrows/Goblin_Ambush.md",
   "location": "Triboar Trail, near the granite outcrop",
   "time_of_day": "late afternoon",
   "mood": "tense, silent",
   "present_npcs": [],
-  "scene_id": "scene_01",
-  "notes": ""
+  "scene_id": "Part1.GoblinAmbush.opening",
+  "notes": "Aldric is escorting a supply wagon for the Rockseekers from Neverwinter to Phandalin. Gundren Rockseeker and Sildar Hallwinter rode ahead two days ago. The trail bends around a granite outcrop where the goblin ambush will trigger."
 }

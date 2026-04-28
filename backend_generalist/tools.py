@@ -12,6 +12,8 @@ nothing else is read off the RunContext.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic_ai import ModelRetry, RunContext
 
 from backend_generalist.sandbox import (
@@ -22,6 +24,44 @@ from backend_generalist.sandbox import (
 
 # Cap on bash output size so a `yes` flood can't blow the model's context.
 MAX_BASH_OUTPUT_CHARS = 32_000
+
+# Top-level subdirectories that are reference material — readable but not
+# writable. The campaign tree (Lost Mine of Phandelver) and the rules summary
+# define the world; the GM consumes them, never mutates them. Live state
+# lives outside these (pc.json at the root, world/scene.json,
+# world/encounter.json). Enforced by write_file and edit_file via
+# ModelRetry so the agent gets a clear redirect when it tries.
+#
+# Bash is intentionally NOT guarded — full unrestricted Bash is an explicit
+# project decision (HARN-03 / CLAUDE.md). The agent can technically still
+# overwrite via `bash` if it tries, but that escape is visible in the tool
+# call log and accepted as a known risk.
+READ_ONLY_PREFIXES: tuple[str, ...] = ("campaign", "rules")
+
+
+def _check_writable(session_root: Path, target: Path, path_arg: str) -> None:
+    """Reject writes/edits that target a read-only top-level subtree.
+
+    ``target`` must already be the sandbox-resolved absolute Path. Compares
+    the resolved relative-from-session-root first segment against
+    ``READ_ONLY_PREFIXES``.
+    """
+    try:
+        rel = target.relative_to(Path(session_root).resolve(strict=False))
+    except ValueError:
+        # Defensive: the sandbox should have already rejected anything outside
+        # the root, so this branch is unreachable in normal flow. Fall through
+        # silently — the sandbox layer is the authoritative containment check.
+        return
+    parts = rel.parts
+    if parts and parts[0] in READ_ONLY_PREFIXES:
+        raise ModelRetry(
+            f"Path '{path_arg}' is in '{parts[0]}/' which is read-only. "
+            f"Read-only trees: {', '.join(READ_ONLY_PREFIXES)}. "
+            f"Edit only files under 'world/' (scene.json, encounter.json) and "
+            f"'pc.json' at the session root. The campaign and rules trees are "
+            f"reference material — read freely, but do not modify."
+        )
 
 
 def read_file(ctx: RunContext, path: str) -> str:
@@ -63,6 +103,7 @@ def write_file(ctx: RunContext, path: str, content: str) -> str:
         raise ModelRetry(
             f"Path '{path}' escapes the session world directory: {e}"
         )
+    _check_writable(ctx.deps.session_root, target, path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return f"Wrote {len(content)} bytes to {path}"
@@ -88,6 +129,7 @@ def edit_file(ctx: RunContext, path: str, old: str, new: str) -> str:
         raise ModelRetry(
             f"Path '{path}' escapes the session world directory: {e}"
         )
+    _check_writable(ctx.deps.session_root, target, path)
     if not target.is_file():
         raise ModelRetry(f"File not found: {path}")
     text = target.read_text(encoding="utf-8")

@@ -165,3 +165,77 @@ def test_bash_truncates_huge_output(tmp_path: Path) -> None:
     assert out.rstrip().endswith("[truncated]"), (
         f"truncation marker missing; tail was: {out[-200:]!r}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Read-only subtree enforcement — campaign/ and rules/ are reference material
+# --------------------------------------------------------------------------- #
+
+
+def _ctx_with_readonly_dirs(tmp_path: Path) -> SimpleNamespace:
+    """Extend make_ctx with seeded campaign/ and rules/ trees."""
+    ctx = make_ctx(tmp_path)
+    (tmp_path / "campaign").mkdir()
+    (tmp_path / "campaign" / "index.md").write_text("# Campaign\n", encoding="utf-8")
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "rules" / "core.md").write_text(
+        "# Core Rules\nd20 + mod vs DC.\n", encoding="utf-8"
+    )
+    return ctx
+
+
+def test_write_file_rejects_campaign_subtree(tmp_path: Path) -> None:
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    with pytest.raises(ModelRetry, match="read-only"):
+        write_file(ctx, "campaign/index.md", "tampered")
+    # Original content preserved.
+    assert (tmp_path / "campaign" / "index.md").read_text() == "# Campaign\n"
+
+
+def test_write_file_rejects_rules_subtree(tmp_path: Path) -> None:
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    with pytest.raises(ModelRetry, match="read-only"):
+        write_file(ctx, "rules/core.md", "different rules")
+    assert (tmp_path / "rules" / "core.md").read_text().startswith("# Core Rules")
+
+
+def test_edit_file_rejects_campaign_subtree(tmp_path: Path) -> None:
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    with pytest.raises(ModelRetry, match="read-only"):
+        edit_file(ctx, "campaign/index.md", "Campaign", "Tampered")
+    assert (tmp_path / "campaign" / "index.md").read_text() == "# Campaign\n"
+
+
+def test_edit_file_rejects_rules_subtree(tmp_path: Path) -> None:
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    with pytest.raises(ModelRetry, match="read-only"):
+        edit_file(ctx, "rules/core.md", "d20", "d100")
+    assert "d20" in (tmp_path / "rules" / "core.md").read_text()
+
+
+def test_read_only_subtrees_still_readable(tmp_path: Path) -> None:
+    """Read-only enforcement applies to write/edit only, NOT to read_file/glob/bash."""
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    # read_file should succeed.
+    content = read_file(ctx, "campaign/index.md")
+    assert content == "# Campaign\n"
+    # glob_files should list them.
+    matches = glob_files(ctx, "**/*.md")
+    assert "campaign/index.md" in matches
+    assert "rules/core.md" in matches
+
+
+def test_world_subtree_is_writable(tmp_path: Path) -> None:
+    """Sanity: writes outside the read-only trees still work."""
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    out = write_file(ctx, "world/scene.json", '{"location": "cave"}')
+    assert "Wrote" in out
+    assert (tmp_path / "world" / "scene.json").read_text() == '{"location": "cave"}'
+
+
+def test_pc_json_at_root_is_writable(tmp_path: Path) -> None:
+    """Sanity: pc.json at the session root remains writable."""
+    ctx = _ctx_with_readonly_dirs(tmp_path)
+    out = edit_file(ctx, "pc.json", '"hp": 12', '"hp": 8')
+    assert "Edited" in out
+    assert '"hp": 8' in (tmp_path / "pc.json").read_text()
