@@ -31,14 +31,14 @@ Prove that a GM agent can run end-to-end with no domain tools — just generic p
 **Plans**: 4 plans
   - [x] 01-01-PLAN.md — Sandbox primitive + backend_generalist package skeleton (HARN-02, HARN-03) — complete 2026-04-28
   - [x] 01-02-PLAN.md — World directory template + per-session bootstrap (WORLD-01, WORLD-02) — complete 2026-04-28
-  - [ ] 01-03-PLAN.md — pydantic-ai agent + 5 generic tools + system prompt (HARN-01, HARN-02, HARN-04)
+  - [x] 01-03-PLAN.md — pydantic-ai agent + 5 generic tools + system prompt (HARN-01, HARN-02, HARN-04) — complete 2026-04-28
   - [ ] 01-04-PLAN.md — CLI entry point + turn loop + human playtest checkpoint (CLI-01..04, WORLD-03, PLAY-01..03)
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Generalist Harness + CLI | 2/4 | In progress | - |
+| 1. Generalist Harness + CLI | 3/4 | In progress | - |
 
 ## Coverage
 

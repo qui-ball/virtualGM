@@ -9,10 +9,10 @@ Requirements for the viability spike. All map to roadmap phases.
 
 ### Harness
 
-- [ ] **HARN-01**: pydantic-ai agent module in `backend_generalist/` whose tool set is exactly `Read`, `Write`, `Edit`, `Glob`, `Bash` (no domain tools)
-- [x] **HARN-02**: Each generic tool is implemented as a thin wrapper that operates on (and is sandboxed to) the active session's world directory — sandbox chokepoint shipped in Plan 01-01 (`backend_generalist.sandbox.resolve_in_sandbox`)
-- [x] **HARN-03**: `Bash` is unrestricted (full shell), executed inside the session world directory — `run_bash_in_sandbox` shipped in Plan 01-01 (`["bash", "-c", command]`, cwd=session_root, default timeout 120s)
-- [ ] **HARN-04**: System prompt teaches the agent: "your working directory is the world; read/edit JSON files to track game state; your reply text is what the player sees"
+- [x] **HARN-01**: pydantic-ai agent module in `backend_generalist/` whose tool set is exactly `Read`, `Write`, `Edit`, `Glob`, `Bash` (no domain tools) — shipped in Plan 01-03 (`backend_generalist.agent.build_agent`; `register_tools` chokepoint enforces 5-tool surface)
+- [x] **HARN-02**: Each generic tool is implemented as a thin wrapper that operates on (and is sandboxed to) the active session's world directory — sandbox chokepoint shipped in Plan 01-01 (`backend_generalist.sandbox.resolve_in_sandbox`); each of the 5 tools shipped in Plan 01-03 routes through it
+- [x] **HARN-03**: `Bash` is unrestricted (full shell), executed inside the session world directory — `run_bash_in_sandbox` shipped in Plan 01-01 (`["bash", "-c", command]`, cwd=session_root, default timeout 120s); `bash` tool shipped in Plan 01-03 delegates to it with 32k-char output cap
+- [x] **HARN-04**: System prompt teaches the agent: "your working directory is the world; read/edit JSON files to track game state; your reply text is what the player sees" — shipped in Plan 01-03 (`backend_generalist.agent.SYSTEM_PROMPT`, 3361 chars)
 
 ### World
 
@@ -66,10 +66,10 @@ Deferred — only relevant if v1 demonstrates viability.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HARN-01 | Phase 1 | Pending |
-| HARN-02 | Phase 1 | Complete (Plan 01-01) |
-| HARN-03 | Phase 1 | Complete (Plan 01-01) |
-| HARN-04 | Phase 1 | Pending |
+| HARN-01 | Phase 1 | Complete (Plan 01-03) |
+| HARN-02 | Phase 1 | Complete (Plan 01-01; reaffirmed Plan 01-03) |
+| HARN-03 | Phase 1 | Complete (Plan 01-01; reaffirmed Plan 01-03) |
+| HARN-04 | Phase 1 | Complete (Plan 01-03) |
 | WORLD-01 | Phase 1 | Complete (Plan 01-02) |
 | WORLD-02 | Phase 1 | Complete (Plan 01-02) |
 | WORLD-03 | Phase 1 | Pending |
@@ -85,8 +85,8 @@ Deferred — only relevant if v1 demonstrates viability.
 - v1 requirements: 14 total
 - Mapped to phases: 14 ✓
 - Unmapped: 0
-- Complete: 4 (HARN-02, HARN-03, WORLD-01, WORLD-02)
+- Complete: 6 (HARN-01, HARN-02, HARN-03, HARN-04, WORLD-01, WORLD-02)
 
 ---
 *Requirements defined: 2026-04-28*
-*Last updated: 2026-04-28 — WORLD-01 and WORLD-02 closed by Plan 01-02*
+*Last updated: 2026-04-28 — HARN-01 and HARN-04 closed by Plan 01-03 (HARN-02/HARN-03 mechanism reaffirmed at agent layer)*
