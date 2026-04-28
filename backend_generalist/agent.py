@@ -113,6 +113,7 @@ DEFAULT_MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
     "qwen3.6-27b": ("qwen/qwen3.6-27b", ""),
     "deepseek": ("deepseek/deepseek-v3.2", ""),
+    "deepseek-v4-flash": ("deepseek/deepseek-v4-flash", ""),
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
     "gemini-flash": ("google/gemini-3-flash-preview", ""),
 }

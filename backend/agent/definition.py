@@ -14,6 +14,7 @@ from game.models import GameState
 MODEL_PRESETS: dict[str, tuple[str, str]] = {
     "m2.5": ("minimax/minimax-m2.5", "sambanova"),
     "deepseek": ("deepseek/deepseek-v3.2", ""),
+    "deepseek-v4-flash": ("deepseek/deepseek-v4-flash", ""),
     "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
     "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
     "qwen3.5-27b": ("qwen/qwen3.5-27b", ""),

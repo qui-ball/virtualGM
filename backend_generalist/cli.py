@@ -193,7 +193,7 @@ async def run_chat(
     "-m",
     type=str,
     default=None,
-    help="Model preset: qwen3.5 (default), qwen3.6-27b, deepseek, glm-4.7, gemini-flash.",
+    help="Model preset: qwen3.5 (default), qwen3.6-27b, deepseek, deepseek-v4-flash, glm-4.7, gemini-flash.",
 )
 @click.option(
     "--sessions-dir",
