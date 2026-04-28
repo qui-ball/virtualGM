@@ -64,30 +64,28 @@ Deferred — only relevant if v1 demonstrates viability.
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HARN-01 | TBD | Pending |
-| HARN-02 | TBD | Pending |
-| HARN-03 | TBD | Pending |
-| HARN-04 | TBD | Pending |
-| WORLD-01 | TBD | Pending |
-| WORLD-02 | TBD | Pending |
-| WORLD-03 | TBD | Pending |
-| CLI-01 | TBD | Pending |
-| CLI-02 | TBD | Pending |
-| CLI-03 | TBD | Pending |
-| CLI-04 | TBD | Pending |
-| PLAY-01 | TBD | Pending |
-| PLAY-02 | TBD | Pending |
-| PLAY-03 | TBD | Pending |
+| HARN-01 | Phase 1 | Pending |
+| HARN-02 | Phase 1 | Pending |
+| HARN-03 | Phase 1 | Pending |
+| HARN-04 | Phase 1 | Pending |
+| WORLD-01 | Phase 1 | Pending |
+| WORLD-02 | Phase 1 | Pending |
+| WORLD-03 | Phase 1 | Pending |
+| CLI-01 | Phase 1 | Pending |
+| CLI-02 | Phase 1 | Pending |
+| CLI-03 | Phase 1 | Pending |
+| CLI-04 | Phase 1 | Pending |
+| PLAY-01 | Phase 1 | Pending |
+| PLAY-02 | Phase 1 | Pending |
+| PLAY-03 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-28*
-*Last updated: 2026-04-28 after initial definition*
+*Last updated: 2026-04-28 — traceability populated by roadmap creation*
