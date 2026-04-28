@@ -25,7 +25,7 @@ The adventure is divided into four parts:
 
 ## Campaign Sections
 
-Use `read_file` with the paths below (prefix with `campaign/` and add `.md`). For example, the opening goblin ambush is at `campaign/Part1_Goblin_Arrows/Goblin_Ambush.md`. Only load what you need for the current scene — the campaign tree is large, do not read it all up front.
+Use `load_campaign_section(section)` with the paths below. Only load what you need for the current scene.
 
 ### Introduction
 - `Introduction/Running_the_Adventure` — Boxed text conventions, abbreviations, difficulty adjustments
