@@ -1,26 +1,47 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+last_updated: "2026-04-28T14:58:44.933Z"
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 1
+  percent: 25
+---
+
 # State: virtualGM — Generalist Backend
 
 ## Project Reference
 
 **Core Value:** Prove that a GM agent can run end-to-end with no domain tools — just generic primitives (Read, Write, Edit, Glob, Bash) over a JSON world directory.
 
-**Current Focus:** Phase 1 — Generalist Harness + CLI (single-phase viability spike)
+**Current Focus:** Phase 01 — generalist-harness-cli
 
 **Scope Boundary:** All new code lives in `backend_generalist/`. Existing `backend/` and `frontend/` are NOT modified. CLI-only deliverable.
 
 ## Current Position
 
+Phase: 01 (generalist-harness-cli) — EXECUTING
+Plan: 2 of 4 (next)
+
 - **Milestone:** v1 (viability spike)
 - **Phase:** 1 — Generalist Harness + CLI
-- **Plan:** None yet (run `/gsd-plan-phase 1`)
-- **Status:** Roadmap complete, awaiting plan
-- **Progress:** [□□□□□□□□□□] 0% (0/1 phases complete)
+- **Plan:** 01-01 complete; next is 01-02 (world template + per-session bootstrap)
+- **Status:** Executing Phase 01 (1/4 plans complete)
+- **Progress:** [██▌□□□□□□□] 25% (1/4 plans complete in only phase)
 
 ## Performance Metrics
 
-- **v1 Requirements:** 14 total, 14 mapped, 0 complete
+- **v1 Requirements:** 14 total, 14 mapped, 2 complete (HARN-02, HARN-03)
 - **Phases:** 1 total, 0 complete
-- **Plans:** 0 total
+- **Plans:** 4 total, 1 complete
+
+| Phase-Plan | Tasks | Files | Tests | Duration | Completed |
+|------------|-------|-------|-------|----------|-----------|
+| 01-01 — sandbox primitive | 2 | 6 | 9/9 passing | ~8 min | 2026-04-28 |
 
 ## Accumulated Context
 
@@ -32,10 +53,14 @@
 - **Pre-seeded world directory from template** — agent discovers state via Read/Glob, mirroring how a coding agent enters a repo.
 - **User self-validates e2e qualitatively** — viability is a qualitative judgment call; no auto eval harness.
 - **Skip domain research** — tech stack (`pydantic-ai`, JSON files, CLI) is already known.
+- **(01-01) Symlink confinement is implicit:** `Path.resolve()` follows symlinks, then `root in resolved.parents` rejects external targets. No separate symlink walk required.
+- **(01-01) Bash uses `["bash", "-c", command]` explicit list, never `shell=True`** — avoids double-shell parsing while preserving full Bash inside the spawned shell. Matches HARN-03 / accepted risk T-01-05.
 
 ### Open Todos
 
-- Plan Phase 1 (`/gsd-plan-phase 1`)
+- Execute Plan 01-02 (world template + per-session bootstrap, WORLD-01/WORLD-02)
+- Execute Plan 01-03 (pydantic-ai agent + 5 generic tools + system prompt, HARN-01/HARN-02/HARN-04)
+- Execute Plan 01-04 (CLI entry point + turn loop + playtest checkpoint, CLI-01..04, WORLD-03, PLAY-01..03)
 
 ### Blockers
 
@@ -49,13 +74,15 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — roadmap creation complete.
+**Last session ended:** 2026-04-28 — Plan 01-01 (sandbox primitive) complete; 9/9 tests passing; `backend_generalist.sandbox.{resolve_in_sandbox, run_bash_in_sandbox, SandboxEscapeError}` available for downstream plans.
 
 **Next session should:**
-1. Run `/gsd-plan-phase 1` to decompose Phase 1 into executable plans.
-2. Plans will likely cluster around: (a) generic-tool wrappers + sandboxing, (b) world template + per-session copy, (c) `pydantic-ai` agent wiring + system prompt, (d) CLI turn loop entry point.
+
+1. Execute Plan 01-02 — world directory template + per-session bootstrap (WORLD-01, WORLD-02). It will route every file write through `resolve_in_sandbox` from this plan.
+2. Then 01-03 (pydantic-ai agent + 5 generic tools wrapping the sandbox primitives) and 01-04 (CLI + turn loop + playtest).
 
 **Files of record:**
+
 - `.planning/PROJECT.md` — project context, constraints, key decisions
 - `.planning/REQUIREMENTS.md` — 14 v1 requirements with traceability
 - `.planning/ROADMAP.md` — single-phase delivery roadmap

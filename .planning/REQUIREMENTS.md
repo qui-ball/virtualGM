@@ -10,8 +10,8 @@ Requirements for the viability spike. All map to roadmap phases.
 ### Harness
 
 - [ ] **HARN-01**: pydantic-ai agent module in `backend_generalist/` whose tool set is exactly `Read`, `Write`, `Edit`, `Glob`, `Bash` (no domain tools)
-- [ ] **HARN-02**: Each generic tool is implemented as a thin wrapper that operates on (and is sandboxed to) the active session's world directory
-- [ ] **HARN-03**: `Bash` is unrestricted (full shell), executed inside the session world directory
+- [x] **HARN-02**: Each generic tool is implemented as a thin wrapper that operates on (and is sandboxed to) the active session's world directory — sandbox chokepoint shipped in Plan 01-01 (`backend_generalist.sandbox.resolve_in_sandbox`)
+- [x] **HARN-03**: `Bash` is unrestricted (full shell), executed inside the session world directory — `run_bash_in_sandbox` shipped in Plan 01-01 (`["bash", "-c", command]`, cwd=session_root, default timeout 120s)
 - [ ] **HARN-04**: System prompt teaches the agent: "your working directory is the world; read/edit JSON files to track game state; your reply text is what the player sees"
 
 ### World
@@ -67,8 +67,8 @@ Deferred — only relevant if v1 demonstrates viability.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | HARN-01 | Phase 1 | Pending |
-| HARN-02 | Phase 1 | Pending |
-| HARN-03 | Phase 1 | Pending |
+| HARN-02 | Phase 1 | Complete (Plan 01-01) |
+| HARN-03 | Phase 1 | Complete (Plan 01-01) |
 | HARN-04 | Phase 1 | Pending |
 | WORLD-01 | Phase 1 | Pending |
 | WORLD-02 | Phase 1 | Pending |
@@ -85,6 +85,7 @@ Deferred — only relevant if v1 demonstrates viability.
 - v1 requirements: 14 total
 - Mapped to phases: 14 ✓
 - Unmapped: 0
+- Complete: 2 (HARN-02, HARN-03)
 
 ---
 *Requirements defined: 2026-04-28*
