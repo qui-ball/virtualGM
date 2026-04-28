@@ -1,0 +1,18 @@
+[project]
+name = "backend_generalist"
+version = "0.1.0"
+description = "virtualGM generalist backend — Read/Write/Edit/Glob/Bash harness for a pydantic-ai GM agent."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-ai>=1.25.1",
+    "click>=8.3.1",
+    "loguru>=0.7.3",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
