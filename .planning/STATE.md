@@ -80,6 +80,12 @@ Plan: 4 of 4 (done)
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260428-kuu | Add deepseek-v4-flash preset to backend and backend_generalist model registries | 2026-04-28 | 8f0a852 | [260428-kuu-add-deepseek-v4-flash-preset-to-backend-](./quick/260428-kuu-add-deepseek-v4-flash-preset-to-backend-/) |
+
 ### Risks (carried forward)
 
 - **Generic primitives may be insufficient** — the whole point of the spike. Surface explicitly during play; don't paper over.
