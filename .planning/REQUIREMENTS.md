@@ -18,20 +18,20 @@ Requirements for the viability spike. All map to roadmap phases.
 
 - [x] **WORLD-01**: World directory template defined under `backend_generalist/` (e.g. `template_world/`) containing campaign/, pc.json, world/ scratch area, rules/ as needed — shipped in Plan 01-02 (`backend_generalist/template_world/`, 7 seed files)
 - [x] **WORLD-02**: At session start, the CLI copies the template into a per-session directory (e.g. `sessions/<id>/`) — agent works on the copy — mechanism shipped in Plan 01-02 (`backend_generalist.world.create_session_world`); CLI wiring in Plan 01-04
-- [ ] **WORLD-03**: State persists between turns within a session (the JSON files on disk ARE the state)
+- [x] **WORLD-03**: State persists between turns within a session (the JSON files on disk ARE the state) — closed in Plan 01-04 via mid-session inspection of `sessions/<id>/pc.json` / `world/scene.json` / `world/encounter.json` reflecting in-fiction state across turns
 
 ### CLI
 
-- [ ] **CLI-01**: A single CLI entry point (e.g. `python -m backend_generalist` or a script) that starts a new session and enters a turn loop
-- [ ] **CLI-02**: Turn loop = read player line from stdin → send to agent → print agent's free-text reply to stdout → repeat
-- [ ] **CLI-03**: Session ID and world dir path are printed at startup so the user can inspect/resume
-- [ ] **CLI-04**: Clean shutdown on Ctrl-C (current world dir state is left intact on disk)
+- [x] **CLI-01**: A single CLI entry point (e.g. `python -m backend_generalist` or a script) that starts a new session and enters a turn loop — shipped in Plan 01-04 (`backend_generalist/cli.py` + `__main__.py`; Click + asyncio)
+- [x] **CLI-02**: Turn loop = read player line from stdin → send to agent → print agent's free-text reply to stdout → repeat — shipped in Plan 01-04 (`run_chat()`; `console.input` for stdin, `Markdown(reply)` for stdout)
+- [x] **CLI-03**: Session ID and world dir path are printed at startup so the user can inspect/resume — shipped in Plan 01-04 (`[session] id=...` / `[session] world=...`)
+- [x] **CLI-04**: Clean shutdown on Ctrl-C (current world dir state is left intact on disk) — shipped in Plan 01-04 (`KeyboardInterrupt` handler; `try/finally`); covered by `test_run_chat_preserves_state_on_keyboard_interrupt`
 
 ### Playability
 
-- [ ] **PLAY-01**: A human can complete an end-to-end slice of play (combat, scene, or short adventure) without crashes or state corruption
-- [ ] **PLAY-02**: Across multiple turns the agent demonstrates state continuity (HP, inventory, scene context, etc. survive correctly via the JSON files)
-- [ ] **PLAY-03**: Narration is coherent and player-facing without any dedicated narration tool (text-reply pattern works)
+- [x] **PLAY-01**: A human can complete an end-to-end slice of play (combat, scene, or short adventure) without crashes or state corruption — verified in Plan 01-04 human checkpoint (`play passed`; 7 sessions played)
+- [x] **PLAY-02**: Across multiple turns the agent demonstrates state continuity (HP, inventory, scene context, etc. survive correctly via the JSON files) — verified in Plan 01-04 human checkpoint via mid-session JSON inspection
+- [x] **PLAY-03**: Narration is coherent and player-facing without any dedicated narration tool (text-reply pattern works) — verified in Plan 01-04 human checkpoint; `grep -cE "(narrate|apply_damage|create_enemy|...)" backend_generalist/{cli,agent,tools}.py` returns 0/0/0
 
 ## v2 Requirements
 
@@ -72,21 +72,21 @@ Deferred — only relevant if v1 demonstrates viability.
 | HARN-04 | Phase 1 | Complete (Plan 01-03) |
 | WORLD-01 | Phase 1 | Complete (Plan 01-02) |
 | WORLD-02 | Phase 1 | Complete (Plan 01-02) |
-| WORLD-03 | Phase 1 | Pending |
-| CLI-01 | Phase 1 | Pending |
-| CLI-02 | Phase 1 | Pending |
-| CLI-03 | Phase 1 | Pending |
-| CLI-04 | Phase 1 | Pending |
-| PLAY-01 | Phase 1 | Pending |
-| PLAY-02 | Phase 1 | Pending |
-| PLAY-03 | Phase 1 | Pending |
+| WORLD-03 | Phase 1 | Complete (Plan 01-04) |
+| CLI-01 | Phase 1 | Complete (Plan 01-04) |
+| CLI-02 | Phase 1 | Complete (Plan 01-04) |
+| CLI-03 | Phase 1 | Complete (Plan 01-04) |
+| CLI-04 | Phase 1 | Complete (Plan 01-04) |
+| PLAY-01 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
+| PLAY-02 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
+| PLAY-03 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
 
 **Coverage:**
 - v1 requirements: 14 total
 - Mapped to phases: 14 ✓
 - Unmapped: 0
-- Complete: 6 (HARN-01, HARN-02, HARN-03, HARN-04, WORLD-01, WORLD-02)
+- Complete: 14 (all v1 requirements closed)
 
 ---
 *Requirements defined: 2026-04-28*
-*Last updated: 2026-04-28 — HARN-01 and HARN-04 closed by Plan 01-03 (HARN-02/HARN-03 mechanism reaffirmed at agent layer)*
+*Last updated: 2026-04-28 — Plan 01-04 closed all remaining v1 requirements with verdict `play passed`. Viability hypothesis answered YES.*

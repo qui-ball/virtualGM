@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-last_updated: "2026-04-28T15:20:00Z"
+status: phase_complete
+last_updated: "2026-04-28T20:00:00Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # State: virtualGM — Generalist Backend
@@ -24,26 +24,27 @@ progress:
 
 ## Current Position
 
-Phase: 01 (generalist-harness-cli) — EXECUTING
-Plan: 4 of 4 (next)
+Phase: 01 (generalist-harness-cli) — COMPLETE
+Plan: 4 of 4 (done)
 
-- **Milestone:** v1 (viability spike)
-- **Phase:** 1 — Generalist Harness + CLI
-- **Plan:** 01-03 complete; next is 01-04 (CLI entry point + turn loop + playtest)
-- **Status:** Executing Phase 01 (3/4 plans complete)
-- **Progress:** [████████□□] 75% (3/4 plans complete in only phase)
+- **Milestone:** v1 (viability spike) — verdict reached
+- **Phase:** 1 — Generalist Harness + CLI — **complete**
+- **Plan:** 01-04 closed with verdict `play passed`
+- **Status:** Phase 01 complete; awaiting `/gsd-verify-work` or `/gsd-complete-milestone`
+- **Progress:** [██████████] 100% (4/4 plans complete; viability hypothesis ANSWERED — yes)
 
 ## Performance Metrics
 
-- **v1 Requirements:** 14 total, 14 mapped, 7 complete (HARN-01, HARN-02, HARN-03, HARN-04, WORLD-01, WORLD-02; HARN-02 mechanism reaffirmed at agent layer)
-- **Phases:** 1 total, 0 complete
-- **Plans:** 4 total, 3 complete
+- **v1 Requirements:** 14 total, 14 mapped, 14 complete (all HARN-*, WORLD-*, CLI-*, PLAY-* satisfied)
+- **Phases:** 1 total, 1 complete
+- **Plans:** 4 total, 4 complete
 
 | Phase-Plan | Tasks | Files | Tests | Duration | Completed |
 |------------|-------|-------|-------|----------|-----------|
 | 01-01 — sandbox primitive | 2 | 6 | 9/9 passing | ~8 min | 2026-04-28 |
 | 01-02 — world template + bootstrap | 2 | 9 | 6/6 passing | ~3 min | 2026-04-28 |
 | 01-03 — pydantic-ai agent + 5 generic tools | 2 | 3 | 12/12 passing | ~4 min | 2026-04-28 |
+| 01-04 — CLI + turn loop + playtest | 2 | 50 | 38/38 passing | ~25 min + 7 sessions playtest | 2026-04-28 |
 
 ## Accumulated Context
 
@@ -65,10 +66,15 @@ Plan: 4 of 4 (next)
 - **(01-03) SYSTEM_PROMPT avoids the bare verb 'narrate'/'narrating'** — uses 'narration'/'describe' to satisfy the strict acceptance grep `(narrate|apply_damage|create_enemy)` returning 0; HARN-04 substance ('reply IS the narration', 'no separate narration tool') preserved verbatim.
 - **(01-03) Bash output cap = 32_000 chars** with `[truncated]` marker (T-03-05 mitigation) — Test 12 enforces with 100k-byte input.
 - **(01-03) `build_agent()` requires `OPENROUTER_API_KEY` at construction time** — OpenRouter provider's contract; tests bypass by exercising tool functions directly. Plan 04 CLI must load `.env` (python-dotenv already in pyproject).
+- **(01-04) Read-only top-level subtree convention:** `campaign/` and `rules/` are reference material — `write_file`/`edit_file` raise ModelRetry; `read_file`/`glob_files`/`bash` unaffected. Bash is intentionally not guarded (HARN-03). Live state is `pc.json` at root + `world/`.
+- **(01-04) Tool-call telemetry via pydantic-ai node iteration** — `Agent.is_call_tools_node` / `is_model_request_node` plus inspecting `ToolCallPart` / `ToolReturnPart` / `ThinkingPart`. Renders inline through `rich`. Trade-off: Markdown narration is post-rendered as a single block (not streamed) — visibility into tool calls was the dominant UX win.
+- **(01-04) Hatch wheel build needs `[tool.hatch.build.targets.wheel] packages = ["."]`** because the project IS the directory; without it, hatch's auto-detection refuses to build.
+- **(01-04) Viability verdict: `play passed`.** Generalist-harness pattern (5 generic primitives over JSON world dir) viable for solo TTRPG GM agent. Friction points found are substrate-shaped (read-only contract, operator visibility, real source material), not pattern failures.
 
 ### Open Todos
 
-- Execute Plan 01-04 (CLI entry point + turn loop + playtest checkpoint, CLI-01..04, WORLD-03, PLAY-01..03)
+- Decide whether to promote `backend_generalist/` to replace `backend/` or keep it parallel (separate from the viability question, which is answered).
+- v2 hardening backlog: atomic JSON writes (HARD-01), session log persistence, agent-action quotas.
 
 ### Blockers
 
@@ -82,11 +88,13 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-03 (pydantic-ai agent + 5 generic tools + system prompt) complete; 12/12 tool tests passing (27/27 overall — no regression on Plans 01-01/01-02). `backend_generalist.tools` exports the 5-tool surface (read_file/write_file/edit_file/glob_files/bash) routed through Plan 01-01's sandbox; `backend_generalist.agent.build_agent()` returns a wired pydantic-ai Agent + OpenRouter settings; `GMDeps` carries session_root via RunContext.deps. HARN-01, HARN-02 (reaffirmed at agent layer), HARN-03 (reaffirmed via bash tool), HARN-04 closed.
+**Last session ended:** 2026-04-28 — Plan 01-04 (CLI + turn loop + playtest) complete with verdict `play passed`. 7 sessions played; substrate hardened in commit `ebb8b5f` (read-only `campaign/`+`rules/` enforcement, rich-rendered tool-call telemetry, full LMoP campaign content seeded). 38/38 tests passing across the full backend_generalist suite. All 14 v1 requirements satisfied. **Phase 01 — and the milestone — closed; viability hypothesis answered YES.**
 
 **Next session should:**
 
-1. Execute Plan 01-04 — CLI entry point + turn loop + human playtest checkpoint (CLI-01..04, WORLD-03, PLAY-01..03). The CLI calls `create_session_world()` (Plan 01-02) at startup and drives `build_agent()` (Plan 01-03) with a `GMDeps(session_root=...)` over an `agent.iter()`-based stdin/stdout turn loop. Don't forget to load `.env` so `OPENROUTER_API_KEY` is available at agent construction.
+1. Run `/gsd-verify-work` to formally close Phase 01 (optional — Phase 01 was a single-phase milestone with a human-verified checkpoint as its acceptance gate, which was passed live).
+2. Or run `/gsd-complete-milestone` to archive the milestone artifacts and mark the milestone done.
+3. Open follow-up question: promote `backend_generalist/` to replace `backend/`, keep parallel, or archive — separate decision from the viability verdict.
 
 **Files of record:**
 
