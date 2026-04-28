@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: phase_complete
-last_updated: "2026-04-28T20:00:00Z"
+last_updated: "2026-04-28T19:16:34Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -85,6 +85,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260428-kuu | Add deepseek-v4-flash preset to backend and backend_generalist model registries | 2026-04-28 | 8f0a852 | [260428-kuu-add-deepseek-v4-flash-preset-to-backend-](./quick/260428-kuu-add-deepseek-v4-flash-preset-to-backend-/) |
+| 260428-l47 | Pin deepseek-v4-flash preset to deepseek provider (avoid AkashML 502s) | 2026-04-28 | aa59185 | [260428-l47-pin-deepseek-v4-flash-preset-to-deepseek](./quick/260428-l47-pin-deepseek-v4-flash-preset-to-deepseek/) |
 
 ### Risks (carried forward)
 
