@@ -21,6 +21,8 @@ class PendingDeferred:
 class Session:
     id: str
     game_state: GameState
+    active_campaign_id: str | None = None
+    campaign_name: str | None = None
     message_history: list[ModelMessage] = field(default_factory=list)
     pending_deferred: PendingDeferred | None = None
     created_at: float = field(default_factory=time.time)
@@ -30,11 +32,18 @@ class SessionStore:
     def __init__(self):
         self._sessions: dict[str, Session] = {}
 
-    def create(self, game_state: GameState | None = None) -> Session:
+    def create(
+        self,
+        game_state: GameState | None = None,
+        active_campaign_id: str | None = None,
+        campaign_name: str | None = None,
+    ) -> Session:
         session_id = uuid.uuid4().hex[:12]
         session = Session(
             id=session_id,
             game_state=game_state or GameState(),
+            active_campaign_id=active_campaign_id,
+            campaign_name=campaign_name,
         )
         self._sessions[session_id] = session
         return session

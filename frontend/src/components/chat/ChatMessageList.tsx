@@ -12,11 +12,13 @@ const roleMeta: Record<
 > = {
   player: {
     label: 'You',
-    className: 'bg-primary/10 text-foreground self-end',
+    className:
+      'bg-[var(--chat-bubble-user-bg)] text-foreground shadow-[var(--chat-bubble-user-shadow)] self-end transition-[background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-default)]',
   },
   gm: {
     label: 'GM',
-    className: 'bg-muted text-foreground self-start',
+    className:
+      'bg-[var(--chat-bubble-gm-bg)] text-foreground shadow-[var(--chat-bubble-gm-shadow)] self-start transition-[background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-default)]',
   },
   system: {
     label: 'System',
@@ -39,7 +41,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
           <div
             key={i}
             className={cn(
-              'flex max-w-[85%] flex-col rounded-lg px-4 py-2',
+              'flex max-w-[85%] flex-col rounded-[length:var(--radius)] px-4 py-2',
               meta.className,
             )}
           >

@@ -23,6 +23,8 @@
   /* Fallback before `data-theme` is set (FOWT + default attribute on <html>) */
   --ds-font-sans: system-ui, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
   --ds-font-display: var(--ds-font-sans);
+  /* Sheet/dialog scrim; superseded by `[data-theme]` in theme-presets when present */
+  --overlay-backdrop: color-mix(in srgb, black 50%, transparent);
 }
 
 /* Ten preset `[data-theme]` token blocks: `theme-presets.css` (imported after this file in main.tsx). */
@@ -148,6 +150,7 @@ button:not([data-slot='button']):focus-visible {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-overlay-backdrop: var(--overlay-backdrop);
 }
 
 @layer base {
@@ -168,8 +171,7 @@ button:not([data-slot='button']):focus-visible {
   }
 
   h1 {
-    font-size: 2rem;
-    line-height: 1.2;
+    font-family: var(--ds-font-display);
     font-weight: 600;
   }
 }

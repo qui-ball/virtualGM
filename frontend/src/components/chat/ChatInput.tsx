@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 type ChatInputProps = {
   onSend: (text: string) => void;
@@ -22,13 +23,13 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
       onSubmit={handleSubmit}
       className="flex items-center gap-2 border-t border-border bg-background px-4 py-3"
     >
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="What do you do?"
         disabled={disabled}
-        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex-1"
       />
       <Button type="submit" disabled={disabled || !value.trim()} size="sm">
         Send

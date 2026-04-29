@@ -2,7 +2,11 @@ import { useEffect } from 'react';
 import { ChatMessageList, ChatInput, DiceRollPrompt } from '@/components/chat';
 import { useChat } from '@/hooks/useChat';
 
-export function ChatPage() {
+type ChatPageProps = {
+  campaignId: string | null;
+};
+
+export function ChatPage({ campaignId }: ChatPageProps) {
   const {
     messages,
     loading,
@@ -12,11 +16,21 @@ export function ChatPage() {
     sendMessage,
     respondToAction,
     autoRoll,
-  } = useChat();
+  } = useChat(campaignId);
 
   useEffect(() => {
     startSession();
   }, [startSession]);
+
+  if (!campaignId) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-muted-foreground">
+          No campaigns available. Create one in the backend first.
+        </p>
+      </div>
+    );
+  }
 
   if (!sessionReady) {
     return (

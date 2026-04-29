@@ -4,6 +4,19 @@
  * Neon Syndicate: static glow tokens only — no pulsing keyframes (seizure-safety).
  */
 
+/*
+ * Shared per-theme tokens (all `[data-theme]` values).
+ * --overlay-backdrop: modal/sheet scrim (no raw `bg-black/*` in components).
+ * --chat-bubble-gm-shadow: subtle elevation; user bubble glow overridden in select themes.
+ */
+[data-theme] {
+  --overlay-backdrop: color-mix(in srgb, black 50%, transparent);
+  --chat-bubble-user-bg: color-mix(in srgb, var(--primary) 12%, transparent);
+  --chat-bubble-user-shadow: none;
+  --chat-bubble-gm-bg: var(--muted);
+  --chat-bubble-gm-shadow: var(--shadow-layer-xs);
+}
+
 /* dark-fantasy — aligned with local/steering/03-ui-design-styleguide.md */
 [data-theme='dark-fantasy'] {
   color-scheme: dark;
@@ -39,6 +52,8 @@
 
   --tw-duration: var(--duration-base);
   --tw-ease: var(--ease-default);
+
+  --chat-bubble-user-shadow: var(--glow-primary);
 
   --background: #0a0e1a;
   --foreground: #f3f4f6;
@@ -273,6 +288,8 @@
 
   --tw-duration: var(--duration-base);
   --tw-ease: var(--ease-default);
+
+  --chat-bubble-user-shadow: var(--glow-primary);
 
   --background: #090b14;
   --foreground: #e8e6f0;
@@ -585,6 +602,8 @@
 
   --tw-duration: var(--duration-base);
   --tw-ease: linear;
+
+  --chat-bubble-user-shadow: var(--glow-primary);
 
   --background: #070708;
   --foreground: #e8e8f0;

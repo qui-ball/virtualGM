@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
+import { enableAuth } from '@/config';
 
 type ProtectedRouteProps = {
   children: ReactNode;
@@ -8,6 +9,10 @@ type ProtectedRouteProps = {
 
 /** Sends anonymous users to `/auth`, preserving `location.state.from` for post-login redirect. */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  if (!enableAuth) {
+    return <>{children}</>;
+  }
+
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
