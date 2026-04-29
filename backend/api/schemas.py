@@ -10,6 +10,7 @@ from game.models import CharacterState, ConditionName, DiceType, EnemyState
 
 class CreateSessionRequest(BaseModel):
     character_name: str | None = None
+    active_campaign_id: str | None = None
 
 
 class ActionResponse(BaseModel):
@@ -53,6 +54,17 @@ class TurnResponse(BaseModel):
 class CreateSessionResponse(BaseModel):
     session_id: str
     character_name: str
+    active_campaign_id: str | None = None
+    campaign_name: str | None = None
+
+
+class CampaignSummary(BaseModel):
+    id: str
+    name: str
+
+
+class CampaignsResponse(BaseModel):
+    campaigns: list[CampaignSummary]
 
 
 class MessageEntry(BaseModel):

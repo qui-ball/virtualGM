@@ -9,3 +9,4 @@
 export { Header } from './Header';
 export { Navigation, type NavLink } from './Navigation';
 export { ContentArea } from './ContentArea';
+export { CampaignSelect, type CampaignOption } from './CampaignSelect';

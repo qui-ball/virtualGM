@@ -10,14 +10,20 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Navigation, type NavLink } from './Navigation';
+import { CampaignSelect, type CampaignOption } from './CampaignSelect';
 import { useIsTabletOrUp } from '@/hooks';
 import { useAuth } from '@/auth';
+import { ThemeSelect } from '@/theme';
+import { enableAuth } from '@/config';
 
 type HeaderProps = {
   /** App name or logo label */
   title?: string;
   /** Navigation links (used in desktop bar and mobile drawer) */
   navLinks?: NavLink[];
+  campaignId: string;
+  campaignOptions: CampaignOption[];
+  onCampaignChange: (campaignId: string) => void;
 };
 
 /**
@@ -25,7 +31,13 @@ type HeaderProps = {
  * - Desktop (768px+): logo + horizontal nav.
  * - Mobile: logo + menu button that opens a Sheet drawer with vertical nav.
  */
-export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
+export function Header({
+  title = 'Virtual GM',
+  navLinks = [],
+  campaignId,
+  campaignOptions,
+  onCampaignChange,
+}: HeaderProps) {
   const isTabletOrUp = useIsTabletOrUp();
   const [sheetOpen, setSheetOpen] = useState(false);
   const { user, isLoading: authLoading, signOut } = useAuth();
@@ -37,7 +49,13 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
       </div>
 
       <div className="flex min-h-[44px] flex-1 items-center justify-end gap-2 md:gap-3">
-        {!authLoading && user ? (
+        <ThemeSelect />
+        <CampaignSelect
+          campaignId={campaignId}
+          options={campaignOptions}
+          onCampaignChange={onCampaignChange}
+        />
+        {enableAuth && !authLoading && user ? (
           <span
             className="hidden max-w-[160px] truncate text-xs text-muted-foreground md:inline"
             title={user.email ?? ''}
@@ -45,7 +63,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
             {user.email}
           </span>
         ) : null}
-        {!authLoading && user ? (
+        {enableAuth && !authLoading && user ? (
           <Button
             variant="outline"
             size="sm"
@@ -54,7 +72,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
           >
             Sign out
           </Button>
-        ) : !authLoading ? (
+        ) : enableAuth && !authLoading ? (
           <Button variant="outline" size="sm" className="shrink-0" asChild>
             <Link to="/auth">Sign in</Link>
           </Button>
@@ -89,7 +107,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
                   onLinkClick={() => setSheetOpen(false)}
                 />
               </div>
-              {!authLoading && user ? (
+              {enableAuth && !authLoading && user ? (
                 <p
                   className="mt-4 truncate border-t border-border pt-4 text-xs text-muted-foreground"
                   title={user.email ?? ''}

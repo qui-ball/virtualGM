@@ -11,6 +11,7 @@ Folder layout and conventions are documented in **[PROJECT_STRUCTURE.md](./PROJE
 - `src/components/` – Reusable UI (layout: Header, Nav, etc.; common: Button, Card, etc.)
 - `src/pages/` – Page-level views
 - `src/styles/` – Global styles and theme
+- `src/theme/` – Theme ids + normalization (unit-tested; used by UI theming)
 - `src/utils/` – Utility functions
 - `src/types/` – TypeScript type definitions
 - `src/App.tsx` / `src/main.tsx` – App root and entry point
@@ -22,6 +23,8 @@ npm install
 npm run dev      # Development server (http://localhost:5173)
 npm run build    # Production build
 npm run type-check  # TypeScript check
+npm run test:run # Vitest (single run)
+npm run test     # Vitest watch mode
 ```
 
 ## Responsive design

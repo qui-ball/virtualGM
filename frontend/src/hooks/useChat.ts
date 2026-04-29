@@ -11,7 +11,7 @@ const DICE_SIDES: Record<string, number> = {
   d4: 4, d6: 6, d8: 8, d10: 10, d12: 12, d20: 20, d100: 100,
 };
 
-export function useChat() {
+export function useChat(campaignId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -19,6 +19,7 @@ export function useChat() {
   const [sessionReady, setSessionReady] = useState(false);
 
   const sessionIdRef = useRef<string | null>(null);
+  const sessionCampaignIdRef = useRef<string | null>(null);
   const startingRef = useRef(false);
 
   const processTurnStream = useCallback(async (body: TurnRequest) => {
@@ -60,24 +61,44 @@ export function useChat() {
   }, []);
 
   const startSession = useCallback(async () => {
-    if (startingRef.current || sessionIdRef.current) return;
+    if (!campaignId) return;
+    if (
+      startingRef.current ||
+      (sessionIdRef.current && sessionCampaignIdRef.current === campaignId)
+    ) {
+      return;
+    }
+
+    if (sessionCampaignIdRef.current !== campaignId) {
+      sessionIdRef.current = null;
+      sessionCampaignIdRef.current = null;
+      setMessages([]);
+      setPendingAction(null);
+      setGameState(null);
+      setSessionReady(false);
+    }
+
     startingRef.current = true;
     setLoading(true);
     try {
-      const res = await createSession();
+      const res = await createSession({ active_campaign_id: campaignId });
       sessionIdRef.current = res.session_id;
+      sessionCampaignIdRef.current = res.active_campaign_id ?? campaignId;
       setMessages([
         {
           role: 'system',
-          content: `Session started. You are ${res.character_name}.`,
+          content: res.campaign_name
+            ? `Session started in ${res.campaign_name}. You are ${res.character_name}.`
+            : `Session started. You are ${res.character_name}.`,
           timestamp: Date.now(),
         },
       ]);
       setSessionReady(true);
     } finally {
       setLoading(false);
+      startingRef.current = false;
     }
-  }, []);
+  }, [campaignId]);
 
   const sendMessage = useCallback(
     async (text: string) => {

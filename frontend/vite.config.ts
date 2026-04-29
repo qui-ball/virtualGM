@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import path from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -42,4 +43,10 @@ export default defineConfig({
   // Development-specific settings
   // Source maps enabled by default in dev mode via Vite
   // Hot Module Replacement (HMR) enabled by default
+
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    passWithNoTests: true,
+  },
 })

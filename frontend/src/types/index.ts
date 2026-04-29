@@ -74,6 +74,21 @@ export interface TurnResponse {
 export interface CreateSessionResponse {
   session_id: string;
   character_name: string;
+  active_campaign_id?: string | null;
+  campaign_name?: string | null;
+}
+
+export interface CreateSessionRequest {
+  active_campaign_id?: string;
+}
+
+export interface CampaignOption {
+  id: string;
+  name: string;
+}
+
+export interface CampaignsResponse {
+  campaigns: CampaignOption[];
 }
 
 export interface TurnRequest {

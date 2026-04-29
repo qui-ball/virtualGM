@@ -3,6 +3,7 @@
 import json
 import os
 import random
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,8 @@ from loguru import logger
 
 from game.models import DICE_SIDES, GameState, create_player_character
 from api.schemas import (
+    CampaignSummary,
+    CampaignsResponse,
     CreateSessionRequest,
     CreateSessionResponse,
     MessageEntry,
@@ -19,7 +22,7 @@ from api.schemas import (
 )
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
-from supabase_client import is_supabase_configured
+from supabase_client import get_supabase_service_client, is_supabase_configured
 
 # Importing agent triggers config + tool registration
 import agent as agent_mod  # noqa: F401
@@ -58,15 +61,178 @@ def health():
     }
 
 
+def _default_campaign_dir() -> str:
+    return str(Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted")
+
+
+def _resolve_campaign_dir(campaign_state: dict | None) -> str:
+    if not isinstance(campaign_state, dict):
+        return _default_campaign_dir()
+
+    raw_dir = campaign_state.get("campaign_dir")
+    if isinstance(raw_dir, str) and raw_dir.strip():
+        return raw_dir
+
+    raw_relative = campaign_state.get("campaign_dir_relative")
+    if isinstance(raw_relative, str) and raw_relative.strip():
+        return str(Path(__file__).parent / raw_relative.strip())
+
+    return _default_campaign_dir()
+
+
+def _fetch_active_campaigns() -> list[CampaignSummary]:
+    if not is_supabase_configured():
+        return [
+            CampaignSummary(
+                id="local-lost-mine",
+                name="Lost Mine of Phandelver (Local)",
+            )
+        ]
+
+    sb = get_supabase_service_client()
+    active_res = (
+        sb.table("active_campaigns")
+        .select("id,campaign_template_id,is_completed")
+        .eq("is_completed", False)
+        .order("created_at")
+        .execute()
+    )
+    active_rows = active_res.data or []
+    if not active_rows:
+        # Non-blocking dev fallback: expose active templates when active_campaigns is empty.
+        template_res = (
+            sb.table("campaign_templates")
+            .select("id,name")
+            .eq("is_active", True)
+            .order("created_at")
+            .limit(10)
+            .execute()
+        )
+        template_rows = template_res.data or []
+        return [
+            CampaignSummary(id=row["id"], name=f"{row['name']} (Template)")
+            for row in template_rows
+            if isinstance(row.get("id"), str) and isinstance(row.get("name"), str)
+        ]
+
+    template_ids = {
+        row.get("campaign_template_id")
+        for row in active_rows
+        if row.get("campaign_template_id")
+    }
+    template_name_by_id: dict[str, str] = {}
+    if template_ids:
+        template_res = (
+            sb.table("campaign_templates")
+            .select("id,name")
+            .in_("id", list(template_ids))
+            .execute()
+        )
+        for row in template_res.data or []:
+            row_id = row.get("id")
+            row_name = row.get("name")
+            if isinstance(row_id, str) and isinstance(row_name, str):
+                template_name_by_id[row_id] = row_name
+
+    campaigns: list[CampaignSummary] = []
+    for row in active_rows:
+        row_id = row.get("id")
+        template_id = row.get("campaign_template_id")
+        if not isinstance(row_id, str):
+            continue
+        campaigns.append(
+            CampaignSummary(
+                id=row_id,
+                name=template_name_by_id.get(str(template_id), f"Campaign {row_id[:8]}"),
+            )
+        )
+    return campaigns
+
+
+@app.get("/campaigns", response_model=CampaignsResponse)
+def get_campaigns():
+    return CampaignsResponse(campaigns=_fetch_active_campaigns())
+
+
 @app.post("/sessions", response_model=CreateSessionResponse)
 def create_session(body: CreateSessionRequest | None = None):
+    requested_campaign_id = body.active_campaign_id if body else None
+
     gs = GameState()
     gs.pc = create_player_character()
-    session = store.create(game_state=gs)
+    gs.campaign_dir = _default_campaign_dir()
+
+    campaign_id: str | None = None
+    campaign_name: str | None = None
+
+    if is_supabase_configured():
+        sb = get_supabase_service_client()
+
+        if requested_campaign_id:
+            active_res = (
+                sb.table("active_campaigns")
+                .select("id,campaign_template_id,campaign_state")
+                .eq("id", requested_campaign_id)
+                .limit(1)
+                .execute()
+            )
+            active_rows = active_res.data or []
+            active_campaign = active_rows[0] if active_rows else None
+        else:
+            active_res = (
+                sb.table("active_campaigns")
+                .select("id,campaign_template_id,campaign_state")
+                .eq("is_completed", False)
+                .order("created_at")
+                .limit(1)
+                .execute()
+            )
+            active_rows = active_res.data or []
+            active_campaign = active_rows[0] if active_rows else None
+
+        if active_campaign:
+            campaign_id = active_campaign.get("id")
+            template_id = active_campaign.get("campaign_template_id")
+            campaign_state = active_campaign.get("campaign_state")
+            gs.campaign_dir = _resolve_campaign_dir(campaign_state)
+
+            if template_id:
+                template_res = (
+                    sb.table("campaign_templates")
+                    .select("name")
+                    .eq("id", template_id)
+                    .limit(1)
+                    .execute()
+                )
+                template_rows = template_res.data or []
+                if template_rows:
+                    campaign_name = template_rows[0].get("name")
+        elif requested_campaign_id:
+            # Allow selecting a template fallback ID without blocking session creation.
+            template_res = (
+                sb.table("campaign_templates")
+                .select("id,name")
+                .eq("id", requested_campaign_id)
+                .eq("is_active", True)
+                .limit(1)
+                .execute()
+            )
+            template_rows = template_res.data or []
+            if not template_rows:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            campaign_name = template_rows[0].get("name")
+
+    session = store.create(
+        game_state=gs,
+        active_campaign_id=campaign_id,
+        campaign_name=campaign_name,
+    )
     logger.info(f"Created session {session.id} for {gs.pc.name}")
     return CreateSessionResponse(
         session_id=session.id,
         character_name=gs.pc.name,
+        active_campaign_id=campaign_id,
+        campaign_name=campaign_name,
     )
 
 

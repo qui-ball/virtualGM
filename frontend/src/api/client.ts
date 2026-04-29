@@ -4,6 +4,8 @@
 
 import { apiBaseUrl } from '@/config';
 import type {
+  CampaignsResponse,
+  CreateSessionRequest,
   CreateSessionResponse,
   GameStateSnapshot,
   PendingAction,
@@ -22,8 +24,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function createSession(): Promise<CreateSessionResponse> {
-  return request<CreateSessionResponse>('/sessions', { method: 'POST' });
+export function getCampaigns(): Promise<CampaignsResponse> {
+  return request<CampaignsResponse>('/campaigns');
+}
+
+export function createSession(
+  body: CreateSessionRequest = {},
+): Promise<CreateSessionResponse> {
+  return request<CreateSessionResponse>('/sessions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // -- SSE streaming for turns --
