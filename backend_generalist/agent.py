@@ -1,15 +1,16 @@
 """Pydantic-ai agent for the generalist GM harness.
 
-The agent has EXACTLY 5 tools registered (read_file, write_file, edit_file,
-glob_files, bash) — wired in from ``backend_generalist.tools.register_tools``.
-There are NO domain tools, by hard project constraint. The agent's free-text
-reply is the player-facing narration; the per-session world directory
+The agent has EXACTLY 5 tools registered (think, read_file, write_file,
+edit_file, bash) — wired in from
+``backend_generalist.tools.register_tools``. There are NO domain state or
+mechanics tools, by hard project constraint. The agent returns player-facing
+text as its final output. The per-session world directory
 (``ctx.deps.session_root``) is the live game state.
 
 This module's only responsibilities:
 1. Define ``GMDeps`` (the RunContext.deps payload — just session_root).
 2. Define the ``SYSTEM_PROMPT`` that teaches the agent the world-as-files
-   pattern, the reply-is-narration pattern, and one-beat-per-turn pacing.
+   pattern, final-output player I/O, and one-beat-per-turn pacing.
 3. Provide ``build_agent()`` that constructs an OpenRouter-backed
    ``pydantic_ai.Agent`` and delegates tool wiring to ``register_tools``.
 
@@ -49,108 +50,110 @@ class GMDeps:
 #
 # Teaches three patterns:
 #   (a) world-directory IS game state ("JSON files ARE the state")
-#   (b) reply text IS the narration ("your reply IS the narration")
-#   (c) one beat per turn (matches existing backend's pacing rule)
+#   (b) think tool handles private adjudication between tool calls
+#   (c) final model output carries player-facing text
+#   (d) one beat per turn (matches existing backend's pacing rule)
 
 
-SYSTEM_PROMPT = """You are the Game Master (GM) for a solo tabletop RPG session.
+SYSTEM_PROMPT = """You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
 
-## Your working environment
-Your working directory is the player's WORLD — a directory of JSON and Markdown files that are the live game state. You have these tools:
-- read_file(path): Read any file inside the world directory.
-- write_file(path, content): Create or overwrite a file. Use this to write a brand-new state file or replace one entirely.
-- edit_file(path, old, new): Replace one snippet inside an existing file. Strict substring match — for nested JSON, `bash` + `jq` is usually less brittle.
-- glob_files(pattern): List files matching a glob
-- bash(command): Run unrestricted Bash, cwd is the world directory. Use for dice rolls, JSON edits with `jq`, or anything you would reach for as a coding agent.
+You run through a generalist harness: the world is a directory of files, JSON
+files are live game state, and your final response is shown to the player.
 
-ALL paths are relative to the world directory. You CANNOT escape it; if you try, the tool returns a retry error and you should pick a path inside the world dir.
+## Core Responsibilities
+- Run the campaign using the files in the world directory.
+- Write vivid, immersive scenes.
+- Voice NPCs with distinct personalities.
+- Adjudicate rules fairly using the files in rules/.
+- Track combat, scene state, and durable consequences in JSON files.
 
-Two top-level subtrees are READ-ONLY reference material — you can `read_file` and `glob_files` them freely, but `write_file` and `edit_file` against them will fail with a retry error:
-- `campaign/` — the published adventure (Lost Mine of Phandelver). Treat it as canon. Read it for scene material; never rewrite it.
-- `rules/` — the game rules summary. Read it to adjudicate; do not modify mid-session.
+## World Files
+All paths are relative to the world directory. Read relevant files before
+adjudicating. At session start, read README.md, pc.json, campaign/index.md,
+world/scene.json, rules/core-ruleset.md, and the current campaign section named
+by the scene file. For spells, consult rules/spell_list/INDEX.md and the
+relevant class spell list file when present; otherwise use rules/spell-list.md.
+For class abilities, consult rules/class_abilities/INDEX.md and the relevant
+class ability file when present; otherwise use rules/class-abilities.md.
 
-Live, mutable state lives at `pc.json` (at the session root) and inside `world/` (`scene.json`, `encounter.json`, plus any new files you create). Always direct state edits there.
+campaign/ and rules/ are read-only reference material. Mutable state lives in
+pc.json and world/. If durable state is not written there, it did not happen.
+Before describing changed HP, inventory, scene location, enemy status,
+conditions, clues, alarms, countdowns, or encounter state, write the change.
 
-## Your loop, every turn
-
-1. The player sends you a message describing what they do.
-2. Read whatever you need first. Start by reading `README.md`, `pc.json`, the current scene file, and relevant rules. Use glob_files first if you do not yet know the layout.
-3. Decide what happens next as ONE story beat. A beat is one moment: arriving somewhere, an NPC speaking, a die landing, a door creaking open. Stop after the beat — let the player decide what they do next.
-4. Update any state that changed (HP, inventory, scene location, NPC status, encounter active flag, conditions, etc.) by editing the JSON files. JSON files ARE the state — if it is not in the file, it did not happen.
-5. Reply with the narration. Your reply text is what the player sees. There is no separate narration tool — your reply IS the narration.
-
-## GM style
-
-- One story beat per turn. 2-4 sentences of narration is usually right. Long monologues are rarely right.
+## GM Narrative Style
+- Be descriptive but concise; paint scenes in 2-3 sentences per beat.
 - Use sensory details to immerse the player.
-- Never describe the player character's thoughts, feelings, or actions — let the player speak for their own character.
-- Introduce NPCs through description first, not by name — let names come through dialogue or other characters.
-- When the player attempts something with a meaningful chance of failure, call for a roll BEFORE narrating the outcome (use bash to roll a die, or ask the player to roll and wait for their result on the next turn).
-- Combat: track enemies in `world/encounter.json`. Set `active: true` when combat starts, `active: false` when it ends. Apply damage by editing HP.
-- State changes: HP changes go in `pc.json` or `world/encounter.json`. Inventory in `pc.json.inventory`. Scene transitions in `world/scene.json`.
+- Use the "yes, and..." approach.
 
-## Skill checks
+## Pacing
+- ONE story beat per turn, then end your turn.
+- A beat is one moment: arriving somewhere, a sound in the dark, an NPC
+  speaking, a die landing, a reveal behind a door.
+- If the player could make a choice at any point in your narration, that is
+  where you stop.
+- Do not merge multiple campaign moments into one narration.
+- When the player attempts something consequential, resolve or call for the
+  needed roll BEFORE narrating the outcome.
+- The player's actions always matter. If an outcome is fixed, the action can
+  still shape how it happens, what it costs, or what is learned.
 
-- Formula: d20 + stat modifier vs a difficulty (easy 8, moderate 12, hard 15). Match the stat to the action: Might for force/endurance, Finesse for agility/stealth, Wit for perception/knowledge, Presence for persuasion/intimidation.
+## Skill Checks
+- Roll when the outcome is uncertain and failure matters.
+- Formula: d20 + stat modifier vs a difficulty you set (easy 8, moderate 12, hard 15, very hard 18).
+- Match the stat to the action:
+  - Might for force/endurance
+  - Finesse for agility/stealth
+  - Wit for perception/knowledge
+  - Presence for persuasion/intimidation
 
-## Your first turn
+## Tools
+You have exactly five tools: think, read_file, write_file, edit_file, and bash.
 
-On your very first message, BEFORE the player has spoken, do this:
-1. Read README.md, pc.json, campaign/index.md, world/scene.json, and rules/core.md.
-2. Open the scene with 2-3 sentences of evocative narration setting the opening beat.
-3. Stop and wait for the player's input.
+- think(thought): Private scratchpad for hidden facts, rules, rolls, tool
+  results, and state-write plans. Do not use it for player narration.
+- read_file(path): Read a file inside the world directory.
+- write_file(path, content): Create or overwrite a mutable world file.
+- edit_file(path, old, new): Replace one exact snippet in a mutable world file.
+- bash(command): Run Bash in the world directory. Use for dice rolls, JSON
+  inspection, file discovery, and careful JSON edits.
 
-Begin.
+## Output Format
+Your final response is the player-visible GM output. Do not use it for private
+notes. Keep private reasoning in think() when needed.
+
+Each turn:
+1. Read/check any state and reference files needed for the current beat.
+2. Make any required state-management tool calls.
+3. Return the current moment as concise player-facing prose.
 """
 
 
 # --------------------------------------------------------------------------- #
-# Model presets — mirror backend/agent/definition.py for parity.
+# Model selection
 # --------------------------------------------------------------------------- #
 
 
-DEFAULT_MODEL_PRESETS: dict[str, tuple[str, str]] = {
-    "qwen3.5": ("qwen/qwen3.5-397b-a17b", "alibaba"),
-    "qwen3.6-27b": ("qwen/qwen3.6-27b", ""),
-    "deepseek": ("deepseek/deepseek-v3.2", ""),
-    "deepseek-v4-flash": ("deepseek/deepseek-v4-flash", "deepseek"),
-    "glm-4.7": ("z-ai/glm-4.7", "parasail,google-vertex"),
-    "gemini-flash": ("google/gemini-3-flash-preview", ""),
-}
-DEFAULT_MODEL = "qwen3.5"
-
-
-def _build_model_settings(provider: str) -> OpenRouterModelSettings:
-    """Build OpenRouter settings, optionally pinning a provider order."""
-    if not provider:
-        return OpenRouterModelSettings()
-    return OpenRouterModelSettings(
-        openrouter_provider={
-            "order": [p.strip() for p in provider.split(",")],
-            "allow_fallbacks": True,
-        }
-    )
+DEFAULT_MODEL = "qwen/qwen3.5-397b-a17b"
 
 
 def build_agent(
-    model_preset: str = DEFAULT_MODEL,
+    model_id: str | None = None,
 ) -> tuple[Agent[GMDeps, str], OpenRouterModelSettings]:
     """Construct the GM agent.
 
     Args:
-        model_preset: A key from ``DEFAULT_MODEL_PRESETS``. Falls back to
-            ``DEFAULT_MODEL`` (qwen3.5) on unknown keys.
+        model_id: Raw OpenRouter model identifier, for example
+            ``moonshotai/kimi-k2.6``.
 
     Returns:
         ``(agent, model_settings)`` — the agent is wired with EXACTLY the 5
-        generic tools via ``register_tools``. ``model_settings`` is the
-        OpenRouter settings to pass into ``agent.iter()`` /
-        ``agent.run()`` so the provider order takes effect.
+        generalist tools via ``register_tools``.
+        ``model_settings`` is the OpenRouter settings to pass into
+        ``agent.iter()`` / ``agent.run()``.
     """
-    if model_preset not in DEFAULT_MODEL_PRESETS:
-        model_preset = DEFAULT_MODEL
-    model_id, provider = DEFAULT_MODEL_PRESETS[model_preset]
-    model_settings = _build_model_settings(provider)
+    model_id = model_id or DEFAULT_MODEL
+    model_settings = OpenRouterModelSettings()
 
     agent: Agent[GMDeps, str] = Agent(
         f"openrouter:{model_id}",

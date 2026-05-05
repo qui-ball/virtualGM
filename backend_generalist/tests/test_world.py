@@ -15,6 +15,7 @@ the returned `(session_id, session_root)` to the user.
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -31,12 +32,14 @@ def _build_template(template_dir: Path) -> None:
 
     Mirrors the directory shape the function copies in production
     (`pc.json`, `campaign/index.md`, `world/scene.json`,
-    `world/encounter.json`, `rules/core.md`) without depending on the
-    exact bytes of the real template.
+    `world/encounter.json`, and the ruleset markdown files) without depending
+    on the exact bytes of the real template.
     """
     (template_dir / "campaign").mkdir(parents=True)
     (template_dir / "world").mkdir()
     (template_dir / "rules").mkdir()
+    (template_dir / "rules" / "spell_list").mkdir()
+    (template_dir / "rules" / "class_abilities").mkdir()
 
     (template_dir / "pc.json").write_text(
         '{"name": "Aldric", "hp": 12, "hp_max": 12}\n', encoding="utf-8"
@@ -50,8 +53,20 @@ def _build_template(template_dir: Path) -> None:
     (template_dir / "world" / "encounter.json").write_text(
         '{"active": false}\n', encoding="utf-8"
     )
-    (template_dir / "rules" / "core.md").write_text(
+    (template_dir / "rules" / "core-ruleset.md").write_text(
         "# Core Rules\n\nd20 + mod vs DC.\n", encoding="utf-8"
+    )
+    (template_dir / "rules" / "spell_list" / "INDEX.md").write_text(
+        "# Spell Lists\n\n- [Mage](mage.md)\n", encoding="utf-8"
+    )
+    (template_dir / "rules" / "spell_list" / "mage.md").write_text(
+        "# Mage Spell List\n\nMagic Missile.\n", encoding="utf-8"
+    )
+    (template_dir / "rules" / "class_abilities" / "INDEX.md").write_text(
+        "# Class Abilities\n\n- [Warrior](warrior.md)\n", encoding="utf-8"
+    )
+    (template_dir / "rules" / "class_abilities" / "warrior.md").write_text(
+        "# Warrior Class Abilities\n\nWarrior abilities.\n", encoding="utf-8"
     )
 
 
@@ -89,7 +104,7 @@ def test_pc_json_byte_identical_after_copy(tmp_path: Path) -> None:
 
 
 def test_all_template_subpaths_present_in_copy(tmp_path: Path) -> None:
-    """Test 3: campaign/index.md, world/scene.json, world/encounter.json, rules/core.md all present."""
+    """Test 3: campaign, world state, and all ruleset files are present."""
     template = tmp_path / "template_world"
     _build_template(template)
     sessions_dir = tmp_path / "sessions"
@@ -101,7 +116,11 @@ def test_all_template_subpaths_present_in_copy(tmp_path: Path) -> None:
     assert (session_root / "campaign" / "index.md").is_file()
     assert (session_root / "world" / "scene.json").is_file()
     assert (session_root / "world" / "encounter.json").is_file()
-    assert (session_root / "rules" / "core.md").is_file()
+    assert (session_root / "rules" / "core-ruleset.md").is_file()
+    assert (session_root / "rules" / "spell_list" / "INDEX.md").is_file()
+    assert (session_root / "rules" / "spell_list" / "mage.md").is_file()
+    assert (session_root / "rules" / "class_abilities" / "INDEX.md").is_file()
+    assert (session_root / "rules" / "class_abilities" / "warrior.md").is_file()
 
 
 def test_two_calls_produce_distinct_sessions(tmp_path: Path) -> None:
@@ -153,3 +172,19 @@ def test_missing_template_raises_file_not_found(tmp_path: Path) -> None:
             template_dir=tmp_path / "missing",
             sessions_dir=tmp_path / "sessions",
         )
+
+
+def test_social_template_seeds_private_npc_names_not_player_known() -> None:
+    """Social template can give the GM names without making them player-known."""
+    template = Path(__file__).parents[1] / "social_template_world"
+    npcs = json.loads((template / "world" / "npcs.json").read_text())
+
+    assert set(npcs) == {
+        "hearing_chair",
+        "guild_patron",
+        "worker_delegate",
+        "junior_clerk",
+        "temple_archivist",
+    }
+    assert npcs["junior_clerk"]["name"] == "Jun Weaver"
+    assert all(npc["introduced_to_pc"] is False for npc in npcs.values())

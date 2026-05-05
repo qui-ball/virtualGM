@@ -1,0 +1,30 @@
+{
+  "name": "Mara Vey",
+  "role": "independent mediator",
+  "stats": {
+    "might": 0,
+    "finesse": 1,
+    "wit": 2,
+    "presence": 2
+  },
+  "stress": 0,
+  "stress_max": 6,
+  "reputation": {
+    "council": 1,
+    "guilds": 0,
+    "workers": 0,
+    "temple": 0
+  },
+  "favors_owed": [],
+  "favors_held": [
+    "Councilor Holt owes Mara one formal introduction."
+  ],
+  "known_leverage": [],
+  "conditions": [],
+  "inventory": [
+    "mediator's seal",
+    "letter of appointment",
+    "wax tablet",
+    "plain formal cloak"
+  ]
+}

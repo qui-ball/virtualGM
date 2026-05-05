@@ -1,8 +1,8 @@
 """CLI entry point for the generalist GM harness.
 
 Bootstraps a per-session world directory, builds the pydantic-ai agent
-with EXACTLY 5 generic tools, and runs a stdin->agent->stdout turn loop
-with rich-rendered narration plus visible tool-call telemetry.
+with EXACTLY 5 generalist tools, and runs a stdin->agent->stdout turn loop
+with player-visible final output plus visible tool-call telemetry.
 Ctrl-C exits cleanly without corrupting the session directory.
 """
 from __future__ import annotations
@@ -15,8 +15,6 @@ import click
 from dotenv import load_dotenv
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
-    TextPart,
-    ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
 )
@@ -43,7 +41,11 @@ def _truncate(s: str, limit: int = 80) -> str:
 
 def _args_dict(part: ToolCallPart) -> dict:
     try:
-        return part.args_as_dict() if hasattr(part, "args_as_dict") else dict(part.args or {})
+        return (
+            part.args_as_dict()
+            if hasattr(part, "args_as_dict")
+            else dict(part.args or {})
+        )
     except Exception:
         return {}
 
@@ -65,8 +67,14 @@ def _resolve_path(session_root: Path, rel: str) -> str:
 def _render_tool_call(part: ToolCallPart, session_root: Path) -> None:
     name = part.tool_name
     args = _args_dict(part)
-    if name == "read_file":
-        console.print(f"[dim cyan]↪ read_file[/]    [dim]{_resolve_path(session_root, args.get('path', ''))}[/]")
+    if name == "think":
+        thought = _truncate(args.get("thought", "") or "", 180)
+        console.print(f"[dim magenta]↪ think[/]       [dim]{thought}[/]")
+    elif name == "read_file":
+        console.print(
+            f"[dim cyan]↪ read_file[/]    "
+            f"[dim]{_resolve_path(session_root, args.get('path', ''))}[/]"
+        )
     elif name == "write_file":
         path = _resolve_path(session_root, args.get("path", ""))
         size = len(args.get("content", "") or "")
@@ -75,13 +83,12 @@ def _render_tool_call(part: ToolCallPart, session_root: Path) -> None:
         path = _resolve_path(session_root, args.get("path", ""))
         old = _truncate(args.get("old", "") or "", 30)
         console.print(f"[dim cyan]↪ edit_file[/]    [dim]{path}  ‹{old}›[/]")
-    elif name == "glob_files":
-        pattern = args.get("pattern", "") or ""
-        rendered = _resolve_path(session_root, pattern) if pattern and not any(c in pattern for c in "*?[") else f"{_resolve_path(session_root, '')}/{pattern}"
-        console.print(f"[dim cyan]↪ glob_files[/]   [dim]{rendered}[/]")
     elif name == "bash":
         cmd = _truncate(args.get("command", "") or "", 100)
-        console.print(f"[dim cyan]↪ bash[/]         [dim]$ {cmd}  [in {_resolve_path(session_root, '')}][/]")
+        console.print(
+            f"[dim cyan]↪ bash[/]         [dim]$ {cmd}  "
+            f"[in {_resolve_path(session_root, '')}][/]"
+        )
     else:
         console.print(f"[dim cyan]↪ {name}[/]   [dim]{_truncate(str(args), 100)}[/]")
     console.print()
@@ -101,42 +108,49 @@ def _render_tool_return(part: ToolReturnPart) -> None:
     console.print()
 
 
-def _render_thinking(part: ThinkingPart) -> None:
-    if part.has_content():
-        body = Text(f"💭 {part.content.rstrip()}", style="dim italic")
-        console.print(body)
-        console.print()
+def _render_player_narration(text: str) -> None:
+    console.print()
+    console.print("[bold green]GM>[/]")
+    console.print(Markdown(text))
+    console.print()
 
 
-def _render_interim_text(part: TextPart) -> None:
-    text = (part.content or "").rstrip()
-    if text:
-        body = Text(f"· {text}", style="dim")
-        console.print(body)
-        console.print()
+def _final_return(output: object) -> str:
+    """Normalize the final model output."""
+    text = output if isinstance(output, str) else str(output)
+    return text.strip()
+
+
+def _render_gm_output(output: object) -> None:
+    """Show the final model output as the player-visible GM channel."""
+    text = _final_return(output)
+    if not text:
+        return
+    _render_player_narration(text)
 
 
 async def run_chat(
-    model_preset: str | None = None,
+    model_id: str | None = None,
     sessions_dir_override: str | None = None,
+    template_dir_override: str | None = None,
 ) -> None:
     sessions_dir = Path(sessions_dir_override) if sessions_dir_override else None
-    session_id, session_root = create_session_world(sessions_dir=sessions_dir)
+    template_dir = Path(template_dir_override) if template_dir_override else None
+    create_kwargs = {"sessions_dir": sessions_dir}
+    if template_dir is not None:
+        create_kwargs["template_dir"] = template_dir
+    session_id, session_root = create_session_world(**create_kwargs)
 
     print(f"[session] id={session_id}")
     print(f"[session] world={session_root}")
     print("[session] type 'exit' or hit Ctrl-C to quit")
     print()
 
-    agent, model_settings = build_agent(model_preset=model_preset or "qwen3.5")
+    agent, model_settings = build_agent(model_id=model_id)
     deps = GMDeps(session_root=session_root)
     message_history: list = []
 
-    opening_prompt = (
-        "The session is starting. Read README.md, pc.json, campaign/index.md, "
-        "world/scene.json, and rules/core.md. Then open the scene with 2-3 sentences "
-        "of narration setting the first beat. Stop and wait for the player."
-    )
+    opening_prompt = "[start the session]"
 
     try:
         current_input: str = opening_prompt
@@ -150,26 +164,20 @@ async def run_chat(
                 async for node in agent_run:
                     if Agent.is_call_tools_node(node):
                         for part in node.model_response.parts:
-                            if isinstance(part, ThinkingPart):
-                                _render_thinking(part)
-                            elif isinstance(part, ToolCallPart):
+                            if isinstance(part, ToolCallPart):
                                 _render_tool_call(part, session_root)
-                            # TextPart is intentionally NOT rendered here — it
-                            # duplicates result.output, which is rendered as
-                            # Markdown under GM> after the run ends.
                     elif Agent.is_model_request_node(node):
                         for part in getattr(node.request, "parts", []) or []:
                             if isinstance(part, ToolReturnPart):
                                 _render_tool_return(part)
 
             result = agent_run.result
-            reply = result.output if isinstance(result.output, str) else str(result.output)
+            _render_gm_output(result.output)
             message_history = result.all_messages()
 
-            console.print()
-            console.print("[bold green]GM>[/]")
-            console.print(Markdown(reply))
-            console.print()
+            if not _final_return(result.output):
+                console.print("[dim yellow]No GM output was emitted this turn.[/]")
+                console.print()
 
             try:
                 current_input = console.input("[bold yellow]You>[/] ").strip()
@@ -193,7 +201,7 @@ async def run_chat(
     "-m",
     type=str,
     default=None,
-    help="Model preset: qwen3.5 (default), qwen3.6-27b, deepseek, deepseek-v4-flash, glm-4.7, gemini-flash.",
+    help="OpenRouter model ID. Default: qwen/qwen3.5-397b-a17b.",
 )
 @click.option(
     "--sessions-dir",
@@ -201,10 +209,22 @@ async def run_chat(
     default=None,
     help="Parent directory for session world dirs. Default: ./sessions/",
 )
-def main(model: str | None, sessions_dir: str | None) -> None:
+@click.option(
+    "--template-dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=None,
+    help="World template directory to copy. Default: backend_generalist/template_world.",
+)
+def main(model: str | None, sessions_dir: str | None, template_dir: str | None) -> None:
     """Start a new generalist GM session."""
     try:
-        asyncio.run(run_chat(model_preset=model, sessions_dir_override=sessions_dir))
+        asyncio.run(
+            run_chat(
+                model_id=model,
+                sessions_dir_override=sessions_dir,
+                template_dir_override=template_dir,
+            )
+        )
     except KeyboardInterrupt:
         print("\n[session] interrupted.")
         sys.exit(0)

@@ -1,9 +1,10 @@
 """Tool-level tests for backend_generalist.tools.
 
-12 tests pinning the contract for the 5 generic tools (read_file, write_file,
-edit_file, glob_files, bash). Every tool routes through the sandbox primitives
-from Plan 01-01; these tests prove the routing happens and that escapes are
-rejected with ModelRetry rather than silently servicing the request.
+Tests pin the contract for the 5 generalist tools (think, read_file,
+write_file, edit_file, bash). Filesystem and shell tools route
+through the sandbox primitives from Plan 01-01; these tests prove the routing
+happens and that escapes are rejected with ModelRetry rather than silently
+servicing the request.
 
 The tests do NOT exercise pydantic-ai's RunContext directly — that type is
 internal and version-coupled. Instead each tool function only reads
@@ -22,8 +23,9 @@ from pydantic_ai import ModelRetry
 from backend_generalist.tools import (
     bash,
     edit_file,
-    glob_files,
     read_file,
+    register_tools,
+    think,
     write_file,
 )
 
@@ -51,6 +53,46 @@ def make_ctx(tmp_path: Path) -> SimpleNamespace:
         '{"active": false}', encoding="utf-8"
     )
     return SimpleNamespace(deps=_Deps(session_root=tmp_path))
+
+
+def test_register_tools_exposes_only_generalist_tool_surface() -> None:
+    class _FakeAgent:
+        def __init__(self) -> None:
+            self.tools: list[str] = []
+
+        def tool(self, fn):
+            self.tools.append(fn.__name__)
+
+    fake_agent = _FakeAgent()
+    register_tools(fake_agent)
+
+    assert fake_agent.tools == [
+        "think",
+        "read_file",
+        "write_file",
+        "edit_file",
+        "bash",
+    ]
+
+# --------------------------------------------------------------------------- #
+# think — scratchpad only
+# --------------------------------------------------------------------------- #
+
+
+def test_think_returns_ack_without_state_change(tmp_path: Path) -> None:
+    ctx = make_ctx(tmp_path)
+    before = (tmp_path / "pc.json").read_text(encoding="utf-8")
+
+    assert (
+        think(ctx, "Need to check the scene before narration.") == "Thought logged."
+    )
+    assert (tmp_path / "pc.json").read_text(encoding="utf-8") == before
+
+
+def test_think_rejects_huge_notes(tmp_path: Path) -> None:
+    ctx = make_ctx(tmp_path)
+    with pytest.raises(ModelRetry, match="too long"):
+        think(ctx, "x" * 4_001)
 
 
 # --------------------------------------------------------------------------- #
@@ -119,26 +161,6 @@ def test_edit_file_no_match_raises_model_retry(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# glob_files — happy + escape
-# --------------------------------------------------------------------------- #
-
-
-def test_glob_files_happy_path(tmp_path: Path) -> None:
-    ctx = make_ctx(tmp_path)
-    result = glob_files(ctx, "**/*.json")
-    assert "pc.json" in result
-    # scene.json + encounter.json are under world/; check the path appears
-    assert "scene.json" in result
-    assert "encounter.json" in result
-
-
-def test_glob_files_rejects_escape(tmp_path: Path) -> None:
-    ctx = make_ctx(tmp_path)
-    with pytest.raises(ModelRetry):
-        glob_files(ctx, "../**/*")
-
-
-# --------------------------------------------------------------------------- #
 # bash — happy + stderr capture + truncation
 # --------------------------------------------------------------------------- #
 
@@ -178,8 +200,22 @@ def _ctx_with_readonly_dirs(tmp_path: Path) -> SimpleNamespace:
     (tmp_path / "campaign").mkdir()
     (tmp_path / "campaign" / "index.md").write_text("# Campaign\n", encoding="utf-8")
     (tmp_path / "rules").mkdir()
-    (tmp_path / "rules" / "core.md").write_text(
+    (tmp_path / "rules" / "spell_list").mkdir()
+    (tmp_path / "rules" / "class_abilities").mkdir()
+    (tmp_path / "rules" / "core-ruleset.md").write_text(
         "# Core Rules\nd20 + mod vs DC.\n", encoding="utf-8"
+    )
+    (tmp_path / "rules" / "spell_list" / "INDEX.md").write_text(
+        "# Spell Lists\n", encoding="utf-8"
+    )
+    (tmp_path / "rules" / "spell_list" / "mage.md").write_text(
+        "# Mage Spell List\n", encoding="utf-8"
+    )
+    (tmp_path / "rules" / "class_abilities" / "INDEX.md").write_text(
+        "# Class Abilities\n", encoding="utf-8"
+    )
+    (tmp_path / "rules" / "class_abilities" / "warrior.md").write_text(
+        "# Warrior Class Abilities\n", encoding="utf-8"
     )
     return ctx
 
@@ -195,8 +231,10 @@ def test_write_file_rejects_campaign_subtree(tmp_path: Path) -> None:
 def test_write_file_rejects_rules_subtree(tmp_path: Path) -> None:
     ctx = _ctx_with_readonly_dirs(tmp_path)
     with pytest.raises(ModelRetry, match="read-only"):
-        write_file(ctx, "rules/core.md", "different rules")
-    assert (tmp_path / "rules" / "core.md").read_text().startswith("# Core Rules")
+        write_file(ctx, "rules/core-ruleset.md", "different rules")
+    assert (tmp_path / "rules" / "core-ruleset.md").read_text().startswith(
+        "# Core Rules"
+    )
 
 
 def test_edit_file_rejects_campaign_subtree(tmp_path: Path) -> None:
@@ -209,20 +247,24 @@ def test_edit_file_rejects_campaign_subtree(tmp_path: Path) -> None:
 def test_edit_file_rejects_rules_subtree(tmp_path: Path) -> None:
     ctx = _ctx_with_readonly_dirs(tmp_path)
     with pytest.raises(ModelRetry, match="read-only"):
-        edit_file(ctx, "rules/core.md", "d20", "d100")
-    assert "d20" in (tmp_path / "rules" / "core.md").read_text()
+        edit_file(ctx, "rules/core-ruleset.md", "d20", "d100")
+    assert "d20" in (tmp_path / "rules" / "core-ruleset.md").read_text()
 
 
 def test_read_only_subtrees_still_readable(tmp_path: Path) -> None:
-    """Read-only enforcement applies to write/edit only, NOT to read_file/glob/bash."""
+    """Read-only enforcement applies to write/edit only, NOT to read_file/bash."""
     ctx = _ctx_with_readonly_dirs(tmp_path)
     # read_file should succeed.
     content = read_file(ctx, "campaign/index.md")
     assert content == "# Campaign\n"
-    # glob_files should list them.
-    matches = glob_files(ctx, "**/*.md")
+    # bash remains unrestricted and can inspect them.
+    matches = bash(ctx, "find campaign rules -name '*.md' | sort")
     assert "campaign/index.md" in matches
-    assert "rules/core.md" in matches
+    assert "rules/core-ruleset.md" in matches
+    assert "rules/spell_list/INDEX.md" in matches
+    assert "rules/spell_list/mage.md" in matches
+    assert "rules/class_abilities/INDEX.md" in matches
+    assert "rules/class_abilities/warrior.md" in matches
 
 
 def test_world_subtree_is_writable(tmp_path: Path) -> None:

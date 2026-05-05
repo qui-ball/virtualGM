@@ -1,0 +1,16 @@
+{
+  "campaign": "Glassmarket Reception",
+  "current_section": "campaign/Chapter1_Glassmarket/Opening_Reception.md",
+  "location": "West gallery of Glassmarket Hall",
+  "time_of_day": "early evening",
+  "mood": "polite, crowded, tense",
+  "present_npcs": [
+    "hearing_chair",
+    "guild_patron",
+    "worker_delegate",
+    "junior_clerk",
+    "temple_archivist"
+  ],
+  "scene_id": "glassmarket.opening",
+  "notes": "A civic reception is underway before a contested harbor charter vote. The document on the records table may not match the draft people expected."
+}

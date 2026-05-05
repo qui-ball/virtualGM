@@ -1,0 +1,17 @@
+{
+  "active": false,
+  "mode": "social",
+  "focus": null,
+  "stakes": null,
+  "participants": {},
+  "clocks": {
+    "patience": 0,
+    "scandal": 0
+  },
+  "open_threads": [
+    "Will the vote proceed tonight?",
+    "Who benefits if the charter language changed?",
+    "Can the workers get a fair hearing?"
+  ],
+  "last_exchange": null
+}

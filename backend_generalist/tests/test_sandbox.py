@@ -1,6 +1,6 @@
 """Tests for the sandbox primitive (HARN-02 / HARN-03).
 
-Every generic tool wrapper (Read, Write, Edit, Glob, Bash) routes through
+Every generic tool wrapper (Read, Write, Edit, Bash) routes through
 `resolve_in_sandbox` / `run_bash_in_sandbox`. These tests pin the security
 floor: path-traversal escapes are rejected, non-existent targets are allowed
 (Write needs that), and Bash runs with cwd locked to the session root.

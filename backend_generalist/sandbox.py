@@ -1,7 +1,7 @@
 """Sandbox primitive: confine all filesystem + shell ops to the session world dir.
 
 Single source of truth for HARN-02/HARN-03. Every generic tool wrapper
-(Read/Write/Edit/Glob/Bash) routes through ``resolve_in_sandbox()`` before
+(Read/Write/Edit/Bash) routes through ``resolve_in_sandbox()`` before
 touching disk, and ``run_bash_in_sandbox()`` before invoking a shell.
 
 Design notes
