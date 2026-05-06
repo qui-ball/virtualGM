@@ -86,6 +86,7 @@ None.
 |---|-------------|------|--------|-----------|
 | 260428-kuu | Add deepseek-v4-flash preset to backend and backend_generalist model registries | 2026-04-28 | 8f0a852 | [260428-kuu-add-deepseek-v4-flash-preset-to-backend-](./quick/260428-kuu-add-deepseek-v4-flash-preset-to-backend-/) |
 | 260428-l47 | Pin deepseek-v4-flash preset to DeepSeek first-party OpenRouter endpoint (skip flaky AkashML) | 2026-04-28 | aa59185 | [260428-l47-pin-deepseek-v4-flash-preset-to-deepseek](./quick/260428-l47-pin-deepseek-v4-flash-preset-to-deepseek/) |
+| 260506-fuv | Fix GM information leakage — Information Boundary prompt section, gm_-prefix scene state convention, read-aloud callouts on Part 1 openers | 2026-05-06 | 4394942 | [260506-fuv-fix-gm-information-leakage-in-backend-ge](./quick/260506-fuv-fix-gm-information-leakage-in-backend-ge/) |
 
 ### Risks (carried forward)
 
