@@ -2,7 +2,8 @@
 
 Read the following boxed text to start the encounter:
 
-If you are using the " [Meet Me in Phandalin](Introduction.md#AdventureHook)" adventure hook, then any character who approaches to make a closer investigation can identify the horses as belonging to Gundren Rockseeker and Sildar Hallwinter. They've been dead about a day, and it's clear that arrows killed the horses. When the characters inspect the scene closer, read the following:
+> [!read-aloud]
+> If you are using the " [Meet Me in Phandalin](Introduction.md#AdventureHook)" adventure hook, then any character who approaches to make a closer investigation can identify the horses as belonging to Gundren Rockseeker and Sildar Hallwinter. They've been dead about a day, and it's clear that arrows killed the horses. When the characters inspect the scene closer, read the following:
 
 Four goblins are hiding in the woods, two on each side of the road. They wait until someone approaches the bodies and then attack.
 
