@@ -1,10 +1,9 @@
-"""Generic GM harness tools — Think, Read, Write, Edit, Bash.
+"""Generic GM harness tools — Read, Write, Edit, Bash.
 
-EXACTLY these five tools are registered on the agent. There are NO domain
-tools — no per-mechanic helpers, no specialized state wrappers. The think tool
-is a private scratchpad logger; the other four tools provide generic filesystem
-and shell access. The game state is JSON files inside the per-session world
-directory.
+EXACTLY these four tools are registered on the agent. There are NO domain
+tools — no per-mechanic helpers, no specialized state wrappers. The tools
+provide generic filesystem and shell access. The game state is JSON files
+inside the per-session world directory.
 
 Every filesystem path argument routes through ``resolve_in_sandbox`` (Plan
 01-01) before touching disk. The Bash tool delegates to
@@ -25,7 +24,6 @@ from backend_generalist.sandbox import (
 
 # Cap on bash output size so a `yes` flood can't blow the model's context.
 MAX_BASH_OUTPUT_CHARS = 32_000
-MAX_THINK_CHARS = 4_000
 
 # Top-level subdirectories that are reference material — readable but not
 # writable. The campaign tree (Lost Mine of Phandelver) and the rules summary
@@ -39,23 +37,6 @@ MAX_THINK_CHARS = 4_000
 # overwrite via `bash` if it tries, but that escape is visible in the tool
 # call log and accepted as a known risk.
 READ_ONLY_PREFIXES: tuple[str, ...] = ("campaign", "rules")
-
-
-def think(ctx: RunContext, thought: str) -> str:
-    """Record a private GM scratchpad note between tool calls.
-
-    Use this before or after other tools to reconcile hidden facts, rules,
-    rolls, tool results, and state changes. Keep notes concise and operational:
-    what matters now, what state must be checked or written, and why the next
-    action follows. Do not use this for player narration or durable state.
-    """
-    del ctx
-    if len(thought) > MAX_THINK_CHARS:
-        raise ModelRetry(
-            f"Thought is too long ({len(thought)} chars). Keep think notes "
-            f"under {MAX_THINK_CHARS} chars and focus on the current decision."
-        )
-    return "Thought logged."
 
 
 def _check_writable(session_root: Path, target: Path, path_arg: str) -> None:
@@ -190,13 +171,12 @@ def bash(ctx: RunContext, command: str, timeout: float = 120.0) -> str:
 
 
 def register_tools(agent) -> None:
-    """Register the 5 generalist tools on the given pydantic-ai Agent.
+    """Register the 4 generalist tools on the given pydantic-ai Agent.
 
     This is the single chokepoint for tool registration. ``agent.py`` calls
     this and does no tool wiring of its own — the tool surface is locked
     in here.
     """
-    agent.tool(think)
     agent.tool(read_file)
     agent.tool(write_file)
     agent.tool(edit_file)

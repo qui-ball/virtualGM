@@ -1,10 +1,9 @@
 """Tool-level tests for backend_generalist.tools.
 
-Tests pin the contract for the 5 generalist tools (think, read_file,
-write_file, edit_file, bash). Filesystem and shell tools route
-through the sandbox primitives from Plan 01-01; these tests prove the routing
-happens and that escapes are rejected with ModelRetry rather than silently
-servicing the request.
+Tests pin the contract for the 4 generalist tools (read_file, write_file,
+edit_file, bash). Filesystem and shell tools route through the sandbox
+primitives from Plan 01-01; these tests prove the routing happens and that
+escapes are rejected with ModelRetry rather than silently servicing the request.
 
 The tests do NOT exercise pydantic-ai's RunContext directly — that type is
 internal and version-coupled. Instead each tool function only reads
@@ -25,7 +24,6 @@ from backend_generalist.tools import (
     edit_file,
     read_file,
     register_tools,
-    think,
     write_file,
 )
 
@@ -67,33 +65,11 @@ def test_register_tools_exposes_only_generalist_tool_surface() -> None:
     register_tools(fake_agent)
 
     assert fake_agent.tools == [
-        "think",
         "read_file",
         "write_file",
         "edit_file",
         "bash",
     ]
-
-# --------------------------------------------------------------------------- #
-# think — scratchpad only
-# --------------------------------------------------------------------------- #
-
-
-def test_think_returns_ack_without_state_change(tmp_path: Path) -> None:
-    ctx = make_ctx(tmp_path)
-    before = (tmp_path / "pc.json").read_text(encoding="utf-8")
-
-    assert (
-        think(ctx, "Need to check the scene before narration.") == "Thought logged."
-    )
-    assert (tmp_path / "pc.json").read_text(encoding="utf-8") == before
-
-
-def test_think_rejects_huge_notes(tmp_path: Path) -> None:
-    ctx = make_ctx(tmp_path)
-    with pytest.raises(ModelRetry, match="too long"):
-        think(ctx, "x" * 4_001)
-
 
 # --------------------------------------------------------------------------- #
 # read_file — happy + escape

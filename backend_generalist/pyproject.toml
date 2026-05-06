@@ -1,7 +1,7 @@
 [project]
 name = "backend_generalist"
 version = "0.1.0"
-description = "virtualGM generalist backend — Think/Read/Write/Edit/Bash harness for a pydantic-ai GM agent."
+description = "virtualGM generalist backend — Read/Write/Edit/Bash harness for a pydantic-ai GM agent."
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-ai>=1.25.1",

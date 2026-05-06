@@ -11,8 +11,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic_ai.messages import ToolCallPart
-
 from backend_generalist import cli as cli_mod
 
 
@@ -262,20 +260,6 @@ def test_gm_output_renderer_shows_final_text(capsys) -> None:
 
     assert "GM>" in rendered
     assert "This should appear" in rendered
-
-
-def test_tool_call_renderer_shows_think_notes(tmp_path, capsys) -> None:
-    """Dev telemetry prints concise think tool calls."""
-
-    part = ToolCallPart(
-        tool_name="think",
-        args={"thought": "Need to reconcile the roll before editing state."},
-    )
-    cli_mod._render_tool_call(part, tmp_path)
-    rendered = capsys.readouterr().out
-
-    assert "think" in rendered
-    assert "reconcile the roll" in rendered
 
 
 def test_gm_output_renderer_does_not_truncate_payload(capsys) -> None:

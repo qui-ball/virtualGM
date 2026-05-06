@@ -1,7 +1,7 @@
 """Pydantic-ai agent for the generalist GM harness.
 
-The agent has EXACTLY 5 tools registered (think, read_file, write_file,
-edit_file, bash) — wired in from
+The agent has EXACTLY 4 tools registered (read_file, write_file, edit_file,
+bash) — wired in from
 ``backend_generalist.tools.register_tools``. There are NO domain state or
 mechanics tools, by hard project constraint. The agent returns player-facing
 text as its final output. The per-session world directory
@@ -50,9 +50,8 @@ class GMDeps:
 #
 # Teaches three patterns:
 #   (a) world-directory IS game state ("JSON files ARE the state")
-#   (b) think tool handles private adjudication between tool calls
-#   (c) final model output carries player-facing text
-#   (d) one beat per turn (matches existing backend's pacing rule)
+#   (b) final model output carries player-facing text
+#   (c) one beat per turn (matches existing backend's pacing rule)
 
 
 SYSTEM_PROMPT = """You are a game master (GM) for a custom tabletop RPG, running a solo campaign.
@@ -108,10 +107,8 @@ conditions, clues, alarms, countdowns, or encounter state, write the change.
   - Presence for persuasion/intimidation
 
 ## Tools
-You have exactly five tools: think, read_file, write_file, edit_file, and bash.
+You have exactly four tools: read_file, write_file, edit_file, and bash.
 
-- think(thought): Private scratchpad for hidden facts, rules, rolls, tool
-  results, and state-write plans. Do not use it for player narration.
 - read_file(path): Read a file inside the world directory.
 - write_file(path, content): Create or overwrite a mutable world file.
 - edit_file(path, old, new): Replace one exact snippet in a mutable world file.
@@ -120,7 +117,7 @@ You have exactly five tools: think, read_file, write_file, edit_file, and bash.
 
 ## Output Format
 Your final response is the player-visible GM output. Do not use it for private
-notes. Keep private reasoning in think() when needed.
+notes.
 
 Each turn:
 1. Read/check any state and reference files needed for the current beat.
@@ -147,7 +144,7 @@ def build_agent(
             ``moonshotai/kimi-k2.6``.
 
     Returns:
-        ``(agent, model_settings)`` — the agent is wired with EXACTLY the 5
+        ``(agent, model_settings)`` — the agent is wired with EXACTLY the 4
         generalist tools via ``register_tools``.
         ``model_settings`` is the OpenRouter settings to pass into
         ``agent.iter()`` / ``agent.run()``.

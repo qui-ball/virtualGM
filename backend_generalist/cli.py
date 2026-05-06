@@ -1,7 +1,7 @@
 """CLI entry point for the generalist GM harness.
 
 Bootstraps a per-session world directory, builds the pydantic-ai agent
-with EXACTLY 5 generalist tools, and runs a stdin->agent->stdout turn loop
+with EXACTLY 4 generalist tools, and runs a stdin->agent->stdout turn loop
 with player-visible final output plus visible tool-call telemetry.
 Ctrl-C exits cleanly without corrupting the session directory.
 """
@@ -67,10 +67,7 @@ def _resolve_path(session_root: Path, rel: str) -> str:
 def _render_tool_call(part: ToolCallPart, session_root: Path) -> None:
     name = part.tool_name
     args = _args_dict(part)
-    if name == "think":
-        thought = _truncate(args.get("thought", "") or "", 180)
-        console.print(f"[dim magenta]↪ think[/]       [dim]{thought}[/]")
-    elif name == "read_file":
+    if name == "read_file":
         console.print(
             f"[dim cyan]↪ read_file[/]    "
             f"[dim]{_resolve_path(session_root, args.get('path', ''))}[/]"
