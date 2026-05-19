@@ -1,68 +1,107 @@
-# Requirements: virtualGM — Generalist Backend
+# Requirements: virtualGM
 
-**Defined:** 2026-04-28
-**Core Value:** Prove that a GM agent can run end-to-end with no domain tools — just generic primitives over a JSON world directory.
+**Defined:** 2026-04-28 (v1.0) · **Updated:** 2026-05-19 (v2.0)
+**Core Value:** Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces.
 
-## v1 Requirements
+---
 
-Requirements for the viability spike. All map to roadmap phases.
+## v2.0 Requirements — backend-simplification (current milestone)
+
+Requirements for the active milestone. All map to roadmap phases.
+
+### Dedup (Tier 2 — internal de-duplication, no agent contract change)
+
+- [ ] **DEDUP-01**: `api/turn_engine.py` exposes one shared SSE turn-stream core; `stream_turn` and `stream_deferred_response` either disappear or become thin wrappers (≤ 5 lines each) over that core. No duplicated event-emission logic.
+- [ ] **DEDUP-02**: The agent system prompt in `agent/definition.py` no longer enumerates each tool's signature or argument list. Tool documentation lives in `@gm_agent.tool` docstrings only. Prompt retains behavior/pacing/style rules.
+- [ ] **DEDUP-03**: The static ruleset (`prompts/rulesets/core-ruleset.md`) is read once at module load and embedded into the agent's `instructions=` string; the `@gm_agent.instructions add_ruleset` dynamic hook is removed. `add_campaign` and `current_game_state` remain dynamic.
+- [ ] **DEDUP-04**: The overlap between `backend/agent_test.py` and `backend/test_agent.py` is resolved — either consolidated into one file or each file has a documented, distinct purpose.
+
+### Tools (Tier 3 — tool surface consolidation)
+
+- [ ] **TOOLS-01**: `add_to_inventory` and `remove_from_inventory` collapse to a single tool that takes an action argument. Both capabilities remain available.
+- [ ] **TOOLS-02**: `create_countdown` and `update_countdown` collapse to a single tool with absolute-value or upsert semantics. Both create-new and modify-existing capabilities remain available.
+- [ ] **TOOLS-03**: `set_boss_battle` is removed from the tool surface; boss-battle status either becomes an argument on `apply_damage` or is derived from the loaded campaign section / scene state. The "Blaze of Glory / Risk It All" branch in `apply_damage` continues to fire correctly when applicable.
+- [ ] **TOOLS-04**: Level-up detection and reporting in `award_xp` is factored into a non-tool helper (e.g. `_check_level_up`); the `award_xp` tool body shrinks to xp accounting + helper call.
+- [ ] **TOOLS-05**: The manual `load_campaign_section` / `unload_campaign_section` pair and 3-section cap are replaced with implicit LRU caching. The agent calls one `load_campaign_section(section)` tool; eviction is automatic; `unload_campaign_section` is removed from the surface.
+- [ ] **TOOLS-06**: After Tier 3, total registered tools on `gm_agent` is ≤ 11 (down from current 15). Every gameplay capability previously expressible via the dropped tools is still expressible.
+
+### State (Tier 4 — GameState typing + snapshot consolidation)
+
+- [ ] **STATE-01**: `GameState` in `game/models.py` is a Pydantic `BaseModel` (not a plain Python class). Runtime-only fields (`_event_queue`, `narrations`) use `PrivateAttr` or equivalent so they do not appear in serialization output.
+- [ ] **STATE-02**: `GameState` exposes a `.snapshot()` method that returns the API-facing view (character + enemies + countdowns + in_combat).
+- [ ] **STATE-03**: The hand-maintained `GameStateSnapshot` class in `api/schemas.py` is removed. SSE payloads in `turn_engine.py` emit `GameState.snapshot()` (via `.model_dump()`) directly, and the frontend receives byte-compatible JSON for the `game_state` key in `pending_action` / `complete` events.
+
+### Invariants (must hold for every milestone phase)
+
+- [ ] **INV-01**: The frontend's SSE event types (`narration`, `thinking`, `pending_action`, `complete`, `error`) and the payload field names within them remain unchanged. The existing `frontend/src/api/client.ts` and `frontend/src/types/index.ts` need no edits.
+- [ ] **INV-02**: After each phase commits, running the FastAPI app and the React UI together still permits at least one full turn (including a deferred dice roll) end-to-end without error.
+- [ ] **INV-03**: After each phase commits, `backend/cli.py` still starts a session and accepts a turn without crashing.
+- [ ] **INV-04**: `backend_generalist/` is not modified by any phase in this milestone.
+- [ ] **INV-05**: Pydantic models other than `GameState` (`CharacterState`, `EnemyState`, `Stats`, …) have unchanged field names, types, and validation rules.
+
+---
+
+## v1.0 Requirements — generalist-viability-spike (validated)
+
+All v1 requirements were satisfied by Phase 1 (`backend_generalist/`) and human-verified `play passed` on 2026-04-28. Preserved for traceability.
 
 ### Harness
 
-- [x] **HARN-01**: pydantic-ai agent module in `backend_generalist/` whose tool set is exactly `Read`, `Write`, `Edit`, `Glob`, `Bash` (no domain tools) — shipped in Plan 01-03 (`backend_generalist.agent.build_agent`; `register_tools` chokepoint enforces 5-tool surface)
-- [x] **HARN-02**: Each generic tool is implemented as a thin wrapper that operates on (and is sandboxed to) the active session's world directory — sandbox chokepoint shipped in Plan 01-01 (`backend_generalist.sandbox.resolve_in_sandbox`); each of the 5 tools shipped in Plan 01-03 routes through it
-- [x] **HARN-03**: `Bash` is unrestricted (full shell), executed inside the session world directory — `run_bash_in_sandbox` shipped in Plan 01-01 (`["bash", "-c", command]`, cwd=session_root, default timeout 120s); `bash` tool shipped in Plan 01-03 delegates to it with 32k-char output cap
-- [x] **HARN-04**: System prompt teaches the agent: "your working directory is the world; read/edit JSON files to track game state; your reply text is what the player sees" — shipped in Plan 01-03 (`backend_generalist.agent.SYSTEM_PROMPT`, 3361 chars)
+- [x] **HARN-01**: pydantic-ai agent in `backend_generalist/` with exactly Read/Write/Edit/Glob/Bash tools — Plan 01-03
+- [x] **HARN-02**: Each tool sandboxed to the active session's world directory — Plan 01-01 + 01-03
+- [x] **HARN-03**: Unrestricted Bash inside the session world directory — Plan 01-01 + 01-03
+- [x] **HARN-04**: System prompt teaches "working dir is the world; reply text is what the player sees" — Plan 01-03
 
 ### World
 
-- [x] **WORLD-01**: World directory template defined under `backend_generalist/` (e.g. `template_world/`) containing campaign/, pc.json, world/ scratch area, rules/ as needed — shipped in Plan 01-02 (`backend_generalist/template_world/`, 7 seed files)
-- [x] **WORLD-02**: At session start, the CLI copies the template into a per-session directory (e.g. `sessions/<id>/`) — agent works on the copy — mechanism shipped in Plan 01-02 (`backend_generalist.world.create_session_world`); CLI wiring in Plan 01-04
-- [x] **WORLD-03**: State persists between turns within a session (the JSON files on disk ARE the state) — closed in Plan 01-04 via mid-session inspection of `sessions/<id>/pc.json` / `world/scene.json` / `world/encounter.json` reflecting in-fiction state across turns
+- [x] **WORLD-01**: World directory template under `backend_generalist/` — Plan 01-02
+- [x] **WORLD-02**: Per-session world dir copied from template at session start — Plan 01-02
+- [x] **WORLD-03**: State persists between turns (JSON files ARE the state) — Plan 01-04
 
 ### CLI
 
-- [x] **CLI-01**: A single CLI entry point (e.g. `python -m backend_generalist` or a script) that starts a new session and enters a turn loop — shipped in Plan 01-04 (`backend_generalist/cli.py` + `__main__.py`; Click + asyncio)
-- [x] **CLI-02**: Turn loop = read player line from stdin → send to agent → print agent's free-text reply to stdout → repeat — shipped in Plan 01-04 (`run_chat()`; `console.input` for stdin, `Markdown(reply)` for stdout)
-- [x] **CLI-03**: Session ID and world dir path are printed at startup so the user can inspect/resume — shipped in Plan 01-04 (`[session] id=...` / `[session] world=...`)
-- [x] **CLI-04**: Clean shutdown on Ctrl-C (current world dir state is left intact on disk) — shipped in Plan 01-04 (`KeyboardInterrupt` handler; `try/finally`); covered by `test_run_chat_preserves_state_on_keyboard_interrupt`
+- [x] **CLI-01**: Single CLI entry point — Plan 01-04
+- [x] **CLI-02**: stdin → agent → stdout turn loop — Plan 01-04
+- [x] **CLI-03**: Session ID + world dir path printed at startup — Plan 01-04
+- [x] **CLI-04**: Clean Ctrl-C shutdown with world dir intact — Plan 01-04
 
 ### Playability
 
-- [x] **PLAY-01**: A human can complete an end-to-end slice of play (combat, scene, or short adventure) without crashes or state corruption — verified in Plan 01-04 human checkpoint (`play passed`; 7 sessions played)
-- [x] **PLAY-02**: Across multiple turns the agent demonstrates state continuity (HP, inventory, scene context, etc. survive correctly via the JSON files) — verified in Plan 01-04 human checkpoint via mid-session JSON inspection
-- [x] **PLAY-03**: Narration is coherent and player-facing without any dedicated narration tool (text-reply pattern works) — verified in Plan 01-04 human checkpoint; `grep -cE "(narrate|apply_damage|create_enemy|...)" backend_generalist/{cli,agent,tools}.py` returns 0/0/0
+- [x] **PLAY-01**: Human-completable e2e slice of play — Plan 01-04 checkpoint
+- [x] **PLAY-02**: Multi-turn state continuity — Plan 01-04 checkpoint
+- [x] **PLAY-03**: Coherent narration without a dedicated narration tool — Plan 01-04 checkpoint
 
-## v2 Requirements
+---
 
-Deferred — only relevant if v1 demonstrates viability.
+## Future / Hardening Backlog (out of v2.0 scope)
 
-### Integration
-
-- **INTG-01**: Wire `backend_generalist/` into the existing FastAPI/web layer
-- **INTG-02**: Frontend integration parity with current `backend/`
-- **INTG-03**: Conversation recording compatible with existing `backend/recordings/` format
-
-### Hardening
+Carried forward, not in this milestone. Will be revisited in a future hardening milestone.
 
 - **HARD-01**: Tool-call sandbox / quotas for safety
 - **HARD-02**: Token-budget management for long sessions
-- **HARD-03**: Compaction strategy for long-running world dirs
+- **HARD-03**: Compaction strategy for long-running sessions
+- **INTG-03**: Conversation recording compatibility audit
 
-## Out of Scope
+---
+
+## Out of Scope (v2.0)
 
 | Feature | Reason |
 |---------|--------|
-| Modifying or replacing existing `backend/` | Parallel rewrite — current backend stays as the live reference |
-| Frontend wiring | CLI-only viability test; frontend deferred until/unless spike succeeds |
-| Multi-player or networked sessions | Solo TTRPG only |
-| New campaign authoring | Reuse existing campaign content; no new authoring tooling |
-| Production hardening (auth, rate limiting, telemetry) | Experiment, not product |
-| Migration plan from `backend/` to `backend_generalist/` | Decision waits on viability outcome |
-| Sandboxed/whitelisted Bash | User explicitly chose full Bash for max harness fidelity |
-| Auto eval harness for "is play coherent" | User self-validates qualitatively via direct CLI play |
+| Any change to `backend_generalist/` | Archived as v1.0 reference; orthogonal to backend/ simplification |
+| Any change to SSE wire format (event types or field names) | Frontend depends on it; refactor must be transparent to UI |
+| Any change to `CharacterState`, `EnemyState`, `Stats` fields/types | Only `GameState`'s plain-class status changes |
+| Adding gameplay features / rules / campaigns | Refactor only |
+| Frontend code changes | UI is the smoke-test consumer, not a deliverable |
+| Migrating state between `backend/` and `backend_generalist/` | No migration; they remain independent |
+| Production hardening (auth, rate limiting, telemetry) | Orthogonal; deferred to hardening backlog |
+| Auto eval harness for refactor behavior parity | User verifies via golden-path smoke test |
+
+---
 
 ## Traceability
+
+### v1.0
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -77,16 +116,39 @@ Deferred — only relevant if v1 demonstrates viability.
 | CLI-02 | Phase 1 | Complete (Plan 01-04) |
 | CLI-03 | Phase 1 | Complete (Plan 01-04) |
 | CLI-04 | Phase 1 | Complete (Plan 01-04) |
-| PLAY-01 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
-| PLAY-02 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
-| PLAY-03 | Phase 1 | Complete (Plan 01-04 human checkpoint) |
+| PLAY-01 | Phase 1 | Complete (Plan 01-04 checkpoint) |
+| PLAY-02 | Phase 1 | Complete (Plan 01-04 checkpoint) |
+| PLAY-03 | Phase 1 | Complete (Plan 01-04 checkpoint) |
+
+### v2.0
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DEDUP-01 | Phase 2 | Pending |
+| DEDUP-02 | Phase 2 | Pending |
+| DEDUP-03 | Phase 2 | Pending |
+| DEDUP-04 | Phase 2 | Pending |
+| TOOLS-01 | Phase 3 | Pending |
+| TOOLS-02 | Phase 3 | Pending |
+| TOOLS-03 | Phase 3 | Pending |
+| TOOLS-04 | Phase 3 | Pending |
+| TOOLS-05 | Phase 3 | Pending |
+| TOOLS-06 | Phase 3 | Pending |
+| STATE-01 | Phase 4 | Pending |
+| STATE-02 | Phase 4 | Pending |
+| STATE-03 | Phase 4 | Pending |
+| INV-01 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
+| INV-02 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
+| INV-03 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
+| INV-04 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
+| INV-05 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
 
 **Coverage:**
-- v1 requirements: 14 total
-- Mapped to phases: 14 ✓
+- v2.0 milestone requirements: 13 deliverables (4 DEDUP, 6 TOOLS, 3 STATE) + 5 invariants = 18 total
+- Mapped to phases: 18 ✓
 - Unmapped: 0
-- Complete: 14 (all v1 requirements closed)
+- Complete: 0 (milestone just opened)
 
 ---
-*Requirements defined: 2026-04-28*
-*Last updated: 2026-04-28 — Plan 01-04 closed all remaining v1 requirements with verdict `play passed`. Viability hypothesis answered YES.*
+*Requirements defined: 2026-04-28 (v1.0 — viability spike, all closed)*
+*Last updated: 2026-05-19 — v2.0 backend-simplification milestone opened.*
