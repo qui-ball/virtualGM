@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: backend-simplification
-status: planning
-last_updated: "2026-05-19T14:28:52.542Z"
+status: roadmap_complete
+last_updated: "2026-05-19T15:10:00.000Z"
 last_activity: 2026-05-19
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,22 +19,22 @@ progress:
 
 **Core Value:** Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces.
 
-**Current Focus:** v2.0 backend-simplification — defining requirements.
+**Current Focus:** v2.0 backend-simplification — roadmap defined (Phases 2 → 3 → 4); ready to plan Phase 2.
 
 **Scope Boundary:** All work targets `backend/`. `backend_generalist/` is archived as v1.0 reference and is NOT modified. `frontend/` SSE wire format is invariant.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started — roadmap complete, ready for Phase 2 planning
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-19 — Milestone v2.0 started
+Status: Roadmap complete
+Last activity: 2026-05-19 — ROADMAP.md generated for v2.0 (Phases 2, 3, 4)
 
 ## Performance Metrics
 
-- **v2.0 Requirements:** TBD (defined during requirements step of new-milestone workflow)
-- **Phases:** 0 / TBD
-- **Plans:** 0 / TBD
+- **v2.0 Requirements:** 13 deliverables (4 DEDUP + 6 TOOLS + 3 STATE) + 5 invariants = 18 mapped items
+- **Phases:** 0 / 3 (Phase 2 backend-dedup, Phase 3 tool-surface-consolidation, Phase 4 gamestate-pydantic)
+- **Plans:** 0 / TBD (set during per-phase planning)
 
 ### v1.0 history (preserved)
 
@@ -55,6 +55,7 @@ Last activity: 2026-05-19 — Milestone v2.0 started
 - **Simplify in-place rather than re-port from generalist** — generalist's tool surface and prompt shape are useful lessons, not a target replacement; `backend/` already has the schema discipline we want.
 - **Three phases (Tier 2 → 3 → 4) in sequence** — each tier is independently verifiable against the same frontend smoke test; staging keeps blast radius small.
 - **Frontend SSE wire format is invariant** — event types (`narration`, `thinking`, `pending_action`, `complete`, `error`) and payload field names must remain byte-compatible.
+- **Phase ordering (2 → 3 → 4 sequential):** Phase 2 trims the prompt before Phase 3 merges tools (cleaner diffs in `agent/definition.py` and `agent/tools.py`). Phase 3 shrinks the tool surface before Phase 4 retypes `GameState` (fewer call sites to migrate).
 
 **v1.0 viability spike decisions (preserved for context):**
 
@@ -87,20 +88,20 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-05-19 — opened milestone v2.0 backend-simplification. v1.0 viability spike closed 2026-04-28 with verdict `play passed`; open question (promote generalist? keep parallel?) answered: keep `backend/` as production, archive generalist as reference. No code changes yet in v2.0.
+**Last session ended:** 2026-05-19 — wrote v2.0 ROADMAP.md (Phases 2, 3, 4). v1.0 Phase 1 preserved as historical "Completed (v1.0)" section. Coverage validated: 13/13 deliverables mapped, INV-01..INV-05 attached to every v2.0 phase. No orphaned requirements.
 
 **Next session should:**
 
-1. Finish the requirements step of `/gsd-new-milestone` (REQUIREMENTS.md with REQ-IDs for v2.0 scope).
-2. Run `gsd-roadmapper` to produce ROADMAP.md with Phase 2 (Tier 2), Phase 3 (Tier 3), Phase 4 (Tier 4).
-3. Then `/gsd:discuss-phase 2` (or `/gsd:plan-phase 2`) to start the first phase.
+1. Run `/gsd-discuss-phase 2` (or `/gsd-plan-phase 2`) to start Phase 2 (backend-dedup).
+2. Phase 2 plans should target `backend/api/turn_engine.py`, `backend/agent/definition.py`, `backend/agent_test.py` vs `backend/test_agent.py`.
+3. After Phase 2 closes, transition via `/gsd-transition` and start Phase 3 (tool-surface-consolidation) targeting `backend/agent/tools.py`.
 
 **Files of record:**
 
 - `.planning/PROJECT.md` — project context, constraints, current milestone, key decisions
 - `.planning/REQUIREMENTS.md` — v1 requirements (validated) + v2 requirements (active) with traceability
-- `.planning/ROADMAP.md` — phase delivery roadmap (will be regenerated for v2.0)
+- `.planning/ROADMAP.md` — phase delivery roadmap (Phase 1 v1.0 complete; Phases 2/3/4 v2.0 planned)
 - `.planning/config.json` — coarse granularity, sequential phases, plan_check on, verifier off
 
 ---
-*State initialized: 2026-04-28 (v1.0). Milestone switched to v2.0 backend-simplification: 2026-05-19.*
+*State initialized: 2026-04-28 (v1.0). Milestone switched to v2.0 backend-simplification: 2026-05-19. ROADMAP.md generated for v2.0: 2026-05-19.*
