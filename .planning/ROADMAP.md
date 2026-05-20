@@ -112,7 +112,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 |-------|----------------|--------|-----------|
 | 1. Generalist Harness + CLI (v1.0) | 4/4 | Complete | 2026-04-28 |
 | 2. backend-dedup (v2.0) | 2/2 | Complete | 2026-05-20 |
-| 3. tool-surface-consolidation (v2.0) | 0/TBD | Not started | — |
+| 3. tool-surface-consolidation (v2.0) | 1/2 | In progress | — |
 | 4. gamestate-pydantic (v2.0) | 0/TBD | Not started | — |
 
 ## Coverage

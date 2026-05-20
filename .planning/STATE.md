@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — backend-simplification)
-status: verifying
-last_updated: "2026-05-20T12:05:20.915Z"
-last_activity: 2026-05-20
+status: executing
+last_updated: "2026-05-20T13:14:16.143Z"
+last_activity: 2026-05-20 -- Phase 03 execution started
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 6
+  total_plans: 8
   completed_plans: 6
   percent: 50
 ---
@@ -19,16 +19,16 @@ progress:
 
 **Core Value:** Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces.
 
-**Current Focus:** Phase 02 — backend-dedup-v2-0
+**Current Focus:** Phase 03 — tool-surface-consolidation-v2-0
 
 **Scope Boundary:** All work targets `backend/`. `backend_generalist/` is archived as v1.0 reference and is NOT modified. `frontend/` SSE wire format is invariant.
 
 ## Current Position
 
-Phase: 02 (backend-dedup-v2-0) — COMPLETE (2/2 plans)
-Plan: 2 of 2 complete
-Status: Phase 2 complete — Plan 01 (SSE de-dup) + Plan 02 (prompt trim + static ruleset embed). Golden-path UI smoke human-verified. Ready to transition to Phase 3 (tool-surface-consolidation).
-Last activity: 2026-05-20
+Phase: 03 (tool-surface-consolidation-v2-0) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 03 (Plan 01 complete; Plan 02 next)
+Last activity: 2026-05-20 -- Completed 03-01-PLAN.md (tool-surface consolidation 17 → 14 tools)
 
 ## Performance Metrics
 
@@ -56,6 +56,12 @@ Last activity: 2026-05-20
 - **Three phases (Tier 2 → 3 → 4) in sequence** — each tier is independently verifiable against the same frontend smoke test; staging keeps blast radius small.
 - **Frontend SSE wire format is invariant** — event types (`narration`, `thinking`, `pending_action`, `complete`, `error`) and payload field names must remain byte-compatible.
 - **Phase ordering (2 → 3 → 4 sequential):** Phase 2 trims the prompt before Phase 3 merges tools (cleaner diffs in `agent/definition.py` and `agent/tools.py`). Phase 3 shrinks the tool surface before Phase 4 retypes `GameState` (fewer call sites to migrate).
+
+**Phase 3 Plan 01 decisions (2026-05-20):**
+
+- **Tool-count baseline corrected 17 → ≤14 (D-10):** the roadmap's "~15 → ≤11" was anchored to a wrong baseline; real registered count was 17. Named consolidations (inventory pair, countdown pair, set_boss_battle) drop exactly 3 → 14. No over-merging beyond the named consolidations.
+- **TOOLS-05 (implicit-LRU section caching) DESCOPED this phase (D-09):** `load_campaign_section` / `unload_campaign_section` stay manual with the 3-section cap. ROADMAP success-criterion #4 and REQUIREMENTS TOOLS-05 marked DEFERRED to avoid a silent verification gap.
+- **Boss flag relocated, not removed (D-07/D-08/D-08b):** `GameState.is_boss_battle` field kept unchanged (class shape is Phase 4); write moved onto `apply_damage(is_boss=True)`; auto-cleared in `remove_enemy` when the last enemy is removed (only structured combat-end signal in the live stack).
 
 **v1.0 viability spike decisions (preserved for context):**
 

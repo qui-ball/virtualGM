@@ -18,12 +18,12 @@ Requirements for the active milestone. All map to roadmap phases.
 
 ### Tools (Tier 3 — tool surface consolidation)
 
-- [ ] **TOOLS-01**: `add_to_inventory` and `remove_from_inventory` collapse to a single tool that takes an action argument. Both capabilities remain available.
-- [ ] **TOOLS-02**: `create_countdown` and `update_countdown` collapse to a single tool with absolute-value or upsert semantics. Both create-new and modify-existing capabilities remain available.
-- [ ] **TOOLS-03**: `set_boss_battle` is removed from the tool surface; boss-battle status either becomes an argument on `apply_damage` or is derived from the loaded campaign section / scene state. The "Blaze of Glory / Risk It All" branch in `apply_damage` continues to fire correctly when applicable.
-- [ ] **TOOLS-04**: Level-up detection and reporting in `award_xp` is factored into a non-tool helper (e.g. `_check_level_up`); the `award_xp` tool body shrinks to xp accounting + helper call.
+- [x] **TOOLS-01**: `add_to_inventory` and `remove_from_inventory` collapse to a single tool that takes an action argument. Both capabilities remain available.
+- [x] **TOOLS-02**: `create_countdown` and `update_countdown` collapse to a single tool with absolute-value or upsert semantics. Both create-new and modify-existing capabilities remain available.
+- [x] **TOOLS-03**: `set_boss_battle` is removed from the tool surface; boss-battle status either becomes an argument on `apply_damage` or is derived from the loaded campaign section / scene state. The "Blaze of Glory / Risk It All" branch in `apply_damage` continues to fire correctly when applicable.
+- [x] **TOOLS-04**: Level-up detection and reporting in `award_xp` is factored into a non-tool helper (e.g. `_check_level_up`); the `award_xp` tool body shrinks to xp accounting + helper call.
 - [ ] **TOOLS-05**: DEFERRED (see CONTEXT.md D-09 — manual load/unload retained this phase): The manual `load_campaign_section` / `unload_campaign_section` pair and 3-section cap are replaced with implicit LRU caching. The agent calls one `load_campaign_section(section)` tool; eviction is automatic; `unload_campaign_section` is removed from the surface.
-- [ ] **TOOLS-06**: After Tier 3, total registered tools on `gm_agent` is ≤ 14 (down from current 17). Every gameplay capability previously expressible via the dropped tools is still expressible.
+- [x] **TOOLS-06**: After Tier 3, total registered tools on `gm_agent` is ≤ 14 (down from current 17). Every gameplay capability previously expressible via the dropped tools is still expressible.
 
 ### State (Tier 4 — GameState typing + snapshot consolidation)
 
@@ -128,12 +128,12 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 | DEDUP-02 | Phase 2 | Complete (Plan 02-02) |
 | DEDUP-03 | Phase 2 | Complete (Plan 02-02) |
 | DEDUP-04 | Phase 2 | Complete |
-| TOOLS-01 | Phase 3 | Pending |
-| TOOLS-02 | Phase 3 | Pending |
-| TOOLS-03 | Phase 3 | Pending |
-| TOOLS-04 | Phase 3 | Pending |
+| TOOLS-01 | Phase 3 | Complete (Plan 03-01) |
+| TOOLS-02 | Phase 3 | Complete (Plan 03-01) |
+| TOOLS-03 | Phase 3 | Complete (Plan 03-01) |
+| TOOLS-04 | Phase 3 | Complete (Plan 03-01) |
 | TOOLS-05 | Phase 3 | Deferred (D-09) |
-| TOOLS-06 | Phase 3 | Pending |
+| TOOLS-06 | Phase 3 | Complete (Plan 03-01) |
 | STATE-01 | Phase 4 | Pending |
 | STATE-02 | Phase 4 | Pending |
 | STATE-03 | Phase 4 | Pending |
