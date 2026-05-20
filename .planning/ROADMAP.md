@@ -61,7 +61,9 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
   4. The two `*_test_agent.py` test files have a documented disposition: either consolidated into one (the other deleted) or each file's module docstring states its distinct purpose. Whichever pytest entry point existed before still runs after the phase (no test discovery regression).
   5. `backend/cli.py` still starts a session and accepts at least one turn without crashing (INV-03 smoke).
 **Out of scope (deferred)**: No change to the agent's registered tool surface (that's Phase 3). No change to `GameState`'s class shape or to `GameStateSnapshot` (that's Phase 4). No change to SSE event types or payload field names (invariant — must not change in this phase). No edits to `backend_generalist/` or to `frontend/`.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 02-01-PLAN.md — Shared SSE turn-stream core in turn_engine.py + delete two scratch test files (DEDUP-01, DEDUP-04)
+  - [ ] 02-02-PLAN.md — Trim system prompt + statically embed ruleset in definition.py, then end-of-phase golden-path UI smoke gate (DEDUP-02, DEDUP-03, INV-01/02/03)
 
 ---
 
@@ -109,7 +111,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Generalist Harness + CLI (v1.0) | 4/4 | Complete | 2026-04-28 |
-| 2. backend-dedup (v2.0) | 0/TBD | Not started | — |
+| 2. backend-dedup (v2.0) | 0/2 | Not started | — |
 | 3. tool-surface-consolidation (v2.0) | 0/TBD | Not started | — |
 | 4. gamestate-pydantic (v2.0) | 0/TBD | Not started | — |
 
