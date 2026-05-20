@@ -54,6 +54,15 @@ RETRY_BASE_DELAY = 2.0  # seconds
 
 
 # =============================================================================
+# Static ruleset (read once at module load and embedded in instructions)
+# =============================================================================
+
+_ruleset_path = Path(__file__).parent.parent / "prompts" / "rulesets" / "core-ruleset.md"
+_ruleset_content = _ruleset_path.read_text(encoding="utf-8").strip()
+EMBEDDED_RULESET = f"<ruleset>\n{_ruleset_content}\n</ruleset>"
+
+
+# =============================================================================
 # Agent
 # =============================================================================
 
@@ -139,16 +148,6 @@ When your turn is complete, return your internal notes string.
 # =============================================================================
 # Dynamic Instructions
 # =============================================================================
-
-
-@gm_agent.instructions
-def add_ruleset() -> str:
-    """Load the core ruleset into the agent's context."""
-    ruleset_path = (
-        Path(__file__).parent.parent / "prompts" / "rulesets" / "core-ruleset.md"
-    )
-    content = ruleset_path.read_text(encoding="utf-8").strip()
-    return f"<ruleset>\n{content}\n</ruleset>"
 
 
 @gm_agent.instructions
