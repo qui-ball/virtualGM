@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
@@ -72,10 +73,14 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
         )
 
 
-async def stream_turn(
-    session: Session, player_message: str
+async def _stream_core(
+    session: Session, runner_kwargs: dict[str, Any]
 ) -> AsyncGenerator[tuple[str, dict]]:
-    """Run a player-message turn, yielding (event_type, data) tuples as SSE events."""
+    """Shared SSE event loop: run the agent and drain its event queue.
+
+    The two entry points differ only in which kwargs they pass to
+    ``run_agent_iter`` (``runner_kwargs``); everything else is identical.
+    """
     queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
     gs = session.game_state
     gs.narrations.clear()
@@ -89,9 +94,8 @@ async def stream_turn(
 
             result = await run_agent_iter(
                 deps=gs,
-                message_history=session.message_history,
-                user_prompt=player_message,
                 on_thinking=on_thinking,
+                **runner_kwargs,
             )
             _handle_result(session, result, queue)
         except Exception as e:
@@ -110,6 +114,16 @@ async def stream_turn(
         yield event
 
     await task
+
+
+async def stream_turn(session: Session, player_message: str) -> AsyncGenerator[tuple[str, dict]]:
+    """Run a player-message turn, yielding (event_type, data) tuples as SSE events."""
+    runner_kwargs = {
+        "message_history": session.message_history,
+        "user_prompt": player_message,
+    }
+    async for event in _stream_core(session, runner_kwargs):
+        yield event
 
 
 async def stream_deferred_response(
@@ -119,41 +133,13 @@ async def stream_deferred_response(
     if session.pending_deferred is None:
         raise ValueError("No pending deferred action on this session.")
 
-    queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
-    gs = session.game_state
-    gs.narrations.clear()
-    gs._event_queue = queue
-
     deferred_results = DeferredToolResults()
     for call_info in session.pending_deferred.deferred_calls:
         deferred_results.calls[call_info["tool_call_id"]] = roll_result_str
 
-    async def run():
-        try:
-            def on_thinking(text: str):
-                logger.info(f"\033[90m💭 {text}\033[0m")
-                queue.put_nowait(("thinking", {"text": text}))
-
-            result = await run_agent_iter(
-                deps=gs,
-                message_history=session.pending_deferred.messages_snapshot,
-                deferred_tool_results=deferred_results,
-                on_thinking=on_thinking,
-            )
-            _handle_result(session, result, queue)
-        except Exception as e:
-            logger.error(f"Turn error: {e}")
-            queue.put_nowait(("error", {"message": str(e)}))
-        finally:
-            gs._event_queue = None
-            queue.put_nowait(None)
-
-    task = asyncio.create_task(run())
-
-    while True:
-        event = await queue.get()
-        if event is None:
-            break
+    runner_kwargs = {
+        "message_history": session.pending_deferred.messages_snapshot,
+        "deferred_tool_results": deferred_results,
+    }
+    async for event in _stream_core(session, runner_kwargs):
         yield event
-
-    await task
