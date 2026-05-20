@@ -18,7 +18,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 ### Active (v2.0 — backend-simplification)
 
 - [x] **Phase 2: backend-dedup** — Tier 2 internal de-duplication in `backend/`: one shared SSE turn-stream core, trimmed system prompt, static ruleset embedded at module load, test-file overlap resolved. No change to the agent tool surface or to the SSE wire format. **Complete 2026-05-20** (2/2 plans; golden-path UI smoke human-verified).
-- [ ] **Phase 3: tool-surface-consolidation** — Tier 3 tool surface reduction (17 → ≤14): merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`. Every existing in-fiction capability preserved.
+- [x] **Phase 3: tool-surface-consolidation** — Tier 3 tool surface reduction (17 → ≤14): merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`. Every existing in-fiction capability preserved. (completed 2026-05-20)
 - [ ] **Phase 4: gamestate-pydantic** — Tier 4 `GameState` becomes a Pydantic `BaseModel` with `.snapshot()`; the hand-maintained `GameStateSnapshot` mirror in `api/schemas.py` is removed; SSE payloads emit `GameState.snapshot()` directly with byte-compatible JSON for the frontend.
 
 ## Phase Details
@@ -112,7 +112,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 |-------|----------------|--------|-----------|
 | 1. Generalist Harness + CLI (v1.0) | 4/4 | Complete | 2026-04-28 |
 | 2. backend-dedup (v2.0) | 2/2 | Complete | 2026-05-20 |
-| 3. tool-surface-consolidation (v2.0) | 1/2 | In progress | — |
+| 3. tool-surface-consolidation (v2.0) | 2/2 | Complete   | 2026-05-20 |
 | 4. gamestate-pydantic (v2.0) | 0/TBD | Not started | — |
 
 ## Coverage

@@ -137,11 +137,11 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 | STATE-01 | Phase 4 | Pending |
 | STATE-02 | Phase 4 | Pending |
 | STATE-03 | Phase 4 | Pending |
-| INV-01 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
-| INV-02 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
-| INV-03 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
-| INV-04 | Phases 2 / 3 / 4 | Phase 2 verified (`backend_generalist/` untouched); must re-hold after Phases 3, 4 |
-| INV-05 | Phases 2 / 3 / 4 | Phase 2 verified (no non-GameState model changes); must re-hold after Phases 3, 4 |
+| INV-01 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
+| INV-02 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
+| INV-03 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
+| INV-04 | Phases 2 / 3 / 4 | Phases 2, 3 verified (`backend_generalist/` untouched); must re-hold after Phase 4 |
+| INV-05 | Phases 2 / 3 / 4 | Phases 2, 3 verified (no non-GameState model changes); must re-hold after Phase 4 |
 
 **Coverage:**
 - v2.0 milestone requirements: 13 deliverables (4 DEDUP, 6 TOOLS, 3 STATE) + 5 invariants = 18 total
@@ -151,4 +151,4 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 
 ---
 *Requirements defined: 2026-04-28 (v1.0 — viability spike, all closed)*
-*Last updated: 2026-05-20 — Phase 2 (backend-dedup) complete: DEDUP-01..04 done, INV-01..05 verified for Phase 2.*
+*Last updated: 2026-05-20 — Phase 3 (tool-surface-consolidation) complete: TOOLS-01..04, TOOLS-06 done, TOOLS-05 deferred (D-09), INV-01..05 re-verified for Phase 3.*
