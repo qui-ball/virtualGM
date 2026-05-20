@@ -7,10 +7,10 @@ last_updated: "2026-05-20T10:16:27.244Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 25
+  completed_plans: 6
+  percent: 50
 ---
 
 # State: virtualGM — Solo TTRPG GM Agent
@@ -25,9 +25,9 @@ progress:
 
 ## Current Position
 
-Phase: 02 (backend-dedup-v2-0) — EXECUTING
-Plan: 2 of 2
-Status: Plan 01 complete (SSE de-dup); Plan 02 (smoke test) pending
+Phase: 02 (backend-dedup-v2-0) — COMPLETE (2/2 plans)
+Plan: 2 of 2 complete
+Status: Phase 2 complete — Plan 01 (SSE de-dup) + Plan 02 (prompt trim + static ruleset embed). Golden-path UI smoke human-verified. Ready to transition to Phase 3 (tool-surface-consolidation).
 Last activity: 2026-05-20
 
 ## Performance Metrics
@@ -88,15 +88,17 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-05-20 — executed Phase 2 Plan 01 (backend SSE de-dup). De-duplicated `stream_turn`/`stream_deferred_response` in `backend/api/turn_engine.py` into a single `_stream_core(session, runner_kwargs)` async generator; both entry points are now ≤5-line delegating wrappers with stable names/signatures (app.py imports unchanged). Deleted scratch files `backend/agent_test.py` and `backend/test_agent.py` (`test_tps.py` untouched). All automated verifications passed; requirements DEDUP-01, DEDUP-04, INV-01, INV-02, INV-03, INV-05 marked complete. Commits: dced6e6 (refactor), 97845f1 (chore).
+**Last session ended:** 2026-05-20 — executed and finalized Phase 2 Plan 02 (trim system prompt + statically embed ruleset), completing Phase 2 (2/2 plans). In `backend/agent/definition.py`: read `core-ruleset.md` once at module load into a constant embedded in the static `instructions=` string (wrapped in `<ruleset>...</ruleset>`), removed the `@gm_agent.instructions add_ruleset` hook (`add_campaign` + `current_game_state` remain dynamic); deleted the per-tool `Tools:` enumeration block; de-named the `## Output Format` block (no literal `narrate()`) while preserving narration/private-notes/one-beat rules; kept Skill Checks (DC ladder), Combat Rules, Core Responsibilities, GM Style, Pacing verbatim. End-of-phase golden-path UI smoke (Task 3, checkpoint:human-verify) APPROVED: CLI smoke (INV-03) + deferred dice-roll round-trip through React UI with no frontend edits and byte-compatible SSE (INV-01/INV-02). Requirements DEDUP-02, DEDUP-03 marked complete; INV-01..05 verified for Phase 2; INV-04 (`backend_generalist/` untouched). Commits: b10b86c (refactor — ruleset embed), d67de1b (refactor — prompt trim).
+
+**Prior session (2026-05-20):** executed Phase 2 Plan 01 (backend SSE de-dup). De-duplicated `stream_turn`/`stream_deferred_response` in `backend/api/turn_engine.py` into a single `_stream_core(session, runner_kwargs)` async generator; both entry points are now ≤5-line delegating wrappers with stable names/signatures (app.py imports unchanged). Deleted scratch files `backend/agent_test.py` and `backend/test_agent.py` (`test_tps.py` untouched). Requirements DEDUP-01, DEDUP-04 marked complete. Commits: dced6e6 (refactor), 97845f1 (chore).
 
 **Prior session (2026-05-19):** wrote v2.0 ROADMAP.md (Phases 2, 3, 4). v1.0 Phase 1 preserved as historical "Completed (v1.0)" section. Coverage validated: 13/13 deliverables mapped, INV-01..INV-05 attached to every v2.0 phase. No orphaned requirements.
 
 **Next session should:**
 
-1. Run `/gsd-discuss-phase 2` (or `/gsd-plan-phase 2`) to start Phase 2 (backend-dedup).
-2. Phase 2 plans should target `backend/api/turn_engine.py`, `backend/agent/definition.py`, `backend/agent_test.py` vs `backend/test_agent.py`.
-3. After Phase 2 closes, transition via `/gsd-transition` and start Phase 3 (tool-surface-consolidation) targeting `backend/agent/tools.py`.
+1. Transition via `/gsd-transition` to close out Phase 2 and open Phase 3.
+2. Run `/gsd-discuss-phase 3` (or `/gsd-plan-phase 3`) to start Phase 3 (tool-surface-consolidation), targeting `backend/agent/tools.py` — merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`, replace manual load/unload + 3-section cap with implicit LRU (TOOLS-01..06, ≤11 tools).
+3. The trimmed prompt from Phase 2 means Phase 3's diff should be purely about tool merging in `tools.py`, not prompt rewrites in `definition.py`.
 
 **Files of record:**
 

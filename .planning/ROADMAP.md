@@ -17,7 +17,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 
 ### Active (v2.0 — backend-simplification)
 
-- [ ] **Phase 2: backend-dedup** — Tier 2 internal de-duplication in `backend/`: one shared SSE turn-stream core, trimmed system prompt, static ruleset embedded at module load, test-file overlap resolved. No change to the agent tool surface or to the SSE wire format.
+- [x] **Phase 2: backend-dedup** — Tier 2 internal de-duplication in `backend/`: one shared SSE turn-stream core, trimmed system prompt, static ruleset embedded at module load, test-file overlap resolved. No change to the agent tool surface or to the SSE wire format. **Complete 2026-05-20** (2/2 plans; golden-path UI smoke human-verified).
 - [ ] **Phase 3: tool-surface-consolidation** — Tier 3 tool surface reduction (~15 → ≤11): merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`, replace manual load/unload + 3-section cap with implicit LRU. Every existing in-fiction capability preserved.
 - [ ] **Phase 4: gamestate-pydantic** — Tier 4 `GameState` becomes a Pydantic `BaseModel` with `.snapshot()`; the hand-maintained `GameStateSnapshot` mirror in `api/schemas.py` is removed; SSE payloads emit `GameState.snapshot()` directly with byte-compatible JSON for the frontend.
 
@@ -63,7 +63,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 **Out of scope (deferred)**: No change to the agent's registered tool surface (that's Phase 3). No change to `GameState`'s class shape or to `GameStateSnapshot` (that's Phase 4). No change to SSE event types or payload field names (invariant — must not change in this phase). No edits to `backend_generalist/` or to `frontend/`.
 **Plans**: 2 plans
   - [x] 02-01-PLAN.md — Shared SSE turn-stream core in turn_engine.py + delete two scratch test files (DEDUP-01, DEDUP-04)
-  - [ ] 02-02-PLAN.md — Trim system prompt + statically embed ruleset in definition.py, then end-of-phase golden-path UI smoke gate (DEDUP-02, DEDUP-03, INV-01/02/03)
+  - [x] 02-02-PLAN.md — Trim system prompt + statically embed ruleset in definition.py, then end-of-phase golden-path UI smoke gate (DEDUP-02, DEDUP-03, INV-01/02/03) — complete 2026-05-20; golden-path UI smoke human-verified
 
 ---
 
@@ -111,7 +111,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Generalist Harness + CLI (v1.0) | 4/4 | Complete | 2026-04-28 |
-| 2. backend-dedup (v2.0) | 1/2 | In Progress|  |
+| 2. backend-dedup (v2.0) | 2/2 | Complete | 2026-05-20 |
 | 3. tool-surface-consolidation (v2.0) | 0/TBD | Not started | — |
 | 4. gamestate-pydantic (v2.0) | 0/TBD | Not started | — |
 

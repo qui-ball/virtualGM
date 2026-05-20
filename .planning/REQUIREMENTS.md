@@ -12,8 +12,8 @@ Requirements for the active milestone. All map to roadmap phases.
 ### Dedup (Tier 2 — internal de-duplication, no agent contract change)
 
 - [x] **DEDUP-01**: `api/turn_engine.py` exposes one shared SSE turn-stream core; `stream_turn` and `stream_deferred_response` either disappear or become thin wrappers (≤ 5 lines each) over that core. No duplicated event-emission logic.
-- [ ] **DEDUP-02**: The agent system prompt in `agent/definition.py` no longer enumerates each tool's signature or argument list. Tool documentation lives in `@gm_agent.tool` docstrings only. Prompt retains behavior/pacing/style rules.
-- [ ] **DEDUP-03**: The static ruleset (`prompts/rulesets/core-ruleset.md`) is read once at module load and embedded into the agent's `instructions=` string; the `@gm_agent.instructions add_ruleset` dynamic hook is removed. `add_campaign` and `current_game_state` remain dynamic.
+- [x] **DEDUP-02**: The agent system prompt in `agent/definition.py` no longer enumerates each tool's signature or argument list. Tool documentation lives in `@gm_agent.tool` docstrings only. Prompt retains behavior/pacing/style rules.
+- [x] **DEDUP-03**: The static ruleset (`prompts/rulesets/core-ruleset.md`) is read once at module load and embedded into the agent's `instructions=` string; the `@gm_agent.instructions add_ruleset` dynamic hook is removed. `add_campaign` and `current_game_state` remain dynamic.
 - [x] **DEDUP-04**: The overlap between `backend/agent_test.py` and `backend/test_agent.py` is resolved — either consolidated into one file or each file has a documented, distinct purpose.
 
 ### Tools (Tier 3 — tool surface consolidation)
@@ -36,7 +36,7 @@ Requirements for the active milestone. All map to roadmap phases.
 - [x] **INV-01**: The frontend's SSE event types (`narration`, `thinking`, `pending_action`, `complete`, `error`) and the payload field names within them remain unchanged. The existing `frontend/src/api/client.ts` and `frontend/src/types/index.ts` need no edits.
 - [x] **INV-02**: After each phase commits, running the FastAPI app and the React UI together still permits at least one full turn (including a deferred dice roll) end-to-end without error.
 - [x] **INV-03**: After each phase commits, `backend/cli.py` still starts a session and accepts a turn without crashing.
-- [ ] **INV-04**: `backend_generalist/` is not modified by any phase in this milestone.
+- [x] **INV-04**: `backend_generalist/` is not modified by any phase in this milestone.
 - [x] **INV-05**: Pydantic models other than `GameState` (`CharacterState`, `EnemyState`, `Stats`, …) have unchanged field names, types, and validation rules.
 
 ---
@@ -125,8 +125,8 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DEDUP-01 | Phase 2 | Complete |
-| DEDUP-02 | Phase 2 | Pending |
-| DEDUP-03 | Phase 2 | Pending |
+| DEDUP-02 | Phase 2 | Complete (Plan 02-02) |
+| DEDUP-03 | Phase 2 | Complete (Plan 02-02) |
 | DEDUP-04 | Phase 2 | Complete |
 | TOOLS-01 | Phase 3 | Pending |
 | TOOLS-02 | Phase 3 | Pending |
@@ -137,11 +137,11 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 | STATE-01 | Phase 4 | Pending |
 | STATE-02 | Phase 4 | Pending |
 | STATE-03 | Phase 4 | Pending |
-| INV-01 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
-| INV-02 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
-| INV-03 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
-| INV-04 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
-| INV-05 | Phases 2 / 3 / 4 | Pending — must hold after each phase |
+| INV-01 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
+| INV-02 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
+| INV-03 | Phases 2 / 3 / 4 | Phase 2 verified (human-confirmed); must re-hold after Phases 3, 4 |
+| INV-04 | Phases 2 / 3 / 4 | Phase 2 verified (`backend_generalist/` untouched); must re-hold after Phases 3, 4 |
+| INV-05 | Phases 2 / 3 / 4 | Phase 2 verified (no non-GameState model changes); must re-hold after Phases 3, 4 |
 
 **Coverage:**
 - v2.0 milestone requirements: 13 deliverables (4 DEDUP, 6 TOOLS, 3 STATE) + 5 invariants = 18 total
@@ -151,4 +151,4 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 
 ---
 *Requirements defined: 2026-04-28 (v1.0 — viability spike, all closed)*
-*Last updated: 2026-05-19 — v2.0 backend-simplification milestone opened.*
+*Last updated: 2026-05-20 — Phase 2 (backend-dedup) complete: DEDUP-01..04 done, INV-01..05 verified for Phase 2.*
