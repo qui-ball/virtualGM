@@ -2,6 +2,7 @@
 
 import random
 from pathlib import Path
+from typing import Literal
 
 from loguru import logger
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
@@ -409,51 +410,28 @@ def update_character_state(
 
 
 @gm_agent.tool
-def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) -> str:
-    """Create a new countdown tracker. Triggers when it reaches 0.
+def set_countdown(ctx: RunContext[GameState], name: str, value: int) -> str:
+    """Create or update a countdown tracker by setting its absolute value. Triggers when it reaches 0.
+
+    Upsert semantics: if the countdown does not exist it is created at `value`; if it
+    already exists it is set to `value` (absolute, not a delta). To tick a countdown
+    down, set it to one less than its current value.
 
     Args:
         name: Name/identifier for the countdown
-        initial_value: Starting value (must be >= 0)
+        value: New absolute value to set (must be >= 0)
     """
-    if name in ctx.deps.countdowns:
-        raise ModelRetry(
-            f"Countdown '{name}' already exists. Use update_countdown to modify it."
-        )
+    if value < 0:
+        raise ModelRetry(f"Countdown value must be >= 0, got {value}")
 
-    if initial_value < 0:
-        raise ModelRetry(f"Countdown initial value must be >= 0, got {initial_value}")
+    existed = name in ctx.deps.countdowns
+    ctx.deps.countdowns[name] = value
+    verb = "Set" if existed else "Created"
+    logger.info(f"⏱️ {verb} countdown '{name}' to {value}")
 
-    ctx.deps.countdowns[name] = initial_value
-    logger.info(f"⏱️ Created countdown '{name}' with value {initial_value}")
-
-    if initial_value == 0:
-        return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
-    return f"Created countdown '{name}' with value {initial_value}"
-
-
-@gm_agent.tool
-def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
-    """Update an existing countdown by applying a delta.
-
-    Args:
-        name: Name of the countdown
-        delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
-    """
-    if name not in ctx.deps.countdowns:
-        raise ModelRetry(
-            f"Countdown '{name}' not found. Available: {list(ctx.deps.countdowns.keys())}"
-        )
-
-    old_value = ctx.deps.countdowns[name]
-    new_value = max(0, old_value + delta)
-    ctx.deps.countdowns[name] = new_value
-
-    logger.info(f"⏱️ Countdown '{name}': {old_value} → {new_value}")
-
-    if new_value == 0 and old_value > 0:
-        return f"Countdown '{name}': {old_value} → 0 (TRIGGERED!)"
-    return f"Countdown '{name}': {old_value} → {new_value}"
+    if value == 0:
+        return f"{verb} countdown '{name}' to 0 (TRIGGERED!)"
+    return f"{verb} countdown '{name}' to {value}"
 
 
 @gm_agent.tool
@@ -494,30 +472,24 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
 
 
 @gm_agent.tool
-def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Add an item to the player character's inventory.
+def modify_inventory(
+    ctx: RunContext[GameState], action: Literal["add", "remove"], item: str
+) -> str:
+    """Add or remove an item from the player character's inventory.
 
     Args:
-        item: Name of the item to add
+        action: "add" to add the item, "remove" to remove it (must match exactly)
+        item: Name of the item to add or remove
     """
     if ctx.deps.pc is None:
         raise ModelRetry("No player character initialized.")
 
-    ctx.deps.pc.inventory.append(item)
-    logger.info(f"🎒 Added '{item}' to inventory")
-    return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
+    if action == "add":
+        ctx.deps.pc.inventory.append(item)
+        logger.info(f"🎒 Added '{item}' to inventory")
+        return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
 
-
-@gm_agent.tool
-def remove_from_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Remove an item from the player character's inventory.
-
-    Args:
-        item: Name of the item to remove (must match exactly)
-    """
-    if ctx.deps.pc is None:
-        raise ModelRetry("No player character initialized.")
-
+    # action == "remove"
     if item not in ctx.deps.pc.inventory:
         raise ModelRetry(
             f"Item '{item}' not in inventory. Current inventory: {ctx.deps.pc.inventory}"
