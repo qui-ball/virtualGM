@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — backend-simplification)
 status: executing
-last_updated: "2026-05-20T00:41:12.430Z"
-last_activity: 2026-05-20 -- Phase 2 planning complete
+last_updated: "2026-05-20T10:16:27.244Z"
+last_activity: 2026-05-20
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 25
 ---
 
@@ -19,16 +19,16 @@ progress:
 
 **Core Value:** Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces.
 
-**Current Focus:** v2.0 backend-simplification — roadmap defined (Phases 2 → 3 → 4); ready to plan Phase 2.
+**Current Focus:** Phase 02 — backend-dedup-v2-0
 
 **Scope Boundary:** All work targets `backend/`. `backend_generalist/` is archived as v1.0 reference and is NOT modified. `frontend/` SSE wire format is invariant.
 
 ## Current Position
 
-Phase: Not started — roadmap complete, ready for Phase 2 planning
-Plan: —
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 2 planning complete
+Phase: 02 (backend-dedup-v2-0) — EXECUTING
+Plan: 2 of 2
+Status: Plan 01 complete (SSE de-dup); Plan 02 (smoke test) pending
+Last activity: 2026-05-20
 
 ## Performance Metrics
 
@@ -88,7 +88,9 @@ None.
 
 ## Session Continuity
 
-**Last session ended:** 2026-05-19 — wrote v2.0 ROADMAP.md (Phases 2, 3, 4). v1.0 Phase 1 preserved as historical "Completed (v1.0)" section. Coverage validated: 13/13 deliverables mapped, INV-01..INV-05 attached to every v2.0 phase. No orphaned requirements.
+**Last session ended:** 2026-05-20 — executed Phase 2 Plan 01 (backend SSE de-dup). De-duplicated `stream_turn`/`stream_deferred_response` in `backend/api/turn_engine.py` into a single `_stream_core(session, runner_kwargs)` async generator; both entry points are now ≤5-line delegating wrappers with stable names/signatures (app.py imports unchanged). Deleted scratch files `backend/agent_test.py` and `backend/test_agent.py` (`test_tps.py` untouched). All automated verifications passed; requirements DEDUP-01, DEDUP-04, INV-01, INV-02, INV-03, INV-05 marked complete. Commits: dced6e6 (refactor), 97845f1 (chore).
+
+**Prior session (2026-05-19):** wrote v2.0 ROADMAP.md (Phases 2, 3, 4). v1.0 Phase 1 preserved as historical "Completed (v1.0)" section. Coverage validated: 13/13 deliverables mapped, INV-01..INV-05 attached to every v2.0 phase. No orphaned requirements.
 
 **Next session should:**
 
