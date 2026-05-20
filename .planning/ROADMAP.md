@@ -18,7 +18,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 ### Active (v2.0 — backend-simplification)
 
 - [x] **Phase 2: backend-dedup** — Tier 2 internal de-duplication in `backend/`: one shared SSE turn-stream core, trimmed system prompt, static ruleset embedded at module load, test-file overlap resolved. No change to the agent tool surface or to the SSE wire format. **Complete 2026-05-20** (2/2 plans; golden-path UI smoke human-verified).
-- [ ] **Phase 3: tool-surface-consolidation** — Tier 3 tool surface reduction (~15 → ≤11): merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`, replace manual load/unload + 3-section cap with implicit LRU. Every existing in-fiction capability preserved.
+- [ ] **Phase 3: tool-surface-consolidation** — Tier 3 tool surface reduction (17 → ≤14): merge inventory pair, merge countdown pair, retire `set_boss_battle`, factor level-up out of `award_xp`. Every existing in-fiction capability preserved.
 - [ ] **Phase 4: gamestate-pydantic** — Tier 4 `GameState` becomes a Pydantic `BaseModel` with `.snapshot()`; the hand-maintained `GameStateSnapshot` mirror in `api/schemas.py` is removed; SSE payloads emit `GameState.snapshot()` directly with byte-compatible JSON for the frontend.
 
 ## Phase Details
@@ -68,21 +68,21 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 ---
 
 ### Phase 3: tool-surface-consolidation (v2.0)
-**Goal**: After this phase, `backend/agent/tools.py` registers ≤ 11 tools on `gm_agent` (down from ~15) by merging the inventory pair, merging the countdown pair, retiring `set_boss_battle`, factoring level-up out of `award_xp` into a non-tool helper, and replacing the manual `load_campaign_section` / `unload_campaign_section` pair + 3-section cap with implicit LRU caching — with every previously expressible in-fiction capability still expressible.
+**Goal**: After this phase, `backend/agent/tools.py` registers ≤ 14 tools on `gm_agent` (down from 17) by merging the inventory pair, merging the countdown pair, retiring `set_boss_battle`, and factoring level-up out of `award_xp` into a non-tool helper — with every previously expressible in-fiction capability still expressible.
 **Depends on**: Phase 2 (system prompt has already been trimmed to behavior/pacing rules in Phase 2, so the tool-surface diff in this phase reads cleanly against the slimmer prompt and avoids touching `definition.py` simultaneously with the prompt rewrite).
 **Requirements**:
   - TOOLS-01 (`add_to_inventory` + `remove_from_inventory` → single tool with `action` arg)
   - TOOLS-02 (`create_countdown` + `update_countdown` → single tool with upsert/absolute-value semantics)
   - TOOLS-03 (`set_boss_battle` removed; boss status becomes an `apply_damage` arg or derived from scene/section state; "Blaze of Glory / Risk It All" branch still fires when applicable)
   - TOOLS-04 (level-up logic factored out of `award_xp` into a non-tool helper, e.g. `_check_level_up`; `award_xp` body shrinks to xp accounting + helper call)
-  - TOOLS-05 (manual section load/unload + 3-section cap replaced with implicit LRU; `unload_campaign_section` removed; one `load_campaign_section(section)` tool remains; eviction is automatic)
-  - TOOLS-06 (post-Tier-3 total registered tools ≤ 11; no capability silently dropped)
+  - TOOLS-05 (DEFERRED (per D-09): manual section load/unload + 3-section cap replaced with implicit LRU; `unload_campaign_section` removed; one `load_campaign_section(section)` tool remains; eviction is automatic)
+  - TOOLS-06 (post-Tier-3 total registered tools ≤ 14; no capability silently dropped)
   - Invariants (apply to this phase): INV-01, INV-02, INV-03, INV-04, INV-05
 **Success Criteria** (what must be TRUE):
-  1. Inspecting `backend/agent/tools.py` (or the tools registered on `gm_agent`) shows ≤ 11 tools registered, with the dropped tools (`remove_from_inventory`, `update_countdown`, `set_boss_battle`, `unload_campaign_section`) absent and their merged replacements present and documented.
-  2. Running the React UI through a turn that exercises every consolidation point — adding then removing an inventory item, creating then modifying a countdown, entering a boss battle that triggers the "Blaze of Glory / Risk It All" branch on `apply_damage`, awarding XP that crosses a level-up threshold, and loading a fourth distinct campaign section (forcing LRU eviction of the oldest) — all complete end-to-end with the same SSE event types and payload field names as before the phase. The frontend client code is unchanged.
+  1. Inspecting `backend/agent/tools.py` (or the tools registered on `gm_agent`) shows ≤ 14 tools registered, with the dropped tools (`remove_from_inventory`, `update_countdown`, `set_boss_battle`) absent and their merged replacements present and documented.
+  2. Running the React UI through a turn that exercises every consolidation point — adding then removing an inventory item, creating then modifying a countdown, entering a boss battle that triggers the "Blaze of Glory / Risk It All" branch on `apply_damage`, awarding XP that crosses a level-up threshold — all complete end-to-end with the same SSE event types and payload field names as before the phase. The frontend client code is unchanged.
   3. `award_xp`'s tool body contains only xp accounting plus a call to the level-up helper; the helper itself is not registered as a `@gm_agent.tool`.
-  4. After loading more than the previous 3-section cap of campaign sections during one session, only the most-recently-used N sections remain in the agent's accessible section cache; eviction happens implicitly with no tool call required from the agent.
+  4. DEFERRED (per D-09 — not required this phase): After loading more than the previous 3-section cap of campaign sections during one session, only the most-recently-used N sections remain in the agent's accessible section cache; eviction happens implicitly with no tool call required from the agent.
   5. `backend/cli.py` still starts a session and accepts a turn without crashing (INV-03 smoke); `backend_generalist/` is untouched (INV-04); non-`GameState` Pydantic models (`CharacterState`, `EnemyState`, `Stats`, …) are untouched (INV-05).
 **Out of scope (deferred)**: No change to `GameState`'s class shape or to `GameStateSnapshot` (that's Phase 4). No change to SSE event types or payload field names (invariant). No new gameplay features, new rulesets, or new campaigns. No edits to `backend_generalist/` or to `frontend/`.
 **Plans**: TBD
