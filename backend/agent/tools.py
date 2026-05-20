@@ -10,6 +10,7 @@ from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from game.models import (
     DICE_SIDES,
     XP_THRESHOLDS,
+    CharacterState,
     ConditionName,
     DiceType,
     EnemyState,
@@ -229,32 +230,34 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
 
     del ctx.deps.enemies[enemy_id]
     logger.info(f"Removed enemy '{enemy_id}'")
+
+    # Combat-end transition: when the last enemy is removed, clear the boss flag (D-08b)
+    # so a stale True does not wrongly fire Blaze-of-Glory in a later non-boss fight.
+    if not ctx.deps.enemies:
+        ctx.deps.is_boss_battle = False
+
     return f"Removed '{enemy_id}'"
 
 
 @gm_agent.tool
-def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
-    """Toggle boss battle mode for the current encounter.
-
-    Args:
-        active: True to start a boss battle, False to end it
-    """
-    ctx.deps.is_boss_battle = active
-    status = "STARTED" if active else "ENDED"
-    logger.info(f"👑 Boss battle {status}")
-    return f"Boss battle {status}"
-
-
-@gm_agent.tool
-def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
+def apply_damage(
+    ctx: RunContext[GameState], target: str, amount: int, is_boss: bool = False
+) -> str:
     """Apply damage to the player character or an enemy.
 
     Args:
         target: "pc" for player character, or enemy_id for an enemy
         amount: Damage amount to apply
+        is_boss: Set True to mark the current encounter as a boss battle. When the PC
+            falls to 0 HP in a boss battle, they face the Blaze of Glory / Risk It All
+            choice instead of the normal defeat. The flag persists across turns and
+            auto-clears when the last enemy is removed.
     """
     if amount < 0:
         raise ModelRetry("Damage amount must be non-negative. Use healing instead.")
+
+    if is_boss:
+        ctx.deps.is_boss_battle = True
 
     if target == "pc":
         if ctx.deps.pc is None:
@@ -434,6 +437,24 @@ def set_countdown(ctx: RunContext[GameState], name: str, value: int) -> str:
     return f"{verb} countdown '{name}' to {value}"
 
 
+def _check_level_up(pc: CharacterState) -> str | None:
+    """Detect and apply a single level-up. Returns a player-facing message, or None.
+
+    Not a registered tool — a helper called by award_xp after XP accounting.
+    """
+    if pc.level < 10:
+        next_threshold = XP_THRESHOLDS.get(pc.level + 1)
+        if next_threshold and pc.xp >= next_threshold:
+            old_level = pc.level
+            pc.level += 1
+            logger.info(f"🎉 Level up! {old_level} → {pc.level}")
+            return (
+                f"\n🎉 LEVEL UP! {old_level} → {pc.level}! "
+                f"The player must choose one: HP increase, +1 Evasion, or a class ability."
+            )
+    return None
+
+
 @gm_agent.tool
 def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     """Award experience points to the player character.
@@ -456,17 +477,9 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     result = f"Awarded {amount} XP for '{reason}': {old_xp} → {pc.xp} XP"
     logger.info(f"⭐ {result}")
 
-    # Check for level-up
-    if pc.level < 10:
-        next_threshold = XP_THRESHOLDS.get(pc.level + 1)
-        if next_threshold and pc.xp >= next_threshold:
-            old_level = pc.level
-            pc.level += 1
-            result += (
-                f"\n🎉 LEVEL UP! {old_level} → {pc.level}! "
-                f"The player must choose one: HP increase, +1 Evasion, or a class ability."
-            )
-            logger.info(f"🎉 Level up! {old_level} → {pc.level}")
+    level_up_msg = _check_level_up(pc)
+    if level_up_msg:
+        result += level_up_msg
 
     return result
 

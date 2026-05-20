@@ -110,6 +110,7 @@ gm_agent = Agent(
 - Damage: weapon/spell dice + stat modifier
 - Critical hit (natural 20): roll damage normally + add max damage dice, then add modifier once
 - Advantage/Disadvantage: roll 2d20, take higher/lower
+- To tick a countdown, call set_countdown with the new absolute value (one less than its current value shown in game state)
 
 ## Output Format
 ALL player-visible text MUST be routed through the player-narration tool. Your final text return is NEVER shown to the player — it is only for your own private notes.
