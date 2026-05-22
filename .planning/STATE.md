@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — backend-simplification)
 status: executing
-last_updated: "2026-05-22T04:11:52.956Z"
-last_activity: 2026-05-22 -- Phase 04 planning complete
+last_updated: "2026-05-22T12:55:36.709Z"
+last_activity: 2026-05-22 -- Phase 04 execution started
 progress:
   total_phases: 4
   completed_phases: 3
@@ -19,16 +19,16 @@ progress:
 
 **Core Value:** Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces.
 
-**Current Focus:** Phase 03 — tool-surface-consolidation-v2-0
+**Current Focus:** Phase 04 — gamestate-pydantic-v2-0
 
 **Scope Boundary:** All work targets `backend/`. `backend_generalist/` is archived as v1.0 reference and is NOT modified. `frontend/` SSE wire format is invariant.
 
 ## Current Position
 
-Phase: 03 — COMPLETE
-Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-05-22 -- Phase 04 planning complete
+Phase: 04 (gamestate-pydantic-v2-0) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 04
+Last activity: 2026-05-22 -- Phase 04 execution started
 
 ## Performance Metrics
 
