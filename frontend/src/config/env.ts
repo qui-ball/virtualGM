@@ -17,8 +17,15 @@ export const isDev = import.meta.env.DEV;
 /** True when running in production build. */
 export const isProd = import.meta.env.PROD;
 
+/**
+ * When false (default), /campaign and /play are open without sign-in.
+ * Set VITE_ENABLE_AUTH=true to require Supabase auth for those routes.
+ */
+export const enableAuth = import.meta.env.VITE_ENABLE_AUTH === 'true';
+
 export const envConfig = {
   apiBaseUrl,
   isDev,
   isProd,
+  enableAuth,
 } as const;

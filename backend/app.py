@@ -13,6 +13,7 @@ from game.models import DICE_SIDES, GameState, create_player_character
 from api.schemas import (
     CreateSessionRequest,
     CreateSessionResponse,
+    GameStateSnapshot,
     MessageEntry,
     MessagesResponse,
     TurnRequest,
@@ -67,6 +68,12 @@ def create_session(body: CreateSessionRequest | None = None):
     return CreateSessionResponse(
         session_id=session.id,
         character_name=gs.pc.name,
+        game_state=GameStateSnapshot(
+            character=gs.pc,
+            enemies=gs.enemies,
+            countdowns=gs.countdowns,
+            in_combat=gs.in_combat,
+        ),
     )
 
 

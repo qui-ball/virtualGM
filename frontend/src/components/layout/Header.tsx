@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Navigation, type NavLink } from './Navigation';
 import { useIsTabletOrUp } from '@/hooks';
 import { useAuth } from '@/auth';
+import { enableAuth } from '@/config';
+import { ThemeSelect } from '@/theme';
 
 type HeaderProps = {
   /** App name or logo label */
@@ -37,7 +39,9 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
       </div>
 
       <div className="flex min-h-[44px] flex-1 items-center justify-end gap-2 md:gap-3">
-        {!authLoading && user ? (
+        <ThemeSelect compact className="shrink-0" />
+
+        {enableAuth && !authLoading && user ? (
           <span
             className="hidden max-w-[160px] truncate text-xs text-muted-foreground md:inline"
             title={user.email ?? ''}
@@ -45,7 +49,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
             {user.email}
           </span>
         ) : null}
-        {!authLoading && user ? (
+        {enableAuth && !authLoading && user ? (
           <Button
             variant="outline"
             size="sm"
@@ -54,7 +58,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
           >
             Sign out
           </Button>
-        ) : !authLoading ? (
+        ) : enableAuth && !authLoading ? (
           <Button variant="outline" size="sm" className="shrink-0" asChild>
             <Link to="/auth">Sign in</Link>
           </Button>

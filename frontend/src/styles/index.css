@@ -67,11 +67,17 @@ a:hover {
   color: #535bf2;
 }
 
-/* Full-height app layout: body and #root fill viewport for flex column inside */
+/* Lock document scroll; panes inside the app layout scroll instead */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -79,6 +85,8 @@ body {
 #root {
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -89,8 +97,11 @@ h1 {
   line-height: 1.1;
 }
 
-/* Legacy base styles for raw <button> only (shadcn Button uses data-slot="button") */
-button:not([data-slot='button']) {
+/*
+ * Legacy Vite demo button styles — scoped away from RPG play surfaces.
+ * Play routes use `.play-surface` + `play-*` classes (see play-themes.css).
+ */
+:not(.play-surface) button:not([data-slot='button']) {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
@@ -101,23 +112,24 @@ button:not([data-slot='button']) {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:not([data-slot='button']):hover {
+:not(.play-surface) button:not([data-slot='button']):hover {
   border-color: #646cff;
 }
-button:not([data-slot='button']):focus,
-button:not([data-slot='button']):focus-visible {
+:not(.play-surface) button:not([data-slot='button']):focus,
+:not(.play-surface) button:not([data-slot='button']):focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Only apply light Vite defaults when no RPG theme is active */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme]) {
     color: #213547;
     background-color: #ffffff;
   }
-  a:hover {
+  :root:not([data-theme]) a:hover {
     color: #747bff;
   }
-  button:not([data-slot='button']) {
+  :root:not([data-theme]) :not(.play-surface) button:not([data-slot='button']) {
     background-color: #f9f9f9;
   }
 }

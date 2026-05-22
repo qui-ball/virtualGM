@@ -1,0 +1,1919 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RPG Companion — Low-Fi Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-2:#3a3a3a;
+    --ink-3:#6e6e6e;
+    --ink-4:#a8a8a8;
+    --line:#1a1a1a;
+    --paper:#f5f1e8;
+    --paper-2:#ebe6d8;
+    --paper-3:#dfd9c8;
+    --grid:#d6cfb8;
+    --accent:#1a1a1a;
+    --rough:1px;
+    --gap:14px;
+    --pad:14px;
+    --radius:6px;
+    --hand:'Kalam', 'Caveat', cursive;
+    --display:'Caveat', cursive;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--hand);}
+  body{
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    min-height:100vh;
+  }
+
+  /* ---------- chrome ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:40;
+    background:var(--paper);
+    border-bottom:2px solid var(--ink);
+    padding:10px 18px 8px;
+    display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{font-family:var(--display);font-weight:700;font-size:34px;margin:0;letter-spacing:.5px;line-height:1.1;}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.12em;}
+  .tabs{display:flex;gap:0;font-family:var(--hand);font-weight:700;}
+  .tab{
+    appearance:none;border:2px solid var(--ink);background:var(--paper);color:var(--ink);
+    padding:8px 14px;font:inherit;font-size:18px;cursor:pointer;
+    border-right-width:0;
+  }
+  .tab:last-child{border-right-width:2px;}
+  .tab[aria-selected="true"]{background:var(--ink);color:var(--paper);}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+
+  main{padding:22px 18px 120px;max-width:1480px;margin:0 auto;}
+
+  .screen-intro{
+    border:2px solid var(--ink);
+    background:var(--paper-2);
+    padding:14px 16px;
+    margin-bottom:18px;
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap:18px;
+  }
+  .screen-intro h2{
+    font-family:var(--display);font-size:38px;margin:0 0 4px;
+    grid-column: 1 / -1;
+    border-bottom:1.5px dashed var(--ink-3);padding-bottom:6px;
+  }
+  .screen-intro h3{font-family:var(--hand);font-weight:700;font-size:16px;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.06em;}
+  .screen-intro ul{margin:0;padding-left:18px;font-size:15px;line-height:1.35;}
+  .screen-intro li{margin:2px 0;}
+  .screen-intro p{margin:4px 0;font-size:14px;line-height:1.4;}
+
+  /* ---------- variants strip ---------- */
+  .variants{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap:24px;
+    align-items:start;
+  }
+  .variant{
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+  }
+  .variant-head{
+    width:100%;
+    border-bottom:1.5px dashed var(--ink-3);
+    padding-bottom:6px;
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  }
+  .variant-head .name{font-family:var(--display);font-size:24px;line-height:1;}
+  .variant-head .tag{font-family:var(--mono);font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em;}
+  .variant-note{font-size:13px;line-height:1.35;color:var(--ink-2);width:100%;}
+
+  /* ---------- spec hero (primary state, large) ---------- */
+  .spec-hero{
+    display:grid;
+    grid-template-columns: auto 1fr;
+    gap:28px;
+    align-items:start;
+    border:2px solid var(--ink);
+    background:var(--paper-2);
+    padding:22px 22px 22px 22px;
+    margin: 22px 0 28px;
+    position:relative;
+  }
+  .spec-hero::before{
+    content:"PRIMARY · default state";
+    position:absolute;top:-12px;left:16px;
+    background:var(--paper);border:1.5px solid var(--ink);padding:1px 10px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  }
+  .spec-hero .spec-side{display:flex;flex-direction:column;gap:14px;min-width:0;padding-top:4px;}
+  .spec-hero h3{font-family:var(--display);font-size:30px;margin:0;line-height:1.05;}
+  .spec-hero .spec-lede{font-size:14px;line-height:1.4;color:var(--ink-2);margin:0;max-width:48ch;}
+  .spec-list{font-size:13px;line-height:1.4;margin:0;}
+  .spec-list dt{font-family:var(--hand);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;display:flex;align-items:baseline;gap:8px;}
+  .spec-list dt:first-of-type{margin-top:0;}
+  .spec-list dt .pin{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.1em;font-weight:400;}
+  .spec-list dd{margin:2px 0 0 0;color:var(--ink-2);}
+  .spec-list dd code{font-family:var(--mono);font-size:11px;background:var(--paper-3);padding:0 4px;border-radius:3px;}
+
+  .state-header{
+    font-family:var(--display);font-size:28px;line-height:1.1;
+    margin: 4px 0 10px;padding-bottom:6px;
+    border-bottom:1.5px dashed var(--ink-3);
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  }
+  .state-header .sub{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.12em;}
+
+  /* ---------- phone frame ---------- */
+  .phone{
+    width: 320px;
+    height: 640px;
+    background: var(--paper);
+    border: 2.5px solid var(--ink);
+    border-radius: 28px;
+    padding: 8px;
+    position: relative;
+    box-shadow: 4px 5px 0 rgba(0,0,0,.12);
+    flex-shrink:0;
+  }
+  .phone.lg{
+    width: 390px;
+    height: 780px;
+    border-radius: 36px;
+    padding: 9px;
+    box-shadow: 5px 6px 0 rgba(0,0,0,.14);
+  }
+  .phone.lg .screen{border-radius:26px;}
+  .phone.lg .status-bar{height:28px;flex-basis:28px;font-size:10px;}
+  .phone.lg .app-bar .title{font-size:26px;}
+  .phone.lg .scroll{padding:12px 14px;gap:12px;}
+  .phone.lg .composer{padding:10px 12px;}
+  .phone.lg .composer .pri{width:48px;height:48px;flex-basis:48px;}
+
+  /* in-chat speaker avatars */
+  .avat{
+    width:18px;height:18px;border-radius:50%;
+    border:1.25px solid var(--ink);background:var(--paper);
+    display:grid;place-items:center;
+    font-family:var(--display);font-weight:700;font-size:11px;line-height:1;
+    flex:0 0 18px;
+  }
+  .avat.solid{background:var(--ink);color:var(--paper);}
+  .avat.diamond{border-radius:3px;transform:rotate(45deg);}
+  .avat.diamond > *{transform:rotate(-45deg);font-size:9px;}
+  .card-head{display:flex;align-items:center;gap:6px;}
+  .card-head .lbl{margin-right:auto;}
+  .card-head .ts{font-family:var(--mono);font-size:9px;color:var(--ink-3);}
+  .dice-glyph{
+    display:inline-block;width:14px;height:14px;border:1.25px solid var(--ink);
+    transform:rotate(45deg);position:relative;flex:0 0 14px;
+  }
+  .dice-glyph::after{content:"20";position:absolute;inset:0;display:grid;place-items:center;transform:rotate(-45deg);font-family:var(--mono);font-size:7px;}
+  .scene-mark{
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:9px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.16em;
+    margin:2px 0;
+  }
+  .scene-mark::before, .scene-mark::after{content:"";flex:1;height:0;border-top:1px dashed var(--ink-3);}
+
+  .annot.callout{
+    position:relative;
+    font-family:var(--mono);font-size:10px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.1em;
+    border:1px dashed var(--ink-3);background:var(--paper);
+    padding:3px 7px;border-radius:99px;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .phone::before{
+    content:"";position:absolute;left:50%;top:14px;transform:translateX(-50%);
+    width:60px;height:6px;border-radius:99px;background:var(--ink);
+  }
+  .screen{
+    position:relative;
+    width:100%;height:100%;
+    border:1.5px solid var(--ink);
+    border-radius: 20px;
+    overflow:hidden;
+    background: var(--paper);
+    display:flex;flex-direction:column;
+  }
+  .status-bar{
+    height:24px;flex:0 0 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;
+    font-family:var(--mono);font-size:9px;color:var(--ink-3);
+    border-bottom:1px dashed var(--ink-4);
+  }
+  .app-bar{
+    flex:0 0 auto;
+    padding:8px 12px;
+    border-bottom:1.5px solid var(--ink);
+    display:flex;align-items:center;gap:8px;justify-content:space-between;
+    background:var(--paper-2);
+  }
+  .app-bar .title{font-family:var(--display);font-size:22px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .app-bar > div:first-child{min-width:0;flex:1 1 auto;}
+  .app-bar .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .app-bar .sub{font-family:var(--mono);font-size:9px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em;}
+  .app-bar .btn-ico{
+    width:32px;height:32px;border:1.5px solid var(--ink);background:var(--paper);border-radius:8px;
+    display:grid;place-items:center;font-family:var(--hand);font-size:18px;font-weight:700;
+  }
+
+  .scroll{
+    flex:1 1 auto;overflow:hidden;position:relative;
+    padding:10px 12px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .scroll::after{
+    content:"scroll ↓";
+    position:absolute;right:8px;bottom:6px;
+    font-family:var(--mono);font-size:8px;color:var(--ink-4);text-transform:uppercase;letter-spacing:.1em;
+    pointer-events:none;
+  }
+
+  /* primitives */
+  .box{
+    border:1.5px solid var(--ink);
+    border-radius:8px;
+    padding:8px 10px;
+    background:var(--paper);
+    position:relative;
+  }
+  .box.tinted{background:var(--paper-2);}
+  .box.dark{background:var(--ink);color:var(--paper);}
+  .box.dashed{border-style:dashed;}
+  .box.thin{border-width:1px;}
+  .box.flat{border-radius:4px;}
+  .row{display:flex;align-items:center;gap:8px;}
+  .row.sb{justify-content:space-between;}
+  .col{display:flex;flex-direction:column;gap:6px;}
+  .lbl{font-family:var(--mono);font-size:9px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em;}
+  .lbl.lg{font-size:10px;}
+  .h{font-family:var(--display);font-weight:700;}
+  .h{line-height:1.15;}
+  .h.lg{font-size:22px;line-height:1.15;}
+  .h.md{font-size:18px;line-height:1.15;}
+  .h.sm{font-size:15px;line-height:1.15;}
+  .row.sb > .h{min-width:0;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row.sb > .pill, .row.sb > .mono{flex:0 0 auto;}
+  .body{font-size:13px;line-height:1.3;}
+  .body.sm{font-size:12px;}
+  .mono{font-family:var(--mono);}
+  .mono.sm{font-size:10px;}
+  .mono.xs{font-size:9px;}
+  .num{font-family:var(--display);font-weight:700;font-size:28px;line-height:1;}
+  .num.sm{font-size:20px;}
+  .pill{
+    display:inline-flex;align-items:center;gap:4px;
+    border:1.25px solid var(--ink);border-radius:99px;
+    padding:2px 8px;font-size:11px;font-family:var(--hand);font-weight:700;line-height:1.4;
+    background:var(--paper);
+    white-space:nowrap;flex:0 0 auto;max-width:100%;
+  }
+  .pill.solid{background:var(--ink);color:var(--paper);}
+  .pill.tint{background:var(--paper-3);}
+  .chip{
+    border:1.5px solid var(--ink);border-radius:8px;padding:6px 8px;
+    background:var(--paper);font-size:11px;font-family:var(--hand);font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1;min-height:42px;justify-content:center;
+  }
+  .chip .v{font-family:var(--display);font-size:18px;}
+  .chip .k{font-family:var(--mono);font-size:8px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;}
+  .chip.solid{background:var(--ink);color:var(--paper);}
+  .chip.solid .k{color:var(--paper-3);}
+  .ph{
+    /* placeholder image / avatar */
+    background:
+      repeating-linear-gradient(135deg, var(--ink-4) 0 1px, transparent 1px 7px),
+      var(--paper-3);
+    border:1.25px solid var(--ink);
+    display:grid;place-items:center;
+    font-family:var(--mono);font-size:9px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.1em;
+    border-radius:6px;
+  }
+  .btn{
+    border:1.75px solid var(--ink);border-radius:8px;
+    padding:8px 10px;background:var(--paper);
+    font-family:var(--hand);font-weight:700;font-size:14px;line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:36px;
+  }
+  .btn.lg{padding:11px 12px;font-size:16px;min-height:44px;}
+  .btn.solid{background:var(--ink);color:var(--paper);}
+  .btn.ghost{border-style:dashed;color:var(--ink-2);}
+  .bar{height:6px;background:var(--paper-3);border:1px solid var(--ink);border-radius:99px;position:relative;overflow:hidden;}
+  .bar > i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);}
+  .seg{display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;}
+  .seg > div{flex:1;text-align:center;padding:5px 4px;font-family:var(--hand);font-weight:700;font-size:12px;border-right:1px solid var(--ink);}
+  .seg > div:last-child{border-right:0;}
+  .seg > div.on{background:var(--ink);color:var(--paper);}
+  .annot{
+    position:absolute;font-family:var(--mono);font-size:8.5px;color:var(--ink-3);
+    text-transform:uppercase;letter-spacing:.1em;pointer-events:none;
+  }
+  .composer{
+    flex:0 0 auto;border-top:1.5px solid var(--ink);background:var(--paper-2);
+    padding:8px 10px;display:flex;gap:8px;align-items:center;
+  }
+  .composer .field{
+    flex:1;border:1.5px solid var(--ink);border-radius:99px;background:var(--paper);
+    padding:8px 12px;font-size:12px;color:var(--ink-3);font-family:var(--hand);
+  }
+  .composer .pri{
+    width:44px;height:44px;border-radius:50%;
+    background:var(--ink);color:var(--paper);
+    display:grid;place-items:center;font-family:var(--display);font-size:22px;
+    flex:0 0 44px;
+  }
+  .nav{
+    flex:0 0 auto;border-top:1.5px solid var(--ink);background:var(--paper-2);
+    display:flex;align-items:stretch;
+  }
+  .nav > div{flex:1;text-align:center;padding:8px 4px;font-family:var(--hand);font-weight:700;font-size:11px;border-right:1px dashed var(--ink-4);min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;}
+  .nav > div:last-child{border-right:0;}
+  .nav > div.on{background:var(--ink);color:var(--paper);}
+  .nav .ic{font-family:var(--display);font-size:14px;line-height:1;}
+
+  /* ASCII block */
+  .ascii-wrap{
+    margin-top:18px;
+    border:2px solid var(--ink);
+    background:var(--paper-2);
+    padding:14px 16px;
+  }
+  .ascii-wrap h3{font-family:var(--display);font-size:24px;margin:0 0 8px;}
+  details.ascii summary{
+    cursor:pointer;font-family:var(--hand);font-weight:700;font-size:14px;
+    padding:6px 0;border-bottom:1px dashed var(--ink-3);list-style:none;
+  }
+  details.ascii summary::before{content:"▸ ";font-family:var(--mono);}
+  details.ascii[open] summary::before{content:"▾ ";}
+  pre.ascii{
+    font-family:var(--mono);font-size:11px;line-height:1.35;
+    background:var(--paper);
+    border:1.25px solid var(--ink);
+    padding:10px 12px;margin:8px 0 0;
+    overflow-x:auto;white-space:pre;
+    color:var(--ink);
+  }
+
+  /* Failures + a11y */
+  .columns{
+    display:grid;grid-template-columns: 1fr 1fr;gap:16px;margin-top:16px;
+  }
+  .col-card{
+    border:2px solid var(--ink);background:var(--paper);padding:14px 16px;
+  }
+  .col-card h3{font-family:var(--display);font-size:24px;margin:0 0 6px;}
+  .col-card ul{margin:0;padding-left:20px;font-size:14px;line-height:1.4;}
+  .col-card li{margin:4px 0;}
+  .col-card .lbl{margin-top:6px;}
+
+  /* Footer / checklist */
+  .checklist{
+    margin-top:36px;
+    border:2.5px solid var(--ink);
+    background:var(--paper-2);
+    padding:18px 20px;
+    position:relative;
+  }
+  .checklist::before{
+    content:"FOR CURSOR →";
+    position:absolute;top:-12px;left:14px;
+    background:var(--paper);border:1.5px solid var(--ink);padding:1px 8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  }
+  .checklist h2{font-family:var(--display);font-size:32px;margin:0 0 6px;}
+  .checklist pre{
+    font-family:var(--mono);font-size:12px;line-height:1.5;
+    white-space:pre-wrap;background:var(--paper);
+    border:1.5px solid var(--ink);padding:14px 16px;margin:8px 0 0;
+  }
+  .checklist .copy{
+    position:absolute;top:14px;right:16px;
+    border:1.5px solid var(--ink);background:var(--paper);
+    font-family:var(--hand);font-weight:700;padding:4px 10px;font-size:13px;cursor:pointer;
+  }
+
+  section.screen-block{display:none;}
+  section.screen-block.active{display:block;}
+
+  /* Sketch roughness via filter */
+  .rough body, body[data-rough="med"] .phone .screen, body[data-rough="med"] .phone{
+    /* placeholder; rough handled per-element */
+  }
+  body[data-rough="med"] .box, body[data-rough="med"] .btn, body[data-rough="med"] .pill, body[data-rough="med"] .chip, body[data-rough="med"] .seg, body[data-rough="med"] .bar, body[data-rough="med"] .composer .field, body[data-rough="med"] .composer .pri, body[data-rough="med"] .ph{
+    filter: url(#rough-med);
+  }
+  body[data-rough="high"] .box, body[data-rough="high"] .btn, body[data-rough="high"] .pill, body[data-rough="high"] .chip, body[data-rough="high"] .seg, body[data-rough="high"] .bar, body[data-rough="high"] .composer .field, body[data-rough="high"] .composer .pri, body[data-rough="high"] .ph{
+    filter: url(#rough-high);
+  }
+
+  /* Density */
+  body[data-density="compact"]{
+    --pad:10px;--gap:8px;
+  }
+  body[data-density="compact"] .scroll{padding:8px 10px;gap:6px;}
+  body[data-density="compact"] .box{padding:6px 8px;}
+
+  /* Print */
+  @media print{
+    body{background:#fff;}
+    .topbar, .checklist .copy{display:none;}
+    section.screen-block{display:block !important;page-break-after:always;}
+  }
+</style>
+</head>
+<body data-density="cozy" data-rough="low">
+
+<!-- SVG roughness filters -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough-med">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+    <filter id="rough-high">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="3"/>
+    </filter>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>Testing</h1>
+    <span class="sub">low-fi wireframes · v0.1 · 320px portrait</span>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Screens">
+    <button class="tab" role="tab" aria-selected="true" data-screen="lobby">Lobby</button>
+    <button class="tab" role="tab" aria-selected="false" data-screen="session">Session</button>
+    <button class="tab" role="tab" aria-selected="false" data-screen="sheet">Sheet content</button>
+  </div>
+  <div class="meta">grayscale · structure only · themes out of scope</div>
+</header>
+
+<main>
+
+<!-- =========================================================
+     LOBBY
+     ========================================================= -->
+<section class="screen-block active" data-screen="lobby" data-screen-label="01 Lobby">
+  <div class="screen-intro">
+    <h2>1 · Lobby / Home</h2>
+    <div>
+      <h3>Primary jobs</h3>
+      <ul>
+        <li>Resume the most recent campaign in one tap</li>
+        <li>Pick a different campaign / character</li>
+        <li>Glance at character status (HP, mana, level, XP-to-next)</li>
+        <li>Start a new campaign or new character</li>
+        <li>Reach settings / auth without crowding play CTAs</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Always visible</h3>
+      <ul>
+        <li>App bar (title + ≡ menu for Settings)</li>
+        <li>No bottom tab nav — navigation between Session ↔ Lobby happens via the top-right ≡ menu</li>
+        <li>"Resume" primary button when an active session exists</li>
+      </ul>
+      <h3 style="margin-top:10px">Swipe / modal</h3>
+      <ul>
+        <li>Character switcher: bottom sheet from "Active character" row</li>
+        <li>New campaign: full-screen modal flow</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Component inventory (rules-grounded)</h3>
+      <ul>
+        <li><b>Resume button</b> → enters Live Session</li>
+        <li><b>Active character card</b>: name, class (Warrior/Mage/Ranger/Bard), level, HP bar, mana bar (Mage/Bard only), Evasion chip</li>
+        <li><b>XP-to-next-level</b> bar (thresholds: 100 / 250 / 500 / 1000 …)</li>
+        <li><b>Pending level-up</b> banner when total XP ≥ next threshold (auto-level on the spot, outside battle)</li>
+        <li><b>Campaign list rows</b>: title, chapter, time-counter remaining (—1 short, —5 long)</li>
+        <li><b>Character switcher rail</b>: avatars + class glyphs</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="variants">
+
+    <!-- Lobby A: Resume-first -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A · Resume-first</span><span class="tag">hero CTA</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hero</div><div class="sub">welcome back</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div class="scroll">
+          <div class="box tinted">
+            <div class="row sb"><span class="lbl">Active campaign</span><span class="pill tint">Ch. 3 · t=37</span></div>
+            <div class="h md" style="margin-top:4px">The Hollow Pact</div>
+            <div class="body sm" style="color:var(--ink-3)">Last played: yesterday · Tavern, dusk</div>
+          </div>
+          <button class="btn lg solid">▶  Resume Session</button>
+
+          <div class="box">
+            <div class="row sb">
+              <div class="row">
+                <div class="ph" style="width:36px;height:36px;border-radius:50%">PC</div>
+                <div>
+                  <div class="h sm">Brennick</div>
+                  <div class="mono xs">Warrior · Lv 4</div>
+                </div>
+              </div>
+              <span class="pill">Switch ▾</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+              <div>
+                <div class="lbl">HP</div>
+                <div class="row" style="gap:4px"><div class="num sm">28</div><div class="mono xs" style="color:var(--ink-3)">/34</div></div>
+                <div class="bar"><i style="width:82%"></i></div>
+              </div>
+              <div>
+                <div class="lbl">Evasion</div>
+                <div class="num sm">14</div>
+                <div class="mono xs" style="color:var(--ink-3)">10 + Fin + armor</div>
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <div class="row sb"><span class="lbl">XP → Lv 5</span><span class="mono xs">680 / 1000</span></div>
+              <div class="bar"><i style="width:68%"></i></div>
+            </div>
+          </div>
+
+          <div class="lbl lg">Other campaigns</div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Salt &amp; Smoke</span><span class="mono xs">Ch.1 · t=50</span></div>
+            <div class="body sm" style="color:var(--ink-3)">Mage · Iolan, Lv 2</div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Ribcage Coast</span><span class="mono xs">Ch.5 · t=12</span></div>
+            <div class="body sm" style="color:var(--ink-3)">Bard · Wren, Lv 6</div>
+          </div>
+          <button class="btn ghost">+ New Campaign</button>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> single dominant Resume CTA above the fold; everything else is glanceable. Best for habitual users with one main campaign.</p>
+    </div>
+
+    <!-- Lobby B: Campaign-led list -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">B · Campaign list</span><span class="tag">multi-campaign</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Campaigns</div><div class="sub">3 active</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div class="scroll">
+          <div class="seg" role="tablist" aria-label="Filter"><div class="on">Active</div><div>Paused</div><div>Ended</div></div>
+
+          <div class="box tinted">
+            <div class="row sb"><span class="h sm">The Hollow Pact</span><span class="pill solid">Resume</span></div>
+            <div class="row sb" style="margin-top:4px">
+              <div class="mono xs">Ch.3 · time 37/50</div>
+              <div class="mono xs">Brennick · War · 4</div>
+            </div>
+            <div class="bar" style="margin-top:6px"><i style="width:74%"></i></div>
+            <div class="lbl" style="margin-top:2px">chapter time remaining</div>
+          </div>
+
+          <div class="box">
+            <div class="row sb"><span class="h sm">Salt &amp; Smoke</span><span class="pill">Open</span></div>
+            <div class="row sb" style="margin-top:4px"><div class="mono xs">Ch.1 · time 50/50</div><div class="mono xs">Iolan · Mage · 2</div></div>
+          </div>
+
+          <div class="box">
+            <div class="row sb"><span class="h sm">Ribcage Coast</span><span class="pill">Open</span></div>
+            <div class="row sb" style="margin-top:4px"><div class="mono xs">Ch.5 · time 12/50</div><div class="mono xs">Wren · Bard · 6</div></div>
+            <div class="pill" style="margin-top:6px;border-style:dashed">↑ pending level-up</div>
+          </div>
+
+          <button class="btn ghost">+ New Campaign</button>
+          <button class="btn">+ New Character</button>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> equal weight on each campaign. Pending level-up surfaces inline. Best when players juggle multiple games.</p>
+    </div>
+
+    <!-- Lobby C: Character-led -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">C · Roster grid</span><span class="tag">character-first</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Your Heroes</div><div class="sub">tap to play</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div class="scroll">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="box tinted" style="padding:8px">
+              <div class="ph" style="height:60px">PORTRAIT</div>
+              <div class="h sm" style="margin-top:6px">Brennick</div>
+              <div class="mono xs" style="color:var(--ink-3)">War · 4 · HP 28/34</div>
+              <div class="bar" style="margin-top:4px"><i style="width:82%"></i></div>
+            </div>
+            <div class="box" style="padding:8px">
+              <div class="ph" style="height:60px">PORTRAIT</div>
+              <div class="h sm" style="margin-top:6px">Iolan</div>
+              <div class="mono xs" style="color:var(--ink-3)">Mage · 2 · MP 6/7</div>
+              <div class="bar" style="margin-top:4px"><i style="width:85%"></i></div>
+            </div>
+            <div class="box" style="padding:8px">
+              <div class="ph" style="height:60px">PORTRAIT</div>
+              <div class="h sm" style="margin-top:6px">Wren</div>
+              <div class="mono xs" style="color:var(--ink-3)">Bard · 6 · HP 22/30</div>
+              <div class="bar" style="margin-top:4px"><i style="width:73%"></i></div>
+            </div>
+            <div class="box dashed" style="padding:8px;display:grid;place-items:center;min-height:120px">
+              <div class="h md">+</div>
+              <div class="mono xs">new</div>
+            </div>
+          </div>
+
+          <div class="lbl lg" style="margin-top:6px">Continue</div>
+          <div class="box tinted">
+            <div class="row sb"><span class="h sm">The Hollow Pact</span><span class="pill solid">▶ Resume</span></div>
+            <div class="mono xs" style="color:var(--ink-3);margin-top:2px">Ch.3 · time 37/50</div>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> portrait-led, recognizable across long sessions. Resume sits at the bottom as a recap rather than the hero.</p>
+    </div>
+
+    <!-- Lobby D: Status dense -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">D · Status console</span><span class="tag">data-dense</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Brennick</div><div class="sub">Warrior · Lv 4</div></div>
+          <div class="btn-ico" aria-label="Switch character">⇅</div>
+        </div>
+        <div class="scroll">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+            <div class="chip"><span class="v">+2</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Fin</span></div>
+            <div class="chip"><span class="v">0</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">-1</span><span class="k">Pre</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div class="box flat"><div class="lbl">HP</div><div class="num sm">28<span class="mono xs" style="color:var(--ink-3)">/34</span></div></div>
+            <div class="box flat"><div class="lbl">Eva</div><div class="num sm">14</div></div>
+            <div class="box flat"><div class="lbl">Init</div><div class="num sm">+1</div></div>
+          </div>
+
+          <div class="box tinted">
+            <div class="row sb"><span class="lbl">Campaign</span><span class="mono xs">Ch.3 · t=37</span></div>
+            <div class="h sm">The Hollow Pact</div>
+            <button class="btn solid lg" style="margin-top:6px;width:100%">▶ Resume Session</button>
+          </div>
+
+          <div class="box thin">
+            <div class="row sb"><span class="lbl">XP → 5</span><span class="mono xs">680/1000</span></div>
+            <div class="bar"><i style="width:68%"></i></div>
+            <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
+              <span class="pill tint">Short rest −1</span>
+              <span class="pill tint">Long rest −5</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> treats the lobby like a dashboard. Stats, HP, Eva, XP visible without leaving home — strong muscle memory pre-session.</p>
+    </div>
+
+  </div>
+
+  <div class="ascii-wrap">
+    <details class="ascii" open><summary>ASCII wireframe — Lobby (canonical layout)</summary>
+<pre class="ascii">
+┌──────────────────────────────┐  &lt;-- 320px wide
+│ ▒ status bar                ▒│  fixed (OS)
+├──────────────────────────────┤
+│ APP BAR                      │  fixed
+│ RPG Companion         [≡]    │
+├──────────────────────────────┤
+│ ░ ACTIVE CAMPAIGN ░          │  ┐
+│ The Hollow Pact   Ch3·t=37   │  │
+│ ────────────────────────     │  │
+│ [▶  RESUME SESSION       ]   │  │  scroll
+│                              │  │
+│ ░ ACTIVE CHARACTER ░         │  │
+│ ◯ Brennick   War·Lv4  [▾]    │  │
+│ HP 28/34 ███████░  Eva 14    │  │
+│ XP→5  ████████░ 680/1000     │  │
+│                              │  │
+│ ░ OTHER CAMPAIGNS ░          │  │
+│ • Salt &amp; Smoke  Ch1·t=50     │  │
+│ • Ribcage Coast Ch5·t=12     │  │
+│ [+ New Campaign]             │  │
+├──────────────────────────────┤  ┘
+│ (no bottom tab nav · ≡ top-right) │
+└──────────────────────────────┘
+</pre>
+</details>
+  </div>
+
+  <div class="columns">
+    <div class="col-card">
+      <h3>UX failures to avoid @ 320px</h3>
+      <ul>
+        <li>Resume CTA below the fold — hero must be reachable without scrolling.</li>
+        <li>HP/MP bars rendered too thin to read at 1× — minimum 6px tall, 1px stroke.</li>
+        <li>Switch-character action hidden inside settings — surface as ⇅ on the character row.</li>
+        <li>Chapter time counter (the 50-baseline scarcity timer) dropped on this screen — players need to plan rests.</li>
+        <li>Pending level-up shown as a separate inbox screen — must surface inline on the campaign row.</li>
+        <li>Mana bar shown for non-casters — only Mage/Bard.</li>
+        <li>Tap target for campaign rows under 44px tall.</li>
+      </ul>
+    </div>
+    <div class="col-card">
+      <h3>Accessibility / focus</h3>
+      <ul>
+        <li>Focus order: app bar → Resume → active char card → campaign rows → +New → bottom nav.</li>
+        <li>All tap targets ≥ 44×44pt; campaign rows full-width hit area.</li>
+        <li>HP bar uses both bar AND "28/34" numeric label — never color/length alone.</li>
+        <li>Class is shown as full word in screen reader text ("Warrior"), abbreviated visually ("War").</li>
+        <li>Pending level-up announces with role="status" politely on entry.</li>
+        <li>Contrast: ink #1a on paper #f5f1e8 ≈ 13.4:1 for body; mono labels #6e on paper ≈ 4.7:1 (AA for ≥14px).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     LIVE SESSION
+     ========================================================= -->
+<section class="screen-block" data-screen="session" data-screen-label="02 Session">
+  <div class="screen-intro">
+    <h2>2 · Live Session — story-first</h2>
+    <div>
+      <h3>Primary jobs</h3>
+      <ul>
+        <li>Read the unfolding GM/player/system transcript with clear speaker identity</li>
+        <li>Send a player message or "act" — fixed bottom composer</li>
+        <li>Respond to GM-prompted rolls (Attack / Check / Save / Init) <b>inline in chat</b> — no separate dice tray</li>
+        <li>See whether the roll is Normal / Advantage / Disadvantage <b>as a system-set indicator</b> (player never picks)</li>
+        <li>Glance at HP, mana, evasion, conditions in the vital strip</li>
+        <li>Pull the stats row <b>down</b> to expand the Character Sheet <b>inline</b> (chat is pushed down, not overlaid). Two-phase reveal: phase 1 = character header above the stats row · phase 2 = ability scores + combat below it.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Always visible</h3>
+      <ul>
+        <li>App bar (campaign · chapter · time counter)</li>
+        <li>Vital chips strip: HP · MP · Eva · conditions — doubles as the <b>grab handle</b> for Sheet</li>
+        <li>Composer (text field + primary "act" send)</li>
+      </ul>
+      <h3 style="margin-top:10px">Swipe / overlay</h3>
+      <ul>
+        <li><b>Pull-down handle</b> below the vital strip: drag down (or tap) to expand Character Sheet as an overlay over chat; drag up to dismiss</li>
+        <li>GM-requested roll arrives as a transcript card with: formula, <b>system-set Adv/Norm/Dis indicator</b> (not a player control), and a single [Roll] button. Tap rolls in place; result lands in the next transcript card.</li>
+        <li>Player-initiated free roll: from the composer's "+" menu (rarer); opens roll tray as last-resort. No advantage on free rolls — those route through the GM if relevant.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Component inventory (rules-grounded)</h3>
+      <ul>
+        <li><b>Speaker cards</b>: GM · Player · System (rolls, rests, conditions, time-counter changes)</li>
+        <li><b>Vital strip</b>: HP / MP / Evasion / active conditions — also the Sheet pull-handle</li>
+        <li><b>In-chat roll prompt</b>: System card with d20 + stat formula + <b>read-only Adv/Norm/Dis indicator (system-set)</b> + [Roll] button. Rolls in place; result lands in next card</li>
+        <li><b>Crit affordance</b>: shown on the result card when nat-20 lands — "max one set + roll one set + mods once"</li>
+        <li><b>Mana cost picker</b> (casters): in-chat on Cast prompts — Minor 1 · Major 2 · Mythic 3 (greyed when tier locked)</li>
+        <li><b>Boss-state banner</b>: when HP=0 in boss → "Blaze of Glory" / "Risk It All (d20, nat 20 = 5 HP)"</li>
+        <li><b>Rest buttons</b>: Short (HP=hit die+Mig, MP=d4+Wit, t−1) · Long (full, t−5) — surfaced in composer "+" menu or inside the embedded Sheet</li>
+      </ul>
+    </div>
+  </div>
+
+
+  <!-- ============== PRIMARY HERO: A · default state @ 390px with annotations ============== -->
+  <div class="spec-hero">
+    <div class="phone lg">
+      <div class="screen">
+        <div class="status-bar"><span>19:42</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">The Hollow Pact</div><div class="sub">Ch.3 · time 37/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <!-- vital strip + pull handle -->
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink);position:relative">
+          <div style="display:flex;gap:6px;padding:8px 10px 4px">
+            <div class="chip" style="flex:1"><span class="v">28<span class="mono xs" style="color:var(--ink-3)">/34</span></span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">!</span><span class="k">Prone</span></div>
+          </div>
+          <div role="button" tabindex="0" aria-label="Pull down for character sheet" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0 6px;cursor:grab">
+            <div style="width:48px;height:5px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.14em">▼ pull for sheet</div>
+          </div>
+        </div>
+
+        <div class="scroll" style="gap:10px">
+          <div class="scene-mark">Scene · The cart</div>
+          <div class="box thin">
+            <div class="card-head">
+              <div class="avat solid"><span>G</span></div>
+              <span class="lbl">GM</span>
+              <span class="ts">19:42</span>
+            </div>
+            <div class="body sm" style="margin-top:4px">Torchlight gutters in the wind. The captain's grin shows three gold teeth. "Drop the satchel — last warning." Two crossbows level on you.</div>
+          </div>
+          <div class="box thin tinted" style="margin-left:28px">
+            <div class="card-head">
+              <span class="ts">19:43</span>
+              <span class="lbl" style="margin-left:auto;margin-right:0">You · Brennick</span>
+              <div class="avat"><span>B</span></div>
+            </div>
+            <div class="body sm" style="margin-top:4px">I keep my hands where she can see them, and slide my left foot back toward the cart.</div>
+          </div>
+          <div class="box thin">
+            <div class="card-head">
+              <div class="avat solid"><span>G</span></div>
+              <span class="lbl">GM</span>
+              <span class="ts">19:43</span>
+            </div>
+            <div class="body sm" style="margin-top:4px">"Slow." She nods at the satchel. The crossbows don't waver.</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="btn-ico" aria-label="More actions">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec-side">
+      <h3>A · Story-first session</h3>
+      <p class="spec-lede">Chat owns the screen. Vital stats sit at the top and double as a pull-handle into the Character Sheet. Rolls live inside the transcript — GM-asked prompts render with embedded Adv / Norm / Dis + a single Roll button. No separate dice tray.</p>
+
+      <dl class="spec-list">
+        <dt>App bar <span class="pin">48pt · fixed</span></dt>
+        <dd>Campaign title, chapter, time-counter <code>t=37/50</code>. Settings <code>≡</code> right-aligned. Time-counter is the chapter scarcity timer — never hide it.</dd>
+
+        <dt>Vital strip + pull handle <span class="pin">64pt + 22pt · fixed</span></dt>
+        <dd>Max 4 chips (HP · Eva · Init · most-pressing condition). Pill chips ≥44pt tap target. Handle is a real button (aria-label, focusable) — tap or drag.</dd>
+
+        <dt>Story stack <span class="pin">flexible · scroll</span></dt>
+        <dd><code>role="log"</code> <code>aria-live="polite"</code>. Speakers differ by border style, alignment AND a text label — GM solid-left, You tinted-right, System dashed-full-width. Each card carries an avatar dot + timestamp.</dd>
+
+        <dt>Scene marker <span class="pin">decorative</span></dt>
+        <dd>Hairline divider with caption when the GM signals a scene change. Optional; safely ignorable.</dd>
+
+        <dt>Composer <span class="pin">56pt + safe-area · fixed bottom</span></dt>
+        <dd><code>+</code> opens the utility menu (free roll · cast · short / long rest · use item · note). Send <code>▶</code> is the primary action. Both ≥44×44pt.</dd>
+
+        <dt>Pull-down sheet</dt>
+        <dd>Drag the vital-strip handle ↓ to reveal the Sheet over chat. Chat stays mounted behind (dimmed). Composer remains visible. Pull back up to close. See states <b>G &amp; H</b>.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <h3 class="state-header"><span>A · States</span><span class="sub">8 states · 320px</span></h3>
+
+  <div class="variants">
+
+    <!-- A1 · GM asks for a save (refined version of the canonical state) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A1 · GM asks for a save</span><span class="tag">in-chat roll</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>19:44</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=37/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">28<span class="mono xs" style="color:var(--ink-3)">/34</span></span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">!</span><span class="k">Prone</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">19:44</span></div>
+            <div class="body sm" style="margin-top:3px">As you shift your weight, a wire across the wheel hub catches the light.</div>
+          </div>
+          <!-- GM-prompted roll card -->
+          <div class="box dashed thin">
+            <div class="card-head"><div class="dice-glyph"></div><span class="lbl">System · GM asks for a roll</span><span class="ts">19:44</span></div>
+            <div class="row sb" style="margin-top:4px">
+              <span class="h sm">Wit save</span>
+              <span class="pill tint mono xs">DC 10</span>
+            </div>
+            <div class="mono xs" style="color:var(--ink-3);margin-top:2px">d20 + Wit (+0) · source: tripwire trap</div>
+            <!-- READ-ONLY adv/dis indicator set by the GM/system (not player-selectable) -->
+            <div class="row" style="gap:6px;align-items:center;margin-top:6px;padding:5px 8px;border:1.25px solid var(--ink);border-radius:6px;background:var(--paper-3)">
+              <span class="mono xs" style="font-weight:700;letter-spacing:.14em">• NORMAL ROLL</span>
+              <span class="mono xs" style="color:var(--ink-3);margin-left:auto">set by GM</span>
+            </div>
+            <button class="btn solid" style="margin-top:6px;width:100%">▶ Roll d20 + 0 Wit</button>
+            <div class="lbl" style="margin-top:4px;text-align:center">crit on nat-20 · fail on nat-1</div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Anatomy:</b> name · DC · formula · source · <b>system-set adv indicator</b> · primary [Roll] · crit footer. Adv / Norm / Dis is informational — it's determined by the GM (rules, conditions, fiction); the player does not pick it. One card, one tap.</p>
+    </div>
+
+    <!-- A2 · Attack roll with system-granted Advantage -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A2 · Attack · Adv granted</span><span class="tag">2d20 take-higher</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>19:45</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=38/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">28/34</span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip" style="flex:1"><span class="v">—</span><span class="k">Cond</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">19:45</span></div>
+            <div class="body sm" style="margin-top:3px">She lunges — but her footing is wrong. Off-balance.</div>
+          </div>
+          <div class="box dashed thin">
+            <div class="card-head"><div class="dice-glyph"></div><span class="lbl">System · GM asks for a roll</span><span class="ts">19:45</span></div>
+            <div class="row sb" style="margin-top:4px">
+              <span class="h sm">Attack</span>
+              <span class="pill tint mono xs">vs Eva 13</span>
+            </div>
+            <div class="mono xs" style="color:var(--ink-3);margin-top:2px">d20 + Mig (+2) · Longsword</div>
+            <!-- READ-ONLY adv indicator (system-granted) -->
+            <div class="row" style="gap:6px;align-items:center;margin-top:6px;padding:5px 8px;border:1.5px solid var(--ink);border-radius:6px;background:var(--ink);color:var(--paper)">
+              <span class="mono xs" style="font-weight:700;letter-spacing:.14em">↑ ADVANTAGE</span>
+              <span class="mono xs" style="color:var(--paper-3);margin-left:auto">target mid-swing</span>
+            </div>
+            <div class="mono xs" style="color:var(--ink-3);margin-top:4px;text-align:center">system rolls 2d20, keeps higher</div>
+            <button class="btn solid" style="margin-top:6px;width:100%">▶ Roll 2d20 + 2 Mig (Adv)</button>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>System-set state:</b> the GM granted Advantage — the player sees it as a labeled banner with the reason. <b>Disadvantage</b> renders the same shape, inverted: <code>↓ DISADVANTAGE — you are Prone</code>. The player can never toggle it; engine derives it from rules + the GM's call.</p>
+    </div>
+
+    <!-- A3 · Roll result · Crit nat-20 -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A3 · Crit result</span><span class="tag">nat-20</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>19:46</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=38/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">28/34</span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip" style="flex:1"><span class="v">—</span><span class="k">Cond</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <!-- result card · dark / emphasized -->
+          <div class="box dark">
+            <div class="card-head"><div class="dice-glyph" style="border-color:var(--paper);color:var(--paper)"></div><span class="lbl" style="color:var(--paper-3)">System · result</span><span class="ts" style="color:var(--paper-3)">19:46</span></div>
+            <div class="row" style="margin-top:4px;gap:6px;align-items:baseline">
+              <span class="num" style="font-size:34px">20</span>
+              <span class="pill" style="background:var(--paper);color:var(--ink);border-color:var(--paper)">✦ NAT 20</span>
+            </div>
+            <div class="mono xs" style="color:var(--paper-3);margin-top:4px">2d20 (Adv) = 20, 14 · take 20 · +Mig +2 = <b>22</b> vs Eva 13 — hit</div>
+            <div class="mono xs" style="color:var(--paper-3);margin-top:4px;border-top:1px dashed var(--paper-3);padding-top:4px">crit damage: max d8 (8) + roll d8 (5) + Mig (+2) once</div>
+            <div class="row sb" style="margin-top:4px">
+              <span class="lbl" style="color:var(--paper-3)">Damage</span>
+              <span class="num sm" style="color:var(--paper)">15</span>
+            </div>
+          </div>
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">19:46</span></div>
+            <div class="body sm" style="margin-top:3px">Steel parts cloth and bone. She drops to one knee, sword arm useless.</div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Crit card:</b> inverted (dark) for emphasis · ✦ marker · full breakdown of dice + crit math · damage total surfaced explicitly so GM doesn't need to compute.</p>
+    </div>
+
+    <!-- A4 · Cast prompt (Mage) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A4 · Cast a spell</span><span class="tag">Mage / Bard</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>20:11</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Salt &amp; Smoke</div><div class="sub">Ch.1 · t=46/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">12/14</span><span class="k">HP</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">5/7</span><span class="k">MP</span></div>
+            <div class="chip" style="flex:1"><span class="v">11</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+0</span><span class="k">Init</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">20:11</span></div>
+            <div class="body sm" style="margin-top:3px">"Cast something pretty," the captain sneers. The smell of pitch is heavy.</div>
+          </div>
+          <div class="box dashed thin">
+            <div class="card-head"><div class="dice-glyph"></div><span class="lbl">System · GM asks · cast</span><span class="ts">20:11</span></div>
+            <div class="row sb" style="margin-top:4px">
+              <span class="h sm">Choose tier</span>
+              <span class="pill tint mono xs">MP 5/7</span>
+            </div>
+            <div class="seg" style="margin-top:6px"><div class="on">Minor 1MP</div><div>Major 2MP</div><div style="opacity:.45">Mythic ✗</div></div>
+            <div class="mono xs" style="color:var(--ink-3);margin-top:4px">Mythic locked · unlocks at Lv 8 (you: Lv 3)</div>
+            <!-- spell list -->
+            <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+              <div class="row sb" style="border:1.25px solid var(--ink);border-radius:6px;padding:5px 7px">
+                <span class="h sm">Glamour Step</span><span class="mono xs">d20+Pre vs Eva</span>
+              </div>
+              <div class="row sb" style="border:1.25px solid var(--ink);border-radius:6px;padding:5px 7px;background:var(--paper-3)">
+                <span class="h sm">Lull</span><span class="mono xs">d20+Wit · sleep</span>
+              </div>
+            </div>
+            <button class="btn solid" style="margin-top:6px;width:100%">▶ Cast Glamour Step (1 MP)</button>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Cast prompt:</b> tier picker first (Minor / Major / Mythic) · locked tiers visible with reason · spell list filters to chosen tier · single Cast button rolls the spell d20.</p>
+    </div>
+
+    <!-- A5 · Boss HP=0 overlay -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A5 · Boss · HP 0</span><span class="tag">decisive</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>20:34</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=29/50 · BOSS</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--ink);color:var(--paper);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip solid" style="flex:1;border-color:var(--paper)"><span class="v">0</span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip" style="flex:1"><span class="v">!</span><span class="k">Down</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px;opacity:.55">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--paper-3);"></div>
+            <div class="mono xs" style="color:var(--paper-3);letter-spacing:.1em">sheet locked during boss zero-state</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px;opacity:.4;pointer-events:none">
+          <div class="box thin"><div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span></div><div class="body sm">The hammer falls. Your vision narrows.</div></div>
+        </div>
+        <!-- overlay banner -->
+        <div style="position:absolute;left:8px;right:8px;bottom:8px;border:2px solid var(--ink);border-radius:14px;background:var(--paper);padding:10px 12px;box-shadow:0 -4px 0 rgba(0,0,0,.10)">
+          <div class="row sb"><span class="lbl">BOSS · zero state</span><span class="mono xs">non-boss → auto-recover</span></div>
+          <div class="h md" style="margin-top:2px">Brennick is down. Choose:</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+            <button class="btn solid lg" style="width:100%;text-align:left;padding:10px 12px;flex-direction:column;align-items:flex-start">
+              <span>⚔ Blaze of Glory</span>
+              <span class="mono xs" style="color:var(--paper-3);font-weight:400;letter-spacing:.04em">auto-crit single action · then die</span>
+            </button>
+            <button class="btn lg" style="width:100%;text-align:left;padding:10px 12px;flex-direction:column;align-items:flex-start">
+              <span>⌖ Risk It All</span>
+              <span class="mono xs" style="color:var(--ink-3);font-weight:400;letter-spacing:.04em">roll d20 · nat-20 → 5 HP, continue · else die</span>
+            </button>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Decisive moment:</b> blocks chat & sheet until chosen. App bar flips dark to signal boss-zero. Non-boss HP=0 falls through to silent auto-recovery (no modal).</p>
+    </div>
+
+    <!-- A6 · Composer + menu open -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A6 · Composer · "+" menu</span><span class="tag">utility actions</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>21:02</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=41/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">22/34</span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip" style="flex:1"><span class="v">—</span><span class="k">Cond</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:6px;opacity:.4;pointer-events:none">
+          <div class="box thin"><div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span></div><div class="body sm">The wagon creaks to a stop. Dust settles.</div></div>
+        </div>
+        <!-- menu overlay -->
+        <div style="position:absolute;left:8px;right:8px;bottom:62px;border:2px solid var(--ink);border-radius:14px;background:var(--paper);padding:6px;box-shadow:0 -3px 0 rgba(0,0,0,.08)">
+          <div class="lbl" style="padding:4px 8px 2px">Add to chat</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <button class="btn" style="justify-content:flex-start;padding:8px 10px;font-size:13px">◇ Free roll</button>
+            <button class="btn" style="justify-content:flex-start;padding:8px 10px;font-size:13px">✦ Cast spell</button>
+            <button class="btn" style="justify-content:flex-start;padding:8px 10px;font-size:13px">☼ Short rest <span class="mono xs" style="color:var(--ink-3);margin-left:4px">t−1</span></button>
+            <button class="btn" style="justify-content:flex-start;padding:8px 10px;font-size:13px">☾ Long rest <span class="mono xs" style="color:var(--ink-3);margin-left:4px">t−5</span></button>
+            <button class="btn" style="justify-content:flex-start;padding:8px 10px;font-size:13px">⌘ Use item</button>
+            <button class="btn ghost" style="justify-content:flex-start;padding:8px 10px;font-size:13px">✎ Note (OOC)</button>
+          </div>
+          <div class="lbl" style="text-align:center;margin-top:4px">most rolls flow from GM prompts in chat</div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" style="background:var(--ink);color:var(--paper)" aria-label="Close menu">×</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Utility menu:</b> player-initiated actions live here so they don't pollute chat. Rests show their time-counter cost inline. "+" flips to "×" while open.</p>
+    </div>
+
+    <!-- A7 · Sheet pulling down (embedded — stats row moves; char header reveals above) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A7 · Pulling sheet</span><span class="tag">embedded · mid-gesture</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>19:50</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=38/50</div></div>
+          <div class="btn-ico" aria-label="Menu">≡</div>
+        </div>
+
+        <!-- CHAR HEADER (peeking — phase 1 partial) -->
+        <div style="background:linear-gradient(180deg,var(--paper-3),var(--paper-2));border-bottom:1.5px solid var(--ink);padding:6px 12px 8px;position:relative">
+          <div class="row sb">
+            <div>
+              <div class="lbl">Character</div>
+              <div class="h sm">Brennick</div>
+              <div class="mono xs" style="color:var(--ink-3);margin-top:1px">Warrior · Lv 4</div>
+            </div>
+            <div style="text-align:right">
+              <div class="lbl">XP → 5</div>
+              <div class="mono xs" style="color:var(--ink-3)">680/1000</div>
+              <div class="bar" style="width:70px;margin-top:3px"><i style="width:68%"></i></div>
+            </div>
+          </div>
+          <span class="annot" style="top:4px;right:8px;font-size:8px">REVEALED</span>
+        </div>
+
+        <!-- STATS ROW (anchored visually, pushed down by char-header height) -->
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink);padding:6px 8px 4px">
+          <div style="display:flex;gap:4px">
+            <div class="chip" style="flex:1"><span class="v">28<span class="mono xs" style="color:var(--ink-3)">/34</span></span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">!</span><span class="k">Prone</span></div>
+          </div>
+        </div>
+
+        <!-- SHEET BOT (just beginning to reveal — phase 2 ~25%) -->
+        <div style="background:var(--paper);border-bottom:1.5px solid var(--ink);padding:6px 10px;max-height:54px;overflow:hidden;position:relative">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+            <div class="chip"><span class="v">+2</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Fin</span></div>
+            <div class="chip"><span class="v">0</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">-1</span><span class="k">Pre</span></div>
+          </div>
+          <span class="annot" style="top:4px;right:8px;font-size:8px">SHEET BODY · 25%</span>
+        </div>
+
+        <!-- PULL HANDLE (at the boundary; drag-down to keep opening, release before mid-screen to close) -->
+        <div style="background:linear-gradient(180deg, var(--paper-2), transparent);padding:4px 0 5px;border-bottom:1px dashed var(--ink-3)">
+          <div style="width:48px;height:5px;border-radius:99px;background:var(--ink);margin:0 auto"></div>
+          <div class="mono xs" style="text-align:center;color:var(--ink-2);letter-spacing:.14em;margin-top:2px">▾ KEEP PULLING (↑ release before mid-screen to close)</div>
+        </div>
+
+        <!-- chat — in normal flow, pushed down by expanding sheet -->
+        <div class="scroll" style="gap:6px">
+          <div class="box thin" style="opacity:.85">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">19:50</span></div>
+            <div class="body sm" style="margin-top:3px">"Drop the satchel — last warning."</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Embedded mid-pull:</b> char header reveals <i>above</i> stats; ability scores begin to reveal <i>below</i> stats. Chat stays in flow and gets pushed down — not dimmed or overlaid. Release with finger past mid-screen → snaps fully open; before → snaps back to resting.</p>
+    </div>
+
+    <!-- A8 · Sheet fully expanded (embedded — char header + stats + ability scores + combat, chat sliver below) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A8 · Sheet expanded</span><span class="tag">embedded · fully open</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>19:51</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Hollow Pact</div><div class="sub">Ch.3 · t=38/50</div></div>
+          <div class="btn-ico" aria-label="Menu">≡</div>
+        </div>
+
+        <!-- CHAR HEADER (phase 1) -->
+        <div style="background:linear-gradient(180deg,var(--paper-3),var(--paper-2));border-bottom:1.5px solid var(--ink);padding:7px 12px">
+          <div class="row sb">
+            <div>
+              <div class="lbl">Character</div>
+              <div class="h sm">Brennick</div>
+              <div class="mono xs" style="color:var(--ink-3);margin-top:1px">Warrior · Lv 4</div>
+            </div>
+            <div style="text-align:right">
+              <div class="lbl">XP → 5</div>
+              <div class="mono xs" style="color:var(--ink-3)">680/1000</div>
+              <div class="bar" style="width:70px;margin-top:3px"><i style="width:68%"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink);padding:6px 8px">
+          <div style="display:flex;gap:4px">
+            <div class="chip" style="flex:1"><span class="v">28/34</span><span class="k">HP</span></div>
+            <div class="chip" style="flex:1"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+1</span><span class="k">Init</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">!</span><span class="k">Prone</span></div>
+          </div>
+        </div>
+
+        <!-- SHEET BODY (phase 2 — fully revealed) -->
+        <div style="background:var(--paper);border-bottom:1.5px solid var(--ink);padding:6px 10px 8px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+            <div class="chip"><span class="v">+2</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Fin</span></div>
+            <div class="chip"><span class="v">0</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">-1</span><span class="k">Pre</span></div>
+          </div>
+          <div class="seg" style="border-radius:6px">
+            <div>Stats</div><div class="on">Combat</div><div>Abil</div><div>Inv</div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Longsword</span><span class="pill">Mig</span></div>
+            <div class="mono xs" style="color:var(--ink-3)">d8 + Mig · martial</div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Chainmail</span><span class="pill">+2 Eva</span></div>
+            <div class="mono xs" style="color:var(--ink-3)">Heavy · Warrior</div>
+          </div>
+        </div>
+
+        <!-- PULL HANDLE (now at bottom of sheet body; drag up to close) -->
+        <div style="background:linear-gradient(180deg, var(--paper-2), transparent);padding:4px 0 5px;border-bottom:1px dashed var(--ink-3)">
+          <div style="width:48px;height:5px;border-radius:99px;background:var(--ink);margin:0 auto"></div>
+          <div class="mono xs" style="text-align:center;color:var(--ink-2);letter-spacing:.14em;margin-top:2px">▴ PULL UP TO CLOSE</div>
+        </div>
+
+        <!-- chat sliver (small, still active) -->
+        <div class="scroll" style="gap:4px;padding:6px 10px">
+          <div class="box thin" style="font-size:11px;padding:5px 8px">
+            <div class="card-head" style="margin-bottom:0"><div class="avat solid" style="width:14px;height:14px;font-size:8px"><span>G</span></div><span class="lbl" style="font-size:8px">GM</span><span class="ts" style="font-size:8px">19:51</span></div>
+            <div class="body sm" style="font-size:10.5px;margin-top:2px">A bolt thunks the cart inches from your head.</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">act…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Embedded fully open:</b> char header, stats, ability scores, and combat panels all stacked in flow. Chat is compressed but still active and scrollable. Drag the handle up past mid-screen → collapses back to resting (only stats row visible).</p>
+    </div>
+
+  </div>
+
+
+  <div class="ascii-wrap">
+    <details class="ascii" open><summary>ASCII wireframe — Live Session (canonical layout)</summary>
+<pre class="ascii">
+┌──────────────────────────────┐
+│ ▒ status bar                ▒│
+├──────────────────────────────┤
+│ APP BAR                      │  fixed
+│ Hollow Pact   Ch3·t=37  [≡] │
+├──────────────────────────────┤
+│ VITAL STRIP                  │  fixed
+│ [HP 28/34][Eva14][Init+1][!] │
+│ ──── ▬▬▬▬ ────   ▼ pull     │  grab handle → embedded Sheet
+├──────────────────────────────┤
+│ STORY STACK            ▲ scroll
+│ ┌─GM────────────────────────┐│
+│ │ "Drop the satchel..."     ││
+│ └───────────────────────────┘│
+│      ┌─You──────────────────┐│
+│      │ I dive behind cart   ││
+│      └──────────────────────┘│
+│ ┌─SYSTEM · GM asks for roll─┐│
+│ │ Wit save — d20+Wit DC10   ││
+│ │ • NORMAL ROLL  (set by GM)││  ← read-only indicator
+│ │ [▶ Roll d20 + 0 Wit     ] ││  ← roll button
+│ └───────────────────────────┘│
+│ ┌─SYSTEM · result───────────┐│
+│ │ d20=14 +0 Wit = 14 ✓ pass ││
+│ └───────────────────────────┘│
+├──────────────────────────────┤
+│ COMPOSER                     │  fixed bottom
+│ [ say or do something…  ][▶]│  ("+" → free-roll tray)
+└──────────────────────────────┘
+
+PULL-DOWN GESTURE on the vital strip
+   rest          pulling          expanded
+ [ vital   ]    [ vital   ]      [ vital   ]
+   ▼ pull       [ stats   ]      [ stats   ]
+                  ▼ more          [ tabs    ]
+                                 [ body... ]
+                                    ▲ close
+Sheet expands INLINE — char header reveals above
+the stats row (phase 1), ability scores + combat
+reveal below the stats row (phase 2). Chat is
+pushed down (not overlaid); composer stays at the
+bottom. Threshold = finger past mid-screen at
+release.
+</pre>
+</details>
+  </div>
+
+  <div class="columns">
+    <div class="col-card">
+      <h3>UX failures to avoid @ 320px</h3>
+      <ul>
+        <li>GM-prompted roll cards are the primary roll surface — they must include the formula (d20 + stat vs DC) AND a <b>read-only Adv/Norm/Dis indicator</b> set by the system. Never expose Adv/Dis as a player toggle.</li>
+        <li>Composer collapses behind the iOS keyboard — must use <code>visualViewport</code> / <code>env(safe-area-inset-bottom)</code> and keep input above it.</li>
+        <li>Vital strip sized for desktop — at 320px you have room for 3 chips comfortably, 4 if compact; no 5+.</li>
+        <li>Pull-down handle too small / no visible affordance — must show a 44pt-wide bar plus a "▼ pull" label so it reads as a gesture, not a chevron icon.</li>
+        <li>Sheet rendered as an overlay over chat — must be <b>in flow</b>: stats row stays in place, char header reveals above, ability scores + combat reveal below. Chat is pushed down (and shrinks), never dimmed or covered.</li>
+        <li>Free-roll tray (composer "+") used for routine rolls — it's the escape hatch, not the default. Most rolls flow through GM prompts in chat.</li>
+        <li>Speakers indistinguishable. GM / You / System must differ by border-style, alignment, AND label, not just color (grayscale wireframes don't have it).</li>
+        <li>Time-counter (50-baseline) hidden in a menu — must live in the app bar; it's the chapter-wide scarcity timer.</li>
+        <li>Roll result lost in the scroll — sticky "last roll" toast for ~3s after a roll resolves.</li>
+        <li>Casting a spell at a tier the caster hasn't unlocked silently fails — the in-chat Cast prompt must lock with explainer.</li>
+        <li>Boss-battle 0-HP state same as normal — must trigger a distinct overlay (Blaze of Glory · Risk It All).</li>
+      </ul>
+    </div>
+    <div class="col-card">
+      <h3>Accessibility / focus</h3>
+      <ul>
+        <li>Focus order: app bar → vital strip / pull handle → most recent transcript card → in-chat roll controls (when present) → composer.</li>
+        <li>New transcript items use role="log" aria-live="polite"; rolls announce result text ("d20 14 plus 0 Wit equals 14, pass").</li>
+        <li>Pull-down handle is a real button with aria-label "Open character sheet"; activates on tap as well as drag for keyboard / switch-control users.</li>
+        <li>In-chat roll button is a single primary action; the Adv/Norm/Dis indicator next to it is a <code>role="status"</code> badge, not an interactive control. Adv/Dis state and reason are announced when the prompt appears.</li>
+        <li>Composer Send button is a real button with aria-label "Send action"; long-press surfaces secondary verbs.</li>
+        <li>Conditions are listed as text in the chip ("Prone"), not symbol-only.</li>
+        <li>Keyboard-ish: Esc closes overlays/tray, returns focus to the trigger; ↑/↓ moves between transcript cards.</li>
+        <li>Dense UI contrast: chip ink 1.5px stroke on paper ≥ 7:1; mono labels ≥ 4.5:1 at 12px+.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     SHEET OVERLAY
+     ========================================================= -->
+<section class="screen-block" data-screen="sheet" data-screen-label="03 Sheet">
+  <div class="screen-intro">
+    <h2>3 · Character Sheet — embedded in Session</h2>
+    <div style="grid-column:1 / -1;border:1.5px dashed var(--ink-3);background:var(--paper-3);padding:8px 12px;margin-bottom:4px;font-size:13px;line-height:1.4">
+      <b>Note:</b> the sheet is no longer a separate screen. It's embedded in Session and revealed by pulling the stats row down (see <b>Session A7 &amp; A8</b>). The mocks below document the <b>sheet's content and tabs</b> for engineering reference — not a standalone route.
+    </div>
+    <div>
+      <h3>Primary jobs</h3>
+      <ul>
+        <li>Look up a stat / ability / spell mid-session in &lt; 5s without losing Story</li>
+        <li>See HP, mana, Evasion, conditions, XP-to-next at a glance</li>
+        <li>Read a class ability or spell description in full</li>
+        <li>Trigger a roll for an item / spell / saving throw without copy-paste</li>
+        <li>Confirm a level-up choice (HP / Evasion / Class ability) when XP threshold crossed</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Always visible</h3>
+      <ul>
+        <li>Character header: name, class, level, XP bar</li>
+        <li>Stat block: Mig / Fin / Wit / Pre with modifiers</li>
+        <li>HP · Mana · Evasion summary row (this is the same stats row from Session)</li>
+        <li>Pull-handle for closing (drag up past mid-screen)</li>
+      </ul>
+      <h3 style="margin-top:10px">Swipe / tabs</h3>
+      <ul>
+        <li>Tabs: Combat · Spells · Inventory · Abilities · Notes (Mig/Fin/Wit/Pre row above tabs; elevated tab bar per theme)</li>
+        <li>Spell/ability detail opens as accordion expand, not a new route</li>
+        <li>"Roll from sheet" stays inline — uses the same roll tray as Session</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Component inventory (rules-grounded)</h3>
+      <ul>
+        <li><b>Stat block</b>: 4 stats; modifiers only (+2 / +1 / 0 / −1 starting layout shown explicitly)</li>
+        <li><b>HP / Mana / Evasion / Initiative</b> chips with formula tooltip</li>
+        <li><b>Conditions</b> drawer: Poisoned · Stunned · Frightened · Restrained · Prone (effect + removal)</li>
+        <li><b>Combat block</b>: saving throws first (10 + stat), then weapons (stat, damage), armor (Light/Medium/Heavy w/ class restriction)</li>
+        <li><b>Abilities tab</b>: starting ability + level-up picks (level/tier locked rows greyed)</li>
+        <li><b>Spells tab</b> (Mage/Bard): tier columns Minor/Major/Mythic with cost 1/2/3; tier locks by class+level</li>
+        <li><b>Inventory</b>: currency CP · SP · GP · PP (separate values); carried items; active weapon</li>
+        <li><b>Rest</b> buttons: ☼ Short (day nap) / ☾ Long (overnight) — HP, MP, time-counter cost</li>
+        <li><b>Level-up modal</b>: HP (Fixed (hd÷2)+Mig vs Roll hd+Mig) · Evasion +1 · Class ability</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="variants">
+
+    <!-- Sheet A: Tabs -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A · Tabbed sheet</span><span class="tag">classic</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Brennick</div><div class="sub">Warrior · Lv 4</div></div>
+          <div class="btn-ico" aria-label="Close back to story">×</div>
+        </div>
+        <div style="padding:8px 10px;border-bottom:1.5px solid var(--ink);background:var(--paper-2)">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+            <div class="chip"><span class="v">+2</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Fin</span></div>
+            <div class="chip"><span class="v">0</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">-1</span><span class="k">Pre</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px">
+            <div class="chip"><span class="v">28/34</span><span class="k">HP</span></div>
+            <div class="chip"><span class="v">14</span><span class="k">Eva</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Init</span></div>
+          </div>
+        </div>
+        <div class="seg" style="margin:8px 10px 0;border-radius:8px">
+          <div>Stats</div><div class="on">Combat</div><div>Abil</div><div>Inv</div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="lbl">saving throws (10 + stat)</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+            <div class="chip"><span class="v">12</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">11</span><span class="k">Fin</span></div>
+            <div class="chip"><span class="v">10</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">9</span><span class="k">Pre</span></div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Longsword</span><span class="pill">Mig</span></div>
+            <div class="mono xs" style="color:var(--ink-3)">d8 + Mig · martial</div>
+            <button class="btn" style="margin-top:6px;width:100%">▶ Attack — d20 +2 +1</button>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Shortbow</span><span class="pill">Fin</span></div>
+            <div class="mono xs" style="color:var(--ink-3)">d6 + Fin</div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Armor · Chainmail</span><span class="pill">+2 Eva</span></div>
+            <div class="mono xs" style="color:var(--ink-3)">Heavy · Warrior only</div>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> familiar 4-tab sheet, sticky stat/HP header, every weapon row rolls inline. Cheap to implement.</p>
+    </div>
+
+    <!-- Sheet B: Accordion -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">B · Accordion</span><span class="tag">single-scroll</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Iolan</div><div class="sub">Mage · Lv 3</div></div>
+          <div class="btn-ico" aria-label="Close">×</div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+            <div class="chip"><span class="v">-1</span><span class="k">Mig</span></div>
+            <div class="chip"><span class="v">0</span><span class="k">Fin</span></div>
+            <div class="chip solid"><span class="v">+2</span><span class="k">Wit</span></div>
+            <div class="chip"><span class="v">+1</span><span class="k">Pre</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
+            <div class="chip"><span class="v">12/14</span><span class="k">HP</span></div>
+            <div class="chip"><span class="v">8/9</span><span class="k">MP</span></div>
+            <div class="chip"><span class="v">11</span><span class="k">Eva</span></div>
+          </div>
+
+          <div class="box">
+            <div class="row sb"><span class="h sm">▾ Combat</span><span class="mono xs">d20 + stat + abil</span></div>
+            <div class="mono xs" style="margin-top:4px;color:var(--ink-3)">Init +0 Fin · save = 10 + stat</div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">▾ Spells</span><span class="mono xs">Tier 1 ✓ · 2 ✓ · 3 ✗</span></div>
+            <div class="row" style="gap:5px;margin-top:6px;flex-wrap:wrap">
+              <span class="pill">Minor · 1MP</span>
+              <span class="pill">Minor · 1MP</span>
+              <span class="pill">Major · 2MP</span>
+              <span class="pill" style="opacity:.45;border-style:dashed">Mythic · lv 6+</span>
+            </div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">▸ Abilities</span><span class="mono xs">2 picked</span></div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">▸ Inventory</span><span class="mono xs">10 gp · slots</span></div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">▸ Rest</span><span class="mono xs">short t−1 · long t−5</span></div>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> one scroll, no tabs to lose. Sections expand in place — fewer state transitions during play.</p>
+    </div>
+
+    <!-- Sheet C: Spells-forward (caster) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">C · Caster console</span><span class="tag">Mage/Bard</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Wren</div><div class="sub">Bard · Lv 6</div></div>
+          <div class="btn-ico" aria-label="Close">×</div>
+        </div>
+        <div style="padding:8px 10px;border-bottom:1.5px solid var(--ink);background:var(--paper-2)">
+          <div class="row sb"><span class="lbl">Mana</span><span class="mono xs">3+lv+Pre</span></div>
+          <div class="row" style="gap:4px;margin-top:4px">
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">1</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">2</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">3</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">4</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">5</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">6</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">●</span><span class="k">7</span></div>
+            <div class="chip" style="flex:1"><span class="v">○</span><span class="k">8</span></div>
+            <div class="chip" style="flex:1"><span class="v">○</span><span class="k">9</span></div>
+            <div class="chip" style="flex:1"><span class="v">○</span><span class="k">10</span></div>
+          </div>
+        </div>
+        <div class="seg" style="margin:8px 10px 0;border-radius:8px">
+          <div class="on">Minor 1</div><div>Major 2</div><div>Mythic 3</div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="box">
+            <div class="row sb"><span class="h sm">Glamour Step</span><span class="pill solid">1 MP</span></div>
+            <div class="body sm" style="margin-top:4px">Cast: d20 + Pre +1 vs target Eva. On hit: target Disadv next turn.</div>
+            <button class="btn" style="margin-top:6px;width:100%">▶ Cast</button>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Lull</span><span class="pill">1 MP</span></div>
+          </div>
+          <div class="box thin">
+            <div class="row sb"><span class="h sm">Whisper Mark</span><span class="pill">1 MP</span></div>
+          </div>
+          <div class="box dashed">
+            <div class="row sb"><span class="h sm" style="opacity:.55">Major Tier</span><span class="mono xs">unlocks Lv 4 ✓</span></div>
+          </div>
+          <div class="box dashed">
+            <div class="row sb"><span class="h sm" style="opacity:.55">Mythic Tier</span><span class="mono xs">unlocks Lv 8 ✗</span></div>
+          </div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> casters live in the spell tab. Mana shown as discrete pips; tier locks are visible, not hidden. Bard math (3+lv+Pre) is right there.</p>
+    </div>
+
+    <!-- Sheet D: Level-up modal state -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">D · Level-up state</span><span class="tag">decisive moment</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>9:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Brennick</div><div class="sub">Warrior · Lv 4 → 5</div></div>
+          <div class="btn-ico" aria-label="Close">×</div>
+        </div>
+        <div style="padding:10px 12px;border-bottom:1.5px solid var(--ink);background:var(--ink);color:var(--paper)">
+          <div class="lbl" style="color:var(--paper-3)">Level-up · pick one</div>
+          <div class="h md" style="margin-top:2px">XP 1010 / 1000 ✓</div>
+        </div>
+        <div class="scroll" style="gap:10px">
+          <div class="box">
+            <div class="row sb"><span class="h sm">① HP</span><span class="pill">+Mig</span></div>
+            <div class="body sm" style="margin-top:4px">Choose Fixed or Roll.</div>
+            <div class="seg" style="margin-top:6px"><div class="on">Fixed (hd÷2 +Mig) = 7</div><div>Roll d10 + Mig</div></div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">② Evasion</span><span class="pill">+1</span></div>
+            <div class="body sm" style="margin-top:4px">14 → 15</div>
+          </div>
+          <div class="box">
+            <div class="row sb"><span class="h sm">③ Class ability</span><span class="mono xs">3 options at Lv5</span></div>
+            <div class="body sm" style="margin-top:4px">Pick from Warrior table → opens picker</div>
+            <button class="btn" style="margin-top:6px;width:100%">Browse abilities ▸</button>
+          </div>
+          <button class="btn solid lg">Confirm choice</button>
+          <div class="lbl" style="text-align:center">level-ups happen automatically, only outside battle</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Why:</b> the moment that earns a dedicated state. Three options shown explicitly; the HP sub-choice (Fixed vs Roll) lives inside option ①.</p>
+    </div>
+
+  </div>
+
+  <div class="ascii-wrap">
+    <details class="ascii" open><summary>ASCII wireframe — Sheet overlay (canonical layout)</summary>
+<pre class="ascii">
+┌──────────────────────────────┐
+│ ▒ status bar                ▒│
+├──────────────────────────────┤
+│ APP BAR                      │  fixed
+│ Brennick   War·Lv4      [×] │   close returns to Story
+├──────────────────────────────┤
+│ STATBAR (always visible)     │  fixed
+│ [Mig+2][Fin+1][Wit 0][Pre-1] │
+│ [HP 28/34][Eva 14][Init+1]   │
+├──────────────────────────────┤
+│ TABS                         │  fixed
+│ [Stats][Combat•][Abil][Spel] │
+│ [Inv][Notes]            ▸    │
+├──────────────────────────────┤
+│ TAB BODY                ▲ scroll
+│ ┌─Weapon: Longsword────────┐ │
+│ │ d8 + Mig · martial       │ │
+│ │ [▶ Attack d20 +2 +1]     │ │
+│ └──────────────────────────┘ │
+│ ┌─Weapon: Shortbow─────────┐ │
+│ │ d6 + Fin                 │ │
+│ └──────────────────────────┘ │
+│ ┌─Armor: Chainmail +2 Eva──┐ │
+│ │ Heavy · Warrior only     │ │
+│ └──────────────────────────┘ │
+│ Saves (10 + stat)            │
+│ [12 Mig][11 Fin][10 Wit][9P] │
+│                              │
+│ ── Conditions drawer ──      │
+│ swipe up from bottom for     │
+│ Poisoned/Stunned/Frightened/ │
+│ Restrained/Prone (effect +   │
+│ removal)                     │
+└──────────────────────────────┘
+
+LEVEL-UP STATE (replaces tabs)
+┌──────────────────────────────┐
+│ XP 1010/1000 ✓  Lv 4 → 5    │
+│ ① HP   [Fixed 7][Roll d10+M]│
+│ ② Evasion +1                │
+│ ③ Class ability ▸ picker    │
+│ [Confirm choice]             │
+└──────────────────────────────┘
+</pre>
+</details>
+  </div>
+
+  <div class="columns">
+    <div class="col-card">
+      <h3>UX failures to avoid @ 320px</h3>
+      <ul>
+        <li>Sheet rendered as a separate page or modal route. <b>Must be embedded inline</b> in Session: char header reveals above the stats row, ability scores + combat reveal below it.</li>
+        <li>Stat block reflows to two rows on portrait — keep all four stats on one row at 320px (5px gap, 64px chips).</li>
+        <li>Spell tier locks shown as missing items rather than greyed rows — players need to see what's coming.</li>
+        <li>Mage/Bard mana shown as a number only — pips communicate scarcity faster.</li>
+        <li>Saving-throw values (10+stat) require math at the table — show the calculated number AND the formula.</li>
+        <li>Conditions buried in a sub-tab — must be reachable in 1 tap (swipe-up drawer).</li>
+        <li>"Roll from sheet" opens a different roll system than Session — must reuse the same tray.</li>
+        <li>Level-up choice presented as a notification rather than a blocking state — XP threshold = level-up is automatic, the UI must enforce a choice before returning to Story.</li>
+        <li>Class restrictions on armor (Mage light only, etc.) shown only at character creation — surface as a lock on equip in inventory.</li>
+        <li>Abilities tab shows a flat list — must cluster by Lv 1 / 3 / 5 / 7 / 10 to mirror progression gates.</li>
+      </ul>
+    </div>
+    <div class="col-card">
+      <h3>Accessibility / focus</h3>
+      <ul>
+        <li>Overlay traps focus; Esc / × returns focus to the trigger row in the Story.</li>
+        <li>Tab strip is a real <code>tablist</code>; arrow keys move tabs, Tab moves into panel.</li>
+        <li>Stat chips read as "Might plus 2", "Wit zero", "Presence minus 1" — not just numerals.</li>
+        <li>Roll buttons announce composition: "Attack: d20 plus Might plus 2, plus ability plus 1".</li>
+        <li>Level-up modal is role="dialog" aria-modal="true"; cannot be dismissed by background tap when XP threshold has been crossed.</li>
+        <li>Min tap target 44×44pt for every weapon/spell/ability row; row hit area extends full-width.</li>
+        <li>Use both fill AND label for mana pips ("●" filled, "○" empty + count "5/7").</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     Cursor checklist
+     ========================================================= -->
+<div class="checklist">
+  <button class="copy" onclick="copyChecklist()">⧉ copy</button>
+  <h2>Revision checklist · paste into Cursor</h2>
+  <pre id="checklist">RPG COMPANION — IMPLEMENTATION BREAKDOWN (mobile-first, 320px+)
+
+LAYOUT CONTRACT (do not violate per theme)
+- 2 routes: /lobby · /session. The Character Sheet is <b>embedded inside /session</b> as a two-phase reveal (drag the stats row down). No /sheet route, no bottom tab nav.
+- App bar at top is fixed (with ≡ menu top-right for Lobby · Switch character · Settings); Composer is fixed bottom on Session. Both respect safe-area insets.
+- Themes may swap palette / typography / borders / textures / imagery — never reshuffle navigation, never change region positions.
+
+LOBBY
+- Components: ResumeButton, ActiveCampaignCard, ActiveCharacterCard{Avatar, Name, Class, Level, HPBar, ManaBar?, EvasionChip, XPBar}, CampaignRow{Title, Chapter, TimeCounter}, NewCampaignButton, CharacterSwitcherSheet.
+- Surface PendingLevelUp inline on character/campaign rows when totalXP >= nextThreshold (thresholds: 100,250,500,1000,2000,4000,7000,11000,16000).
+- ManaBar only renders for Mage/Bard.
+- TimeCounter shown as "t=current/max" with rest deltas (-1 short, -5 long) in a tooltip/aside.
+- Resume CTA must sit above the fold at 320×640.
+
+SESSION
+- Regions (top→bottom): AppBar (campaign, chapter, timeCounter) · VitalStrip (HP/MP/Eva/Conditions + pull-down handle for Sheet) · StoryStack (role=log, aria-live=polite) · Composer (fixed). NO separate instruments tray / dice lane.
+- Speakers: GM (left, solid border), You (right, tinted), System (full-width, dashed). Each card carries a text label — never rely on color/alignment alone.
+- Roll surface = the chat itself. When the GM asks for a roll, render a System card with: roll name + formula (d20 + stat vs DC) + <b>read-only Adv/Norm/Dis indicator</b> + a single primary [Roll] button. The button rolls in place and the result lands in the next System card. The Adv/Norm/Dis state is set by the engine (rules, conditions, the GM's call) — never a player toggle.
+- Crit: nat-20 → maxed dice + rolled dice + mods once. Render visibly on the result card.
+- Free-roll escape hatch: composer "+" opens a RollTray bottom sheet (d20 + optional stat + [Roll]). No advantage control on free rolls — those route through the GM if relevant. Intentionally one tap deeper than in-chat prompts — not the default path.
+- Casting: cost picker Minor 1 / Major 2 / Mythic 3 lives on the in-chat Cast prompt; lock by class+level (Mage T2≥3 T3≥6, Bard T2≥4 T3≥8). Locked options visible but disabled with reason.
+- Pull-down sheet: dragging the VitalStrip handle (44pt-wide bar + "▼ pull" label) downward expands the Character Sheet as an overlay over chat. Chat dims (~22% opacity) but stays in place underneath. Composer remains visible at the bottom. Reverse gesture (drag the handle up) dismisses; partial pulls spring back. The handle also acts as a button (tap to open / close) for keyboard / switch-control users — aria-label "Open character sheet".
+- Conditions: Poisoned · Stunned · Frightened · Restrained · Prone — with effect + removal text. Active conditions surface in VitalStrip; full list lives inside the pulled-down Sheet.
+- Boss state at HP=0: full-screen modal with two actions: Blaze of Glory (auto-crit single action then die) · Risk It All (d20; nat-20 → 5 HP and continue, else die). Non-boss HP=0 → autorecover full HP/MP, deduct loot (TBD).
+- Rest controls live inside the pulled-down Sheet (Rest section/tab): Short (HP = hitDie + Mig, MP = d4 + Wit, t -1) · Long (full HP/MP, t -5).
+
+SHEET (embedded in Session — two-phase reveal)
+- Drag the stats row down to expand. Phase 1 (~0..90px): the stats row translates down following the finger, revealing a Character Header row above it (name, class, level, XP bar). Phase 2 (~90..470px): char header and stats stay anchored; below the stats row the body reveals top-down (ability scores → vitals panel → segmented tabs → combat / abilities / spells / inventory panels).
+- Threshold = finger past mid-screen at release → snap fully open; before mid-screen → snap back to resting (only stats row visible). Tapping the handle toggles. Dragging up past mid-screen while open → snap closed.
+- Chat stays in flow underneath — it is pushed down (and shrinks) as the sheet expands. Never dimmed or covered.
+- Char header: name, class, level, XP bar. No close (×) button — dismiss is the drag/tap on the handle.
+- StatBar always visible (the stats row itself): HP / Mana (casters) / Eva / Init OR most-pressing condition chip. Max 4 chips at 320px.
+- Ability scores row: Might / Finesse / Wit / Presence with sign-explicit modifiers (+2/+1/0/-1 starting layout when level 1).
+- Tabs (elevated segmented bar inside sheet body): Combat · Spells (casters only) · Inventory · Abilities · Notes; Mig/Fin/Wit/Pre row fixed above tabs.
+- Combat tab: weapon rows (stat tag, damage dice + stat); armor rows (Eva bonus, class restriction — Mage light only, Ranger/Bard light+medium, Warrior all); saves displayed as numeric (10 + stat).
+- Abilities tab: clustered by level gate (1, 3, 5, 7, 10). Locked rows greyed with unlock requirement.
+- Spells tab: tier filter (Minor 1MP · Major 2MP · Mythic 3MP); locked tiers visible but disabled. Mana shown as filled/empty pips with numeric "current/max".
+- Inventory: currency CP · SP · GP · PP (separate values); carried items; active weapon flag.
+- Rest icons: ☼ Short rest (day nap, t−1) · ☾ Long rest (overnight, t−5).
+- Level-up state: blocking dialog when totalXP crosses threshold. Three choices: HP {Fixed (hd/2)+Mig | Roll hd+Mig} · Evasion +1 · Class ability (opens picker). Cannot resume Story until choice is confirmed. Outside-battle gate enforced by app.
+
+NAVIGATION AWAY FROM SESSION
+- The top-right ≡ menu hosts: Campaigns / Lobby · Switch character · Settings · Sign out. No bottom tab bar.
+
+ALWAYS-VISIBLE / OVERLAY RULES
+- Visible chrome on Session: AppBar, VitalStrip (the stats row), Pull-handle, Composer.
+- Bottom-sheet overlays (Free-roll tray, Conditions modal, CharacterSwitcher) slide up over the Composer; tap-outside or swipe-down dismisses; Esc closes and returns focus.
+- Sheet is <b>embedded</b> in Session (NOT an overlay): dragging the pull-handle down expands char-header + sheet-body in flow. Chat is pushed down (and shrinks). No dimming, no backdrop — the chat remains active.
+
+A11Y / TARGETS
+- Min tap target 44×44pt everywhere. Composer Send 44×44 minimum.
+- StoryStack uses role=log aria-live=polite; each new card gets a screen-reader summary.
+- Stat chips read with sign and full word: "Might plus 2"; class/condition labels never icon-only.
+- RollTray segmented control is a single radiogroup; Adv/Dis state is announced.
+- Level-up dialog is role=dialog aria-modal=true; focus trapped; outside dismiss disabled when XP threshold is unresolved.
+- Color is never the sole signal — speakers, hits/misses, locked rows, conditions all carry text labels and shape/border differences.
+
+DON'T DO (regressions to prevent)
+- Don't add a separate instruments / dice tray on the Session screen. Rolls live in chat (GM prompts) or behind the composer "+" (free roll).
+- Don't render the Sheet as a separate route or full-screen modal — it's embedded in Session as a two-phase reveal from the stats row.
+- Don't show 5+ chips in VitalStrip at 320px — max 4.
+- Don't render mana for non-casters or armor restrictions outside of class context.
+- Don't reshuffle nav per theme. Themes are paint, not architecture.
+- Don't auto-confirm level-up choice; explicit confirm tap required.
+- Don't drop the chapter time counter from the Session app bar — it's the scarcity timer.
+- Don't make the pull-down handle subtle: it needs an explicit grab bar AND "▼ pull" label. A chevron alone fails.
+</pre>
+</div>
+
+</main>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script>
+  // tab switching
+  const tabs = document.querySelectorAll('.tab');
+  const screens = document.querySelectorAll('.screen-block');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', x === t ? 'true' : 'false'));
+    screens.forEach(s => s.classList.toggle('active', s.dataset.screen === t.dataset.screen));
+    window.scrollTo({top: 0, behavior:'smooth'});
+  }));
+
+  function copyChecklist(){
+    const txt = document.getElementById('checklist').innerText;
+    navigator.clipboard?.writeText(txt);
+    const b = document.querySelector('.checklist .copy');
+    const old = b.textContent; b.textContent = '✓ copied'; setTimeout(()=>b.textContent = old, 1200);
+  }
+</script>
+
+<script type="text/babel" data-presets="env,react">
+  // Tweaks panel (density, sketch roughness, screen jump)
+  const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect } = window;
+  function App(){
+    const [t, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
+      "density": "cozy",
+      "rough": "low",
+      "screen": "session"
+    }/*EDITMODE-END*/);
+
+    React.useEffect(() => {
+      document.body.dataset.density = t.density;
+      document.body.dataset.rough = t.rough;
+      // sync screen tab
+      const tabs = document.querySelectorAll('.tab');
+      const screens = document.querySelectorAll('.screen-block');
+      tabs.forEach(x => x.setAttribute('aria-selected', x.dataset.screen === t.screen ? 'true' : 'false'));
+      screens.forEach(s => s.classList.toggle('active', s.dataset.screen === t.screen));
+    }, [t.density, t.rough, t.screen]);
+
+    // also let header tabs persist into tweak state
+    React.useEffect(() => {
+      const tabs = document.querySelectorAll('.tab');
+      const handler = (e) => setTweak('screen', e.currentTarget.dataset.screen);
+      tabs.forEach(x => x.addEventListener('click', handler));
+      return () => tabs.forEach(x => x.removeEventListener('click', handler));
+    }, []);
+
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Screen">
+          <TweakRadio
+            label="Show"
+            value={t.screen}
+            options={[
+              {value:'lobby', label:'Lobby'},
+              {value:'session', label:'Session'},
+              {value:'sheet', label:'Sheet'},
+            ]}
+            onChange={v => setTweak('screen', v)}
+          />
+        </TweakSection>
+        <TweakSection title="Display">
+          <TweakRadio
+            label="Density"
+            value={t.density}
+            options={[
+              {value:'compact', label:'Compact'},
+              {value:'cozy', label:'Cozy'},
+            ]}
+            onChange={v => setTweak('density', v)}
+          />
+          <TweakRadio
+            label="Sketch roughness"
+            value={t.rough}
+            options={[
+              {value:'low', label:'Low'},
+              {value:'med', label:'Med'},
+              {value:'high', label:'High'},
+            ]}
+            onChange={v => setTweak('rough', v)}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    );
+  }
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  ReactDOM.createRoot(root).render(<App/>);
+</script>
+</body>
+</html>
