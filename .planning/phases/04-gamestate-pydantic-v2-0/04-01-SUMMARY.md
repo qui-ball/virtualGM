@@ -113,3 +113,7 @@ Resume signal: "approved" if all three pass; otherwise describe the regression.
 ## TDD Gate Compliance
 
 Task 1 followed RED → GREEN: a `test(...)` commit (a5a63f6) precedes the `feat(...)` commit (d899a9c). No separate REFACTOR commit — the GREEN implementation was already minimal and clean.
+
+## Self-Check: PASSED
+
+All claimed files exist (models.py, test_models.py, turn_engine.py, schemas.py, 04-01-SUMMARY.md) and all four commits (a5a63f6, d899a9c, 5621932, 4c526ff) are present in the git log.
