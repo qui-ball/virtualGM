@@ -104,7 +104,8 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
   4. `GameState.snapshot()` returns exactly the API-facing view (character + enemies + countdowns + in_combat) — no private/runtime fields leak; verified by inspecting the snapshot of a session that has non-empty `_event_queue` and `narrations`.
   5. `backend/cli.py` still starts a session and accepts a turn without crashing (INV-03 smoke); `backend_generalist/` is untouched (INV-04); non-`GameState` Pydantic models are untouched (INV-05).
 **Out of scope (deferred / different milestone)**: No further tool-surface changes (those landed in Phase 3). No SSE wire-format changes (invariant). No changes to `CharacterState`, `EnemyState`, `Stats`, or other Pydantic models. No production hardening (auth / rate limiting / telemetry). No `backend_generalist/` or `frontend/` edits. Auto eval harness for refactor parity is out of milestone scope — user verifies via the golden-path web UI smoke test.
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 04-01-PLAN.md — Promote GameState to BaseModel + .snapshot(), delete GameStateSnapshot/TurnResponse mirror, repoint turn_engine, golden-path UI smoke (STATE-01, STATE-02, STATE-03, INV-01..05)
 
 ## Progress
 
@@ -113,7 +114,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 | 1. Generalist Harness + CLI (v1.0) | 4/4 | Complete | 2026-04-28 |
 | 2. backend-dedup (v2.0) | 2/2 | Complete | 2026-05-20 |
 | 3. tool-surface-consolidation (v2.0) | 2/2 | Complete   | 2026-05-20 |
-| 4. gamestate-pydantic (v2.0) | 0/TBD | Not started | — |
+| 4. gamestate-pydantic (v2.0) | 0/1 | Not started | — |
 
 ## Coverage
 
