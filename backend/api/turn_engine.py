@@ -8,18 +8,8 @@ from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 from agent.runner import run_agent_iter
-from api.schemas import GameStateSnapshot, PendingAction
+from api.schemas import PendingAction
 from game.session import PendingDeferred, Session
-
-
-def _snapshot(session: Session) -> dict:
-    gs = session.game_state
-    return GameStateSnapshot(
-        character=gs.pc,
-        enemies=gs.enemies,
-        countdowns=gs.countdowns,
-        in_combat=gs.in_combat,
-    ).model_dump()
 
 
 def _handle_result(session: Session, result, queue: asyncio.Queue):
@@ -54,7 +44,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
                 "pending_action",
                 {
                     "pending_action": pending.model_dump(),
-                    "game_state": _snapshot(session),
+                    "game_state": session.game_state.snapshot(),
                 },
             )
         )
@@ -66,7 +56,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
             (
                 "complete",
                 {
-                    "game_state": _snapshot(session),
+                    "game_state": session.game_state.snapshot(),
                     "internal_notes": internal_notes,
                 },
             )

@@ -1,8 +1,8 @@
 """API request/response Pydantic models."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from game.models import CharacterState, ConditionName, DiceType, EnemyState
+from game.models import DiceType
 
 
 # -- Requests --
@@ -33,21 +33,6 @@ class PendingAction(BaseModel):
     dice_type: DiceType
     purpose: str
     tool_call_id: str
-
-
-class GameStateSnapshot(BaseModel):
-    character: CharacterState | None = None
-    enemies: dict[str, EnemyState] = Field(default_factory=dict)
-    countdowns: dict[str, int] = Field(default_factory=dict)
-    in_combat: bool = False
-
-
-class TurnResponse(BaseModel):
-    status: str  # "complete" | "pending_action"
-    narrations: list[str] = Field(default_factory=list)
-    pending_action: PendingAction | None = None
-    game_state: GameStateSnapshot
-    internal_notes: str | None = None
 
 
 class CreateSessionResponse(BaseModel):
