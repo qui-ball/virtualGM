@@ -3,7 +3,7 @@
 import asyncio
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 # =============================================================================
 # Dice System
@@ -126,36 +126,48 @@ class EnemyState(BaseModel):
     )
 
 
-class GameState:
+class GameState(BaseModel):
     """Mutable game state shared across tool calls."""
 
-    def __init__(self):
-        # Player character (single player)
-        self.pc: CharacterState | None = None
+    # Player character (single player)
+    pc: CharacterState | None = None
 
-        # Enemies in current encounter
-        self.enemies: dict[str, EnemyState] = {}
+    # Enemies in current encounter
+    enemies: dict[str, EnemyState] = Field(default_factory=dict)
 
-        # Campaign tracking
-        self.time_counter: int | None = None  # Chapter time counter
-        self.countdowns: dict[str, int] = {}  # Named countdowns
+    # Campaign tracking
+    time_counter: int | None = None  # Chapter time counter
+    countdowns: dict[str, int] = Field(default_factory=dict)  # Named countdowns
 
-        # Combat state
-        self.in_combat: bool = False
-        self.is_boss_battle: bool = False
-        self.initiative_order: list[str] = []  # Names in initiative order
-        self.current_turn_index: int = 0
+    # Combat state
+    in_combat: bool = False
+    is_boss_battle: bool = False
+    initiative_order: list[str] = Field(default_factory=list)  # Names in initiative order
+    current_turn_index: int = 0
 
-        # Campaign context management
-        self.campaign_dir: str | None = None  # Path to campaign directory
-        self.loaded_sections: dict[str, str] = {}  # section_path -> content
-        self.max_loaded_sections: int = 3
+    # Campaign context management
+    campaign_dir: str | None = None  # Path to campaign directory
+    loaded_sections: dict[str, str] = Field(default_factory=dict)  # section_path -> content
+    max_loaded_sections: int = 3
 
-        # Narration collection for API mode
-        self.narrations: list[str] = []
+    # Narration collection for API mode — public field, excluded from serialization (D-03)
+    narrations: list[str] = Field(default_factory=list, exclude=True)
 
-        # SSE event queue — set by turn_engine during streaming
-        self._event_queue: asyncio.Queue | None = None
+    # SSE event queue — set by turn_engine during streaming; private, never serialized (D-04)
+    _event_queue: asyncio.Queue | None = PrivateAttr(default=None)
+
+    def snapshot(self) -> dict:
+        """Return the API-facing game-state view as a plain dict.
+
+        Byte-compatible with the (now-removed) GameStateSnapshot mirror:
+        exactly four keys with `pc` renamed to `character` (D-01).
+        """
+        return {
+            "character": self.pc.model_dump() if self.pc else None,
+            "enemies": {k: v.model_dump() for k, v in self.enemies.items()},
+            "countdowns": self.countdowns,
+            "in_combat": self.in_combat,
+        }
 
 
 class EndGameMasterTurn(BaseModel):
