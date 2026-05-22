@@ -6,6 +6,7 @@
  * ContentArea: Main content container with padding and scroll.
  */
 
+export { AppLayout } from './AppLayout';
 export { Header } from './Header';
 export { Navigation, type NavLink } from './Navigation';
 export { ContentArea } from './ContentArea';

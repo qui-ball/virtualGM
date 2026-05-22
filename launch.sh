@@ -8,6 +8,7 @@
 #   ./launch.sh up supabase Start only local Supabase CLI stack (see https://supabase.com/docs/guides/cli)
 #   ./launch.sh down        Stop backend and frontend (if started by this script)
 #   ./launch.sh --wsl up    Same as up, plus run PowerShell to allow mobile devices (WSL2 port forwarding + firewall)
+#   ./launch.sh up --continue-without-supabase   Start backend/frontend even if local Supabase fails
 #   ./launch.sh restart     Full dev restart: stop frontend + Docker + local Supabase, then start again (same as down then up)
 #   ./launch.sh restart backend   Restart only the backend container (frontend left running)
 #   ./launch.sh logs        Docker logs
@@ -29,6 +30,11 @@ SUPABASE_CONFIG="${SCRIPT_DIR}/supabase/config.toml"
 
 # Set to 1 when --wsl is passed; then we run PowerShell for port forwarding + firewall (mobile access)
 LAUNCH_WSL=0
+# Set to 1 with --continue-without-supabase: start backend/frontend even if local Supabase fails
+LAUNCH_CONTINUE_WITHOUT_SUPABASE=0
+# Populated from supabase/config.toml when present
+SUPABASE_API_PORT=54321
+SUPABASE_STUDIO_PORT=55423
 
 # ---------- Colors (no-op if not a TTY) ----------
 RED='\033[0;31m'
@@ -130,6 +136,35 @@ check_port() {
   fi
   warn "Port $port may already be in use ($name). Run ./launch.sh down to stop existing services, or free the port."
   return 1
+}
+
+# On WSL2, Windows (not Linux ss) may hold a port — common with Docker Desktop / portproxy.
+check_windows_port_holder() {
+  local port=$1
+  is_wsl2 || return 1
+  command -v powershell.exe >/dev/null 2>&1 || return 1
+  local out
+  out=$(powershell.exe -NoProfile -Command "Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 3 LocalAddress,LocalPort,OwningProcess" 2>/dev/null | tr -d '\r')
+  if [[ -n "$out" ]]; then
+    err "Windows may be holding port $port (WSL cannot see this in ss/lsof):"
+    echo "$out" | sed 's/^/    /' >&2
+    return 0
+  fi
+  return 1
+}
+
+# Best-effort: who is listening on a TCP port (for error messages).
+describe_port_holder() {
+  local port=$1
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | tail -n +2 | head -5
+    return 0
+  fi
+  if command -v ss >/dev/null 2>&1; then
+    ss -tlnp 2>/dev/null | grep ":$port " | head -3
+    return 0
+  fi
+  echo "(install lsof or ss to see which process holds port $port)"
 }
 
 # ---------- Network (LAN) IP for “same network” devices ----------
@@ -347,18 +382,132 @@ supabase_local_configured() {
   [[ -f "$SUPABASE_CONFIG" ]]
 }
 
+# Read [api].port and [studio].port from supabase/config.toml.
+load_supabase_ports_from_config() {
+  SUPABASE_API_PORT=54321
+  SUPABASE_STUDIO_PORT=55423
+  [[ -f "$SUPABASE_CONFIG" ]] || return 0
+  local api studio
+  api=$(awk '/^\[api\]/{on=1;next} /^\[/{on=0} on && /^port[[:space:]]*=/ {gsub(/[^0-9]/,"",$3); print $3; exit}' "$SUPABASE_CONFIG" 2>/dev/null)
+  studio=$(awk '/^\[studio\]/{on=1;next} /^\[/{on=0} on && /^port[[:space:]]*=/ {gsub(/[^0-9]/,"",$3); print $3; exit}' "$SUPABASE_CONFIG" 2>/dev/null)
+  [[ -n "$api" ]] && SUPABASE_API_PORT="$api"
+  [[ -n "$studio" ]] && SUPABASE_STUDIO_PORT="$studio"
+}
+
+# All `port =` values in supabase/config.toml (API, DB, Studio, Inbucket, Analytics, …).
+supabase_config_ports() {
+  [[ -f "$SUPABASE_CONFIG" ]] || return 0
+  awk '/^port[[:space:]]*=/ { gsub(/[^0-9]/,"",$3); if ($3 != "") print $3 }' "$SUPABASE_CONFIG" 2>/dev/null | sort -u
+}
+
+# Remove stale Supabase Docker resources for this project (CLI stop can leave ghosts).
+supabase_hard_cleanup() {
+  supabase_cli_available || return 0
+  supabase_local_configured || return 0
+  info "Cleaning up local Supabase Docker resources (project: virtualGM) ..."
+  (cd "$SCRIPT_DIR" && supabase stop --yes) >/dev/null 2>&1 || true
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    local ids
+    ids=$(docker ps -aq --filter "name=virtualGM" 2>/dev/null || true)
+    if [[ -n "$ids" ]]; then
+      docker rm -f $ids >/dev/null 2>&1 || true
+    fi
+    docker network rm supabase_network_virtualGM >/dev/null 2>&1 || true
+  fi
+  load_supabase_ports_from_config
+  local p
+  for p in $(supabase_config_ports); do
+    wait_until_port_free "$p" "port $p" 8 || true
+  done
+}
+
+# True when the CLI reports a healthy local stack for this project.
+supabase_is_running() {
+  supabase_cli_available || return 1
+  supabase_local_configured || return 1
+  (cd "$SCRIPT_DIR" && supabase status >/dev/null 2>&1)
+}
+
+# Run supabase start; stream to terminal (tee) and return CLI exit code.
+_run_supabase_start() {
+  local log ec
+  log=$(mktemp "${TMPDIR:-/tmp}/supabase-start.XXXXXX")
+  (cd "$SCRIPT_DIR" && supabase start --yes 2>&1) | tee "$log"
+  ec=${PIPESTATUS[0]}
+  rm -f "$log"
+  return "$ec"
+}
+
+# Explain a failed supabase start (port bind, Docker, etc.).
+_supabase_start_failure_help() {
+  local start_output="${1:-}"
+  local conflict_port=""
+  err "Local Supabase did not start."
+  if echo "$start_output" | grep -qi 'address already in use'; then
+    conflict_port=$(echo "$start_output" | grep -oE '0\.0\.0\.0:([0-9]+)' | head -1 | tr -d '0.0.0.0:')
+    [[ -z "$conflict_port" ]] && conflict_port="$SUPABASE_STUDIO_PORT"
+    err "Cause: Docker could not bind host port ${conflict_port} (see supabase start output above)."
+    if port_is_in_use "$conflict_port"; then
+      err "Linux reports port ${conflict_port} in use:"
+      describe_port_holder "$conflict_port" | sed 's/^/    /' >&2 || true
+    else
+      warn "Port ${conflict_port} looks free inside WSL, but Docker still failed to bind it."
+      check_windows_port_holder "$conflict_port" || true
+      err "Often another Supabase project or Windows portproxy still owns the default Studio port 54323."
+      err "This repo uses Studio port ${SUPABASE_STUDIO_PORT} in supabase/config.toml — confirm that file is saved and retry."
+    fi
+    err "Try:"
+    err "  1. ./launch.sh down          # full cleanup (Supabase + Docker)"
+    err "  2. ./launch.sh up"
+    err "  Or change [studio] port in supabase/config.toml (e.g. 55423) and run up again."
+  elif echo "$start_output" | grep -qi 'docker'; then
+    err "Cause: Docker error. Ensure Docker Desktop/daemon is running, then retry."
+  else
+    warn "supabase start output:"
+    echo "$start_output" | sed 's/^/    /' >&2 || true
+    err "Fix Docker/CLI setup, or use hosted Supabase (see README)."
+  fi
+  if [[ "$LAUNCH_CONTINUE_WITHOUT_SUPABASE" -eq 0 ]]; then
+    err "To start backend/frontend without local Supabase: ./launch.sh up --continue-without-supabase"
+  fi
+}
+
 start_supabase_if_configured() {
   supabase_local_configured || return 0
   if ! supabase_cli_available; then
     warn "supabase/config.toml found but supabase CLI is not in PATH. Install: https://supabase.com/docs/guides/cli — skipping local stack."
     return 0
   fi
+
+  load_supabase_ports_from_config
+
+  if supabase_is_running; then
+    ok "Local Supabase is already running (supabase status OK)."
+    return 0
+  fi
+
+  supabase_hard_cleanup
+
   info "Starting local Supabase (supabase start) ..."
-  if (cd "$SCRIPT_DIR" && supabase start --yes); then
+  local start_output=""
+  start_output=$(_run_supabase_start) || true
+  if supabase_is_running; then
     ok "Local Supabase is running."
     return 0
   fi
-  warn "supabase start failed. Fix Docker/CLI setup or remove supabase/ if you only use hosted Supabase."
+
+  if echo "$start_output" | grep -qi 'address already in use'; then
+    warn "Port conflict during supabase start — hard cleanup and one retry ..."
+    supabase_hard_cleanup
+    sleep 2
+    start_output=$(_run_supabase_start) || true
+    if supabase_is_running; then
+      ok "Local Supabase is running (recovered after hard cleanup + retry)."
+      return 0
+    fi
+  fi
+
+  _supabase_start_failure_help "$start_output"
   return 1
 }
 
@@ -378,12 +527,8 @@ apply_supabase_migrations() {
 stop_supabase_if_configured() {
   supabase_local_configured || return 0
   supabase_cli_available || return 0
-  info "Stopping local Supabase (supabase stop) ..."
-  if (cd "$SCRIPT_DIR" && supabase stop --yes); then
-    ok "Local Supabase stopped."
-  else
-    warn "supabase stop returned an error (stack may already be stopped)."
-  fi
+  supabase_hard_cleanup
+  ok "Local Supabase stopped (CLI + Docker cleanup)."
 }
 
 # Print local Supabase URLs after backend/frontend (hosted project URLs are not available from the CLI).
@@ -499,8 +644,11 @@ cmd_up() {
   if [[ "$want_supabase" -eq 1 ]]; then
     echo ""
     if ! start_supabase_if_configured; then
-      err "Aborting: local Supabase did not start."
-      exit 1
+      if [[ "$LAUNCH_CONTINUE_WITHOUT_SUPABASE" -eq 1 ]]; then
+        warn "Continuing without local Supabase (--continue-without-supabase). Use hosted Supabase env vars in frontend/.env.development if needed."
+      else
+        exit 1
+      fi
     fi
     if ! apply_supabase_migrations; then
       exit 1
@@ -596,11 +744,15 @@ cmd_status() {
 }
 
 # ---------- Main ----------
-# Parse global --wsl before the command
+# Parse global flags before the command
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --wsl)
       LAUNCH_WSL=1
+      shift
+      ;;
+    --continue-without-supabase)
+      LAUNCH_CONTINUE_WITHOUT_SUPABASE=1
       shift
       ;;
     *)
@@ -620,8 +772,9 @@ main() {
     status) cmd_status "$@" ;;
     *)
       err "Unknown command: $cmd"
-      echo "Usage: $0 [--wsl] {up|down|restart|logs|status} [service...]"
+      echo "Usage: $0 [--wsl] [--continue-without-supabase] {up|down|restart|logs|status} [service...]"
       echo "  --wsl    (WSL2 only) Run PowerShell to allow mobile devices (port forwarding + firewall). Use with: $0 --wsl up"
+      echo "  --continue-without-supabase  If local Supabase fails to start, still start backend/frontend (hosted Supabase OK)."
       echo "  up       Start local Supabase (if supabase/config.toml exists) + backend + frontend, or only listed services."
       echo "           Use pseudo-service name 'supabase' for CLI stack only, or combine e.g. 'up backend supabase'."
       echo "  down     Stop backend, frontend, and local Supabase (when no service names given)."

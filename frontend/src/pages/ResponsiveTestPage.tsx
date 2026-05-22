@@ -1,3 +1,4 @@
+import { PlayPrimitivesDemo } from '@/components/play';
 import { useBreakpoint } from '@/hooks';
 import { Button } from '@/components/ui/button';
 
@@ -65,6 +66,13 @@ export function ResponsiveTestPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">
+            Play primitives (WS-2)
+          </h2>
+          <PlayPrimitivesDemo />
         </section>
 
         <section className="space-y-3">

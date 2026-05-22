@@ -18,6 +18,14 @@ export interface Stats {
   presence: number;
 }
 
+/** CP · SP · GP · PP — optional until API ships full purse (WS-8). */
+export interface CoinPurse {
+  copper: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+}
+
 export interface CharacterState {
   name: string;
   character_class: string;
@@ -33,6 +41,8 @@ export interface CharacterState {
   class_abilities: string[];
   spells_known: string[];
   gold: number;
+  /** When set, inventory shows CP/SP/GP/PP; otherwise `gold` displays as GP only. */
+  coin_purse?: CoinPurse;
   inventory: string[];
   equipped_weapon: string | null;
   equipped_armor: string | null;
@@ -61,6 +71,16 @@ export interface PendingAction {
   dice_type: DiceType;
   purpose: string;
   tool_call_id: string;
+  /** Enriched roll UI (API G1 — optional until backend ships). */
+  stat?: string;
+  modifier?: number;
+  dc?: number;
+  vs_label?: string;
+  adv_type?: 'norm' | 'adv' | 'dis';
+  adv_reason?: string;
+  footer?: string;
+  success_text?: string;
+  fail_text?: string;
 }
 
 export interface TurnResponse {
@@ -74,6 +94,7 @@ export interface TurnResponse {
 export interface CreateSessionResponse {
   session_id: string;
   character_name: string;
+  game_state: GameStateSnapshot;
 }
 
 export interface TurnRequest {

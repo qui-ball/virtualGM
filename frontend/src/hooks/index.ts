@@ -5,3 +5,4 @@ export {
   type Breakpoint,
 } from './useBreakpoint';
 export { useChat } from './useChat';
+export { useFocusTrap } from './useFocusTrap';

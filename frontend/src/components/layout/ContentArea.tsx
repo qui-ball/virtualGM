@@ -7,14 +7,14 @@ type ContentAreaProps = {
 };
 
 /**
- * Main content container with consistent padding and scroll handling.
- * Use as the primary scrollable area inside the app layout.
+ * Main content region inside the viewport shell.
+ * Scroll happens here (or in nested play panes), not on the document.
  */
 export function ContentArea({ children, className }: ContentAreaProps) {
   return (
     <main
       className={cn(
-        'min-h-0 flex-1 overflow-auto p-4 md:p-6 lg:p-8',
+        'flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8',
         className
       )}
     >

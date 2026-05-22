@@ -53,6 +53,7 @@ class TurnResponse(BaseModel):
 class CreateSessionResponse(BaseModel):
     session_id: str
     character_name: str
+    game_state: GameStateSnapshot
 
 
 class MessageEntry(BaseModel):

@@ -1,15 +1,20 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
+import { enableAuth } from '@/config';
 
 type ProtectedRouteProps = {
   children: ReactNode;
 };
 
-/** Sends anonymous users to `/auth`, preserving `location.state.from` for post-login redirect. */
+/** Sends anonymous users to `/auth` when `VITE_ENABLE_AUTH=true`; otherwise renders children. */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
+
+  if (!enableAuth) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
