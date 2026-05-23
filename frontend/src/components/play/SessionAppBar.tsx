@@ -6,15 +6,20 @@ import { cn } from '@/lib/utils';
 type SessionAppBarProps = {
   context: SessionContextView;
   onMenuOpen: () => void;
+  bossMode?: boolean;
   className?: string;
 };
 
 export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
-  function SessionAppBar({ context, onMenuOpen, className }, ref) {
+  function SessionAppBar({ context, onMenuOpen, bossMode = false, className }, ref) {
     return (
       <header
         ref={ref}
-        className={cn('play-appbar shrink-0', className)}
+        className={cn(
+          'play-appbar shrink-0',
+          bossMode && 'play-appbar-boss',
+          className,
+        )}
         aria-label="Session"
       >
         <div className="min-w-0 flex-1">
@@ -24,6 +29,7 @@ export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
           <h1 className="play-appbar-title truncate">{context.scene}</h1>
           <p className="play-appbar-sub">
             time {context.timeCurrent}/{context.timeMax}
+            {bossMode ? ' · BOSS' : ''}
           </p>
         </div>
         <button

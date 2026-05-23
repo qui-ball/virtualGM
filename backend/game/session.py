@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai.messages import ModelMessage
 
+from api.schemas import TranscriptEntry
 from game.models import GameState
 
 
@@ -23,6 +24,7 @@ class Session:
     game_state: GameState
     message_history: list[ModelMessage] = field(default_factory=list)
     pending_deferred: PendingDeferred | None = None
+    transcript: list[TranscriptEntry] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
 

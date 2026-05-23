@@ -66,6 +66,17 @@ class Stats(BaseModel):
     )
 
 
+class SpellDefinition(BaseModel):
+    """Caster spell metadata for cast tray (G6)."""
+
+    id: str
+    name: str
+    tier: Literal["Minor", "Major", "Mythic"] = "Minor"
+    mp_cost: int = 1
+    locked: bool = False
+    locked_reason: str | None = None
+
+
 class CharacterState(BaseModel):
     """Player character state."""
 
@@ -99,6 +110,10 @@ class CharacterState(BaseModel):
     )
     spells_known: list[str] = Field(
         default_factory=list, description="Known spell names (casters only)"
+    )
+    spells: list[SpellDefinition] = Field(
+        default_factory=list,
+        description="Structured spell list for cast UI (G6)",
     )
 
     # Equipment & economy
@@ -136,11 +151,16 @@ class GameState:
         # Enemies in current encounter
         self.enemies: dict[str, EnemyState] = {}
 
-        # Campaign tracking
-        self.time_counter: int | None = None  # Chapter time counter
+        # Campaign tracking (G4)
+        self.campaign_title: str = "Lost Mine of Phandelver"
+        self.chapter: int = 1
+        self.scene_label: str = "Road to Phandalin"
+        self.time_current: int = 12
+        self.time_max: int = 50
+        self.time_counter: int | None = None  # legacy alias
         self.countdowns: dict[str, int] = {}  # Named countdowns
 
-        # Combat state
+        # Combat state (G8)
         self.in_combat: bool = False
         self.is_boss_battle: bool = False
         self.initiative_order: list[str] = []  # Names in initiative order
@@ -162,6 +182,12 @@ class EndGameMasterTurn(BaseModel):
     """Signals the end of the GM's turn."""
 
     internal_notes: str | None = None
+
+
+def is_pending_level_up(xp: int, level: int) -> bool:
+    next_level = level + 1
+    threshold = XP_THRESHOLDS.get(next_level)
+    return threshold is not None and xp >= threshold
 
 
 def create_player_character() -> CharacterState:

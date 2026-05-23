@@ -5,10 +5,12 @@ type PullHandleProps = {
   openness: number;
   sheetOpen: boolean;
   dragging?: boolean;
-  onPointerDown: (e: PointerEvent<HTMLButtonElement>) => void;
-  onPointerMove: (e: PointerEvent<HTMLButtonElement>) => void;
-  onPointerUp: (e: PointerEvent<HTMLButtonElement>) => void;
-  onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  onPointerDown?: (e: PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove?: (e: PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp?: (e: PointerEvent<HTMLButtonElement>) => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void;
+  sheetPanelId?: string;
   className?: string;
 };
 
@@ -18,10 +20,12 @@ export const PullHandle = forwardRef<HTMLButtonElement, PullHandleProps>(
       openness,
       sheetOpen,
       dragging = false,
+      disabled = false,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       onKeyDown,
+      sheetPanelId = 'play-character-sheet',
       className,
     },
     ref,
@@ -41,14 +45,19 @@ export const PullHandle = forwardRef<HTMLButtonElement, PullHandleProps>(
           'play-pull-handle shrink-0',
           openness > 0 && 'play-pull-handle-active',
           dragging && 'play-pull-handle-dragging',
+          disabled && 'play-pull-handle-disabled',
           className,
         )}
+        disabled={disabled}
         aria-label={
-          sheetOpen
-            ? 'Drag up to close character sheet'
-            : 'Drag down to open character sheet'
+          disabled
+            ? 'Sheet locked'
+            : sheetOpen
+              ? 'Drag up to close character sheet'
+              : 'Drag down to open character sheet'
         }
         aria-expanded={sheetOpen}
+        aria-controls={sheetPanelId}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

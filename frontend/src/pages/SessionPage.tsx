@@ -5,7 +5,7 @@ import type { FreeRollTrayConfig } from '@/components/play/RollTray';
 import { useChat } from '@/hooks/useChat';
 import { toCharacterView } from '@/lib/play/characterView';
 
-/** Live play session at `/play` (WS-3 layout + WS-5 chat & rolls). */
+/** Live play session at `/play` (WS-3 layout + WS-5 chat & rolls + WS-7 flows). */
 export function SessionPage() {
   const {
     transcript,
@@ -18,8 +18,15 @@ export function SessionPage() {
     sendMessage,
     rollPrompt,
     performFreeRoll,
-    addRestEntry,
-    addItemEntry,
+    submitPlayerAction,
+    confirmLevelUp,
+    resolveBossDeath,
+    performCast,
+    mustResolveLevelUp,
+    mustResolveBossDeath,
+    sessionBlocked,
+    runDebugAction,
+    debugStatus,
   } = useChat();
 
   useEffect(() => {
@@ -35,16 +42,16 @@ export function SessionPage() {
   const handlePlusAction = (action: PlusMenuAction) => {
     switch (action) {
       case 'shortrest':
-        addRestEntry('Short rest · +HP · time −1');
+        void submitPlayerAction({ rest_type: 'short' });
         break;
       case 'longrest':
-        addRestEntry('Long rest · HP & MP full · time −5');
+        void submitPlayerAction({ rest_type: 'long' });
         break;
       case 'item':
-        addItemEntry('Item used · see inventory in sheet');
+        void submitPlayerAction({ use_item: 'Healing draught' });
         break;
       case 'note':
-        break; // handled in SessionLayout (OOC composer mode)
+        break;
       default:
         break;
     }
@@ -68,10 +75,18 @@ export function SessionPage() {
           loading={loading}
           rolling={rolling}
           showStubBanner={showStubBanner}
+          mustResolveLevelUp={mustResolveLevelUp}
+          mustResolveBossDeath={mustResolveBossDeath}
+          sessionBlocked={sessionBlocked}
           onSend={(text, opts) => void sendMessage(text, opts)}
           onRollPrompt={(id) => void rollPrompt(id)}
           onPlusAction={handlePlusAction}
           onFreeRoll={handleFreeRoll}
+          onConfirmLevelUp={(selection) => void confirmLevelUp(selection)}
+          onBossDeath={resolveBossDeath}
+          onCast={(cast) => void performCast(cast)}
+          onRunDebugAction={runDebugAction}
+          debugStatus={debugStatus}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center">

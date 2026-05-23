@@ -11,6 +11,10 @@ export type ConditionName =
   | 'restrained'
   | 'prone';
 
+export type AdvType = 'norm' | 'adv' | 'dis';
+
+export type SpellTierName = 'Minor' | 'Major' | 'Mythic';
+
 export interface Stats {
   might: number;
   finesse: number;
@@ -18,12 +22,20 @@ export interface Stats {
   presence: number;
 }
 
-/** CP · SP · GP · PP — optional until API ships full purse (WS-8). */
 export interface CoinPurse {
   copper: number;
   silver: number;
   gold: number;
   platinum: number;
+}
+
+export interface SpellDefinition {
+  id: string;
+  name: string;
+  tier: SpellTierName;
+  mp_cost: number;
+  locked: boolean;
+  locked_reason?: string | null;
 }
 
 export interface CharacterState {
@@ -40,8 +52,8 @@ export interface CharacterState {
   conditions: ConditionName[];
   class_abilities: string[];
   spells_known: string[];
+  spells?: SpellDefinition[];
   gold: number;
-  /** When set, inventory shows CP/SP/GP/PP; otherwise `gold` displays as GP only. */
   coin_purse?: CoinPurse;
   inventory: string[];
   equipped_weapon: string | null;
@@ -63,6 +75,13 @@ export interface GameStateSnapshot {
   enemies: Record<string, EnemyState>;
   countdowns: Record<string, number>;
   in_combat: boolean;
+  boss_encounter?: boolean;
+  chapter?: number;
+  scene_label?: string;
+  time_current?: number;
+  time_max?: number;
+  campaign_title?: string;
+  pending_level_up?: boolean;
 }
 
 export interface PendingAction {
@@ -71,16 +90,32 @@ export interface PendingAction {
   dice_type: DiceType;
   purpose: string;
   tool_call_id: string;
-  /** Enriched roll UI (API G1 — optional until backend ships). */
   stat?: string;
   modifier?: number;
   dc?: number;
   vs_label?: string;
-  adv_type?: 'norm' | 'adv' | 'dis';
+  adv_type?: AdvType;
   adv_reason?: string;
   footer?: string;
   success_text?: string;
   fail_text?: string;
+}
+
+export interface RollResultPayload {
+  prompt_id?: string | null;
+  label: string;
+  stat?: string | null;
+  nat: number;
+  die_a: number;
+  die_b?: number | null;
+  total: number;
+  modifier: number;
+  adv_used: AdvType;
+  crit: boolean;
+  fumble: boolean;
+  pass?: boolean | null;
+  vs?: number | null;
+  dc?: number | null;
 }
 
 export interface TurnResponse {
@@ -89,6 +124,7 @@ export interface TurnResponse {
   pending_action: PendingAction | null;
   game_state: GameStateSnapshot;
   internal_notes: string | null;
+  roll_result?: RollResultPayload | null;
 }
 
 export interface CreateSessionResponse {
@@ -97,12 +133,66 @@ export interface CreateSessionResponse {
   game_state: GameStateSnapshot;
 }
 
+export interface CastSpellRequest {
+  spell_id: string;
+  tier: SpellTierName;
+  mp_cost: number;
+}
+
 export interface TurnRequest {
   message?: string;
   action_response?: {
     roll_result: number;
     individual_rolls?: number[];
   };
+  rest_type?: 'short' | 'long';
+  use_item?: string;
+  cast_spell?: CastSpellRequest;
+}
+
+export interface LevelUpRequest {
+  kind: 'hp' | 'evasion' | 'ability';
+  hp_mode?: 'fixed' | 'roll';
+  hp_amount?: number;
+  ability_id?: string;
+}
+
+export interface BossDeathRequest {
+  choice: 'blaze' | 'risk';
+}
+
+export interface CampaignSummary {
+  id: string;
+  name: string;
+  chapter: number;
+  time_current: number;
+  time_max: number;
+  last_scene: string;
+  character_name: string;
+  character_class: string;
+  level: number;
+  pending_level_up: boolean;
+  active?: boolean;
+}
+
+export interface CampaignListResponse {
+  campaigns: CampaignSummary[];
+}
+
+export interface TranscriptEntryDto {
+  kind: 'scene' | 'message' | 'roll_prompt' | 'roll_result' | 'rest' | 'item';
+  id: string;
+  timestamp: number;
+  role?: string | null;
+  content?: string | null;
+  text?: string | null;
+  pending_action?: PendingAction | null;
+  roll_result?: RollResultPayload | null;
+}
+
+export interface MessagesResponse {
+  messages: ChatMessage[];
+  transcript: TranscriptEntryDto[];
 }
 
 export interface ChatMessage {

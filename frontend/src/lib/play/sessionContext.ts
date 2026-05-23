@@ -8,18 +8,22 @@ export type SessionContextView = {
   timeMax: number;
 };
 
-/** Stub until G4 API provides chapter, scene, and time on game_state. */
+/** Map API game_state campaign fields (G4). */
 export function toSessionContext(
   gameState: GameStateSnapshot | null,
 ): SessionContextView {
   const countdownValues = Object.values(gameState?.countdowns ?? {});
-  const timeCurrent = countdownValues[0] ?? 12;
+  const timeFromCountdown = countdownValues[0];
 
   return {
-    campaignTitle: 'Lost Mine of Phandelver',
-    chapter: 1,
-    scene: gameState?.in_combat ? 'Combat' : 'Road to Phandalin',
-    timeCurrent,
-    timeMax: 50,
+    campaignTitle:
+      gameState?.campaign_title ?? 'Lost Mine of Phandelver',
+    chapter: gameState?.chapter ?? 1,
+    scene:
+      gameState?.scene_label ??
+      (gameState?.in_combat ? 'Combat' : 'Road to Phandalin'),
+    timeCurrent:
+      gameState?.time_current ?? timeFromCountdown ?? 12,
+    timeMax: gameState?.time_max ?? 50,
   };
 }

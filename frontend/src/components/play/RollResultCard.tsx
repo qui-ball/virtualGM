@@ -40,8 +40,16 @@ export function RollResultCard({ result }: RollResultCardProps) {
     breakdown += ` · vs DC ${result.dc}`;
   }
 
+  const summary = `${result.label}: ${result.total}${verdict ? `, ${verdict}` : ''}`;
+
   return (
-    <div className="play-result-card-wrap">
+    <div
+      className="play-result-card-wrap"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label={summary}
+    >
       <div
         className={cn(
           'play-result-card',

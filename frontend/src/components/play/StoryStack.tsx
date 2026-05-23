@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { prefersReducedMotion } from '@/lib/a11y/motion';
 import type { TranscriptEntry } from '@/lib/play/transcript';
 import { formatTranscriptTime } from '@/lib/play/transcript';
 import { RollPromptCard } from '@/components/play/RollPromptCard';
@@ -37,7 +38,9 @@ export function StoryStack({
   );
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
   }, [entries, loading]);
 
   return (

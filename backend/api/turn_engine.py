@@ -7,18 +7,11 @@ from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 from agent.runner import run_agent_iter
-from api.schemas import GameStateSnapshot, PendingAction
+from api.enrichment import build_pending_action
+from api.schemas import PendingAction
+from api.snapshot import snapshot_dict
+from api.transcript_log import append_roll_prompt
 from game.session import PendingDeferred, Session
-
-
-def _snapshot(session: Session) -> dict:
-    gs = session.game_state
-    return GameStateSnapshot(
-        character=gs.pc,
-        enemies=gs.enemies,
-        countdowns=gs.countdowns,
-        in_combat=gs.in_combat,
-    ).model_dump()
 
 
 def _handle_result(session: Session, result, queue: asyncio.Queue):
@@ -41,19 +34,19 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
 
         first = calls_info[0]
         args = first["args"]
-        pending = PendingAction(
-            action_type=first["tool_name"],
-            dice_count=args.get("dice_count", 1),
-            dice_type=args.get("dice_type", "d20"),
-            purpose=args.get("purpose", ""),
-            tool_call_id=first["tool_call_id"],
+        pending = build_pending_action(
+            first["tool_name"],
+            first["tool_call_id"],
+            args,
+            session.game_state,
         )
+        append_roll_prompt(session, pending)
         queue.put_nowait(
             (
                 "pending_action",
                 {
                     "pending_action": pending.model_dump(),
-                    "game_state": _snapshot(session),
+                    "game_state": snapshot_dict(session),
                 },
             )
         )
@@ -65,7 +58,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
             (
                 "complete",
                 {
-                    "game_state": _snapshot(session),
+                    "game_state": snapshot_dict(session),
                     "internal_notes": internal_notes,
                 },
             )

@@ -1,57 +1,85 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildSessionPullMeasure,
-  sessionFixedChromeWhenOpen,
-  sessionPullConfig,
+  buildSessionMainPullMeasure,
+  sessionMainFixedChromeWhenOpen,
+  sessionMainPullConfig,
 } from '@/lib/play/sessionPullLayout';
+import {
+  clampPullOffset,
+  computePullHeights,
+  computeReleasePull,
+  shouldSnapSheetOpenFromPull,
+} from '@/lib/play/pullSheet';
 import { PHASE1_MAX } from '@/lib/play/sessionConstants';
 
-const PHONE_CHROME: Parameters<typeof sessionFixedChromeWhenOpen>[1] = {
+const PHONE_CHROME = {
   appBar: 72,
   vitalStrip: 56,
   pullHandle: 28,
   composer: 68,
 };
 
-describe('buildSessionPullMeasure', () => {
-  it('counts pull handle in sheet chrome, composer in footer only', () => {
-    expect(buildSessionPullMeasure(PHONE_CHROME)).toEqual({
+/** session-main height when viewport is 640px with pinned footer. */
+const MAIN_HEIGHT = 640 - PHONE_CHROME.pullHandle - PHONE_CHROME.composer;
+
+describe('buildSessionMainPullMeasure', () => {
+  it('treats pull handle as chrome inside session-main, not composer', () => {
+    expect(buildSessionMainPullMeasure(PHONE_CHROME)).toEqual({
       chromeAbovePull: 72 + 56 + 28,
-      footerChrome: 68,
+      footerChrome: 0,
     });
   });
 });
 
-describe('sessionPullConfig (pinned composer layout)', () => {
-  it('full pull fits remaining space below app bar, vitals, and pull handle', () => {
-    const container = 640;
-    const { fullPullMax } = sessionPullConfig(container, PHONE_CHROME);
-    expect(fullPullMax).toBe(container - 156 - 68);
+describe('sessionMainPullConfig', () => {
+  it('full pull uses only session-main minus fixed chrome', () => {
+    const { fullPullMax } = sessionMainPullConfig(MAIN_HEIGHT, PHONE_CHROME);
+    expect(fullPullMax).toBe(MAIN_HEIGHT - 72 - 56 - 28);
   });
 
-  it('never inflates past viewport on short screens', () => {
-    const container = 480;
-    const { fullPullMax } = sessionPullConfig(container, PHONE_CHROME);
-    expect(fullPullMax).toBe(container - 156 - 68);
-    expect(fullPullMax + 156 + 68).toBe(container);
+  it('never inflates past session-main on short viewports', () => {
+    const main = 480 - PHONE_CHROME.pullHandle - PHONE_CHROME.composer;
+    const { fullPullMax } = sessionMainPullConfig(main, PHONE_CHROME);
+    expect(fullPullMax).toBe(main - 72 - 56 - 28);
+    expect(fullPullMax + 72 + 56 + 28).toBe(main);
   });
 });
 
-describe('sessionFixedChromeWhenOpen', () => {
-  it('uses exactly the container height when sheet is fully open', () => {
-    const container = 640;
-    const { topH, botH, totalHeight, config } = sessionFixedChromeWhenOpen(
-      container,
+describe('sessionMainFixedChromeWhenOpen', () => {
+  it('fills session-main exactly when sheet is fully open', () => {
+    const { topH, botH, totalHeight, config } = sessionMainFixedChromeWhenOpen(
+      MAIN_HEIGHT,
       PHONE_CHROME,
     );
     expect(topH).toBe(PHASE1_MAX);
     expect(botH).toBe(config.fullPullMax - PHASE1_MAX);
-    expect(totalHeight).toBe(container);
+    expect(totalHeight).toBe(MAIN_HEIGHT);
+  });
+});
+
+describe('pull drag snap (session-main fullPullMax)', () => {
+  const { fullPullMax } = sessionMainPullConfig(MAIN_HEIGHT, PHONE_CHROME);
+
+  it('opens sheet when dragging down past threshold from closed', () => {
+    const delta = clampPullOffset(false, 200, fullPullMax);
+    const release = computeReleasePull(false, delta, fullPullMax);
+    expect(shouldSnapSheetOpenFromPull(release, fullPullMax)).toBe(true);
+    const h = computePullHeights(true, false, 0, {
+      phase1Max: PHASE1_MAX,
+      fullPullMax,
+    });
+    expect(h.botH).toBeGreaterThan(0);
+    expect(h.topH).toBe(PHASE1_MAX);
   });
 
-  it('leaves phase 2 height for sheet body only', () => {
-    const { botH, config } = sessionFixedChromeWhenOpen(700, PHONE_CHROME);
-    expect(botH).toBe(config.fullPullMax - PHASE1_MAX);
-    expect(botH).toBeGreaterThan(0);
+  it('closes sheet when dragging up from open', () => {
+    const delta = clampPullOffset(true, -fullPullMax, fullPullMax);
+    const release = computeReleasePull(true, delta, fullPullMax);
+    expect(shouldSnapSheetOpenFromPull(release, fullPullMax)).toBe(false);
+    const h = computePullHeights(false, false, 0, {
+      phase1Max: PHASE1_MAX,
+      fullPullMax,
+    });
+    expect(h.renderPull).toBe(0);
   });
 });

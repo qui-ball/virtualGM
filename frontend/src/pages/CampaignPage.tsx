@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PlayShell } from '@/components/play';
 import {
   CampaignLobby,
   CharacterSwitcherSheet,
   NewCampaignModal,
 } from '@/components/play/campaign';
+import { fetchCampaignList } from '@/lib/play/campaignApi';
 import {
   activeCampaign,
   findLobbyCharacter,
   getDefaultLobbyCharacterId,
   LOBBY_CHARACTERS,
   otherCampaigns,
+  type CampaignListItem,
 } from '@/lib/play/campaignLobby';
 import { ThemeSelect } from '@/theme';
 import { useIsTabletOrUp } from '@/hooks';
@@ -21,6 +23,15 @@ export function CampaignPage() {
   const [characterId, setCharacterId] = useState(getDefaultLobbyCharacterId);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
+  const [active, setActive] = useState<CampaignListItem | null>(null);
+  const [others, setOthers] = useState<CampaignListItem[]>([]);
+
+  useEffect(() => {
+    void fetchCampaignList().then(({ active: a, others: o }) => {
+      setActive(a);
+      setOthers(o);
+    });
+  }, []);
 
   const characterOption =
     findLobbyCharacter(characterId) ?? LOBBY_CHARACTERS[0];
@@ -36,8 +47,8 @@ export function CampaignPage() {
       <CampaignLobby
         character={characterOption.view}
         monogram={characterOption.monogram}
-        activeCampaign={activeCampaign()}
-        otherCampaigns={otherCampaigns()}
+        activeCampaign={active ?? activeCampaign()}
+        otherCampaigns={others.length ? others : otherCampaigns()}
         onSwitchCharacter={() => setSwitcherOpen(true)}
         onNewCampaign={() => setNewCampaignOpen(true)}
       />
