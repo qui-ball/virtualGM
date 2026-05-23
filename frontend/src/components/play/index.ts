@@ -19,7 +19,12 @@ export { PlusMenu, type PlusMenuAction } from './PlusMenu';
 export { RollTray, type FreeRollTrayConfig } from './RollTray';
 export { Composer } from './Composer';
 export { SessionMenu } from './SessionMenu';
+export { PlayDebugConsole } from './PlayDebugConsole';
 export { SessionLayout } from './SessionLayout';
+export { LevelUpDialog } from './LevelUpDialog';
+export { BossDeathModal } from './BossDeathModal';
+export { ConditionsPopover } from './ConditionsPopover';
+export { CastTray } from './CastTray';
 export {
   CampaignLobby,
   CampaignAppBar,

@@ -152,11 +152,35 @@ def roll_dice(
 
 
 @gm_agent.tool
+def set_scene(ctx: RunContext[GameState], scene_label: str) -> str:
+    """Update the current scene label shown in the session app bar.
+
+    Args:
+        scene_label: Short scene name (e.g. "Tavern, dusk", "Combat — Goblin ambush")
+    """
+    ctx.deps.scene_label = scene_label
+    if ctx.deps._event_queue is not None:
+        ctx.deps._event_queue.put_nowait(
+            ("scene", {"text": f"Scene · {scene_label}"})
+        )
+    return f"Scene set to {scene_label}"
+
+
+@gm_agent.tool
 def ask_player_roll(
     ctx: RunContext[GameState],
     dice_count: int,
     dice_type: DiceType,
     purpose: str,
+    stat: str | None = None,
+    modifier: int | None = None,
+    dc: int | None = None,
+    vs_label: str | None = None,
+    adv_type: str | None = None,
+    adv_reason: str | None = None,
+    success_text: str | None = None,
+    fail_text: str | None = None,
+    footer: str | None = None,
 ) -> str:
     """Request the player to roll dice. Defers execution until the player provides their result.
 
@@ -164,6 +188,15 @@ def ask_player_roll(
         dice_count: Number of dice to roll
         dice_type: Type of die (d4, d6, d8, d10, d12, d20, d100)
         purpose: Brief description of what the roll is for (e.g., "attack roll", "damage", "Wit check")
+        stat: Stat key or short label (might/Mig, finesse/Fin, wit, presence/Pre)
+        modifier: Modifier to add (defaults from character stat when omitted)
+        dc: Difficulty / target number
+        vs_label: Display label (e.g. "vs Eva 14")
+        adv_type: norm, adv, or dis
+        adv_reason: Why advantage/disadvantage applies
+        success_text: Narrative on success (shown on roll card)
+        fail_text: Narrative on failure
+        footer: Small print under the roll button
     """
     raise CallDeferred(
         metadata={
@@ -171,6 +204,15 @@ def ask_player_roll(
             "dice_count": dice_count,
             "dice_type": dice_type,
             "purpose": purpose,
+            "stat": stat,
+            "modifier": modifier,
+            "dc": dc,
+            "vs_label": vs_label,
+            "adv_type": adv_type,
+            "adv_reason": adv_reason,
+            "success_text": success_text,
+            "fail_text": fail_text,
+            "footer": footer,
         }
     )
 

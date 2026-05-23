@@ -4,9 +4,14 @@
 
 import { apiBaseUrl } from '@/config';
 import type {
+  BossDeathRequest,
+  CampaignListResponse,
   CreateSessionResponse,
   GameStateSnapshot,
+  LevelUpRequest,
+  MessagesResponse,
   PendingAction,
+  RollResultPayload,
   TurnRequest,
 } from '@/types';
 
@@ -26,15 +31,50 @@ export function createSession(): Promise<CreateSessionResponse> {
   return request<CreateSessionResponse>('/sessions', { method: 'POST' });
 }
 
+export function getCampaigns(): Promise<CampaignListResponse> {
+  return request<CampaignListResponse>('/campaigns');
+}
+
+export function getSessionMessages(
+  sessionId: string,
+): Promise<MessagesResponse> {
+  return request<MessagesResponse>(`/sessions/${sessionId}/messages`);
+}
+
+export function submitLevelUp(
+  sessionId: string,
+  body: LevelUpRequest,
+): Promise<{ game_state: GameStateSnapshot }> {
+  return request(`/sessions/${sessionId}/level-up`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function submitBossDeath(
+  sessionId: string,
+  body: BossDeathRequest,
+): Promise<{ game_state: GameStateSnapshot }> {
+  return request(`/sessions/${sessionId}/boss-death`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 // -- SSE streaming for turns --
 
 export type TurnEvent =
   | { type: 'narration'; text: string }
   | { type: 'thinking'; text: string }
+  | { type: 'scene'; text: string }
   | {
       type: 'pending_action';
       pending_action: PendingAction;
       game_state: GameStateSnapshot;
+    }
+  | {
+      type: 'roll_result';
+      roll_result: RollResultPayload;
     }
   | {
       type: 'complete';
@@ -68,7 +108,6 @@ export async function* streamTurn(
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Parse complete SSE events from the buffer
     while (true) {
       const eventEnd = buffer.indexOf('\n\n');
       if (eventEnd === -1) break;

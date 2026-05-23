@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { enableAuth } from '@/config';
+import { enableAuth, isDev } from '@/config';
 import { useAuth } from '@/auth';
 import { PLAY_ROUTES } from '@/lib/play/routes';
 import { PlayIcon } from '@/components/play/PlayIcon';
@@ -8,10 +8,18 @@ import { cn } from '@/lib/utils';
 type SessionMenuProps = {
   open: boolean;
   onClose: () => void;
+  debugConsoleOpen?: boolean;
+  onDebugConsoleToggle?: () => void;
   className?: string;
 };
 
-export function SessionMenu({ open, onClose, className }: SessionMenuProps) {
+export function SessionMenu({
+  open,
+  onClose,
+  debugConsoleOpen = false,
+  onDebugConsoleToggle,
+  className,
+}: SessionMenuProps) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
 
@@ -79,6 +87,26 @@ export function SessionMenu({ open, onClose, className }: SessionMenuProps) {
             </span>
             Sign out
           </button>
+        ) : null}
+        {isDev && onDebugConsoleToggle ? (
+          <div className="play-session-menu-dev">
+            <button
+              type="button"
+              className={cn(
+                'play-menu-item play-menu-item-dev-toggle min-h-[44px] w-full',
+                debugConsoleOpen && 'play-menu-item-on',
+              )}
+              onClick={() => {
+                onDebugConsoleToggle();
+                onClose();
+              }}
+            >
+              <span className="play-menu-glyph" aria-hidden>
+                ◈
+              </span>
+              Debug console
+            </button>
+          </div>
         ) : null}
       </div>
     </>

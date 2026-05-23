@@ -10,13 +10,27 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from game.models import DICE_SIDES, GameState, create_player_character
+from api.campaigns import list_campaigns
+from api.enrichment import build_pending_action
+from api.level_up import apply_level_up
+from api.roll_result import build_roll_result_payload
 from api.schemas import (
+    BossDeathRequest,
+    CampaignListResponse,
     CreateSessionRequest,
     CreateSessionResponse,
     GameStateSnapshot,
+    LevelUpRequest,
     MessageEntry,
     MessagesResponse,
     TurnRequest,
+)
+from api.session_actions import apply_boss_death, handle_player_action
+from api.snapshot import game_state_snapshot
+from api.transcript_log import (
+    append_message,
+    append_roll_result,
+    append_scene,
 )
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
@@ -59,21 +73,29 @@ def health():
     }
 
 
+@app.get("/campaigns", response_model=CampaignListResponse)
+def get_campaigns():
+    return list_campaigns()
+
+
 @app.post("/sessions", response_model=CreateSessionResponse)
 def create_session(body: CreateSessionRequest | None = None):
     gs = GameState()
     gs.pc = create_player_character()
     session = store.create(game_state=gs)
     logger.info(f"Created session {session.id} for {gs.pc.name}")
+
+    append_scene(session, f"Scene · {gs.scene_label}")
+    append_message(
+        session,
+        role="system",
+        content=f"Session started. You are {gs.pc.name}.",
+    )
+
     return CreateSessionResponse(
         session_id=session.id,
         character_name=gs.pc.name,
-        game_state=GameStateSnapshot(
-            character=gs.pc,
-            enemies=gs.enemies,
-            countdowns=gs.countdowns,
-            in_combat=gs.in_combat,
-        ),
+        game_state=game_state_snapshot(gs),
     )
 
 
@@ -85,19 +107,60 @@ def get_messages(session_id: str):
 
     entries: list[MessageEntry] = []
     for msg in session.message_history:
-        kind = msg.kind  # 'request', 'response', 'retry-prompt', etc.
+        kind = msg.kind
         if kind == "request":
             for part in msg.parts:
-                part_kind = part.part_kind
-                if part_kind == "user-prompt":
+                if part.part_kind == "user-prompt":
                     entries.append(MessageEntry(role="player", content=part.content))
         elif kind == "response":
             for part in msg.parts:
-                part_kind = part.part_kind
-                if part_kind == "text":
+                if part.part_kind == "text":
                     entries.append(MessageEntry(role="gm", content=part.content))
 
-    return MessagesResponse(messages=entries)
+    return MessagesResponse(
+        messages=entries,
+        transcript=session.transcript,
+    )
+
+
+@app.post("/sessions/{session_id}/level-up")
+def submit_level_up(session_id: str, body: LevelUpRequest):
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.game_state.pc is None:
+        raise HTTPException(status_code=400, detail="No character")
+
+    try:
+        updated = apply_level_up(
+            session.game_state.pc,
+            kind=body.kind,
+            hp_mode=body.hp_mode,
+            hp_amount=body.hp_amount,
+            ability_id=body.ability_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    session.game_state.pc = updated
+    session.game_state.in_combat = False
+    append_message(
+        session,
+        role="system",
+        content=f"Level up! Now Lv {updated.level}. Choice: {body.kind}.",
+    )
+    return {"game_state": game_state_snapshot(session.game_state).model_dump()}
+
+
+@app.post("/sessions/{session_id}/boss-death")
+def submit_boss_death(session_id: str, body: BossDeathRequest):
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    text = apply_boss_death(session.game_state, body.choice)
+    append_message(session, role="system", content=text)
+    return {"game_state": game_state_snapshot(session.game_state).model_dump()}
 
 
 @app.post("/sessions/{session_id}/turns")
@@ -105,6 +168,42 @@ async def submit_turn(session_id: str, body: TurnRequest):
     session = store.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    roll_result_event: dict | None = None
+
+    # Player actions without agent turn (G5, G6)
+    if (
+        body.rest_type is not None
+        or body.use_item is not None
+        or body.cast_spell is not None
+    ):
+        if body.message or body.action_response:
+            raise HTTPException(
+                status_code=400,
+                detail="Combine player actions with message/roll in one request",
+            )
+        try:
+            _, roll_payload = handle_player_action(
+                session,
+                rest_type=body.rest_type,
+                use_item=body.use_item,
+                cast_spell=body.cast_spell,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+        if roll_payload is not None:
+            roll_result_event = roll_payload.model_dump(by_alias=True)
+
+        async def action_sse():
+            if roll_result_event:
+                yield f"event: roll_result\ndata: {json.dumps({'roll_result': roll_result_event})}\n\n"
+            yield (
+                "event: complete\n"
+                f"data: {json.dumps({'game_state': game_state_snapshot(session.game_state).model_dump()})}\n\n"
+            )
+
+        return StreamingResponse(action_sse(), media_type="text/event-stream")
 
     # Deferred action response (player dice roll)
     if body.action_response is not None:
@@ -114,9 +213,18 @@ async def submit_turn(session_id: str, body: TurnRequest):
             )
 
         ar = body.action_response
-        # Build a roll result string identical to what the CLI produces
         pending_call = session.pending_deferred.deferred_calls[0]
         args = pending_call["args"]
+        pending = build_pending_action(
+            pending_call["tool_name"],
+            pending_call["tool_call_id"],
+            args,
+            session.game_state,
+        )
+        roll_payload = build_roll_result_payload(pending, ar)
+        append_roll_result(session, roll_payload)
+        roll_result_event = roll_payload.model_dump(by_alias=True)
+
         dice_count = args.get("dice_count", 1)
         dice_type = args.get("dice_type", "d20")
 
@@ -149,6 +257,8 @@ async def submit_turn(session_id: str, body: TurnRequest):
         )
 
     async def sse_stream():
+        if roll_result_event:
+            yield f"event: roll_result\ndata: {json.dumps({'roll_result': roll_result_event})}\n\n"
         async for event_type, data in event_source:
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 

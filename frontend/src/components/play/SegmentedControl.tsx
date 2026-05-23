@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 export type SegmentOption<T extends string> = {
   id: T;
   label: string;
+  disabled?: boolean;
 };
 
 type SegmentedControlProps<T extends string> = {
@@ -32,8 +33,14 @@ export function SegmentedControl<T extends string>({
           type="button"
           role="radio"
           aria-checked={value === opt.id}
-          className={cn('play-seg-btn', value === opt.id && 'play-seg-btn-on')}
-          onClick={() => onChange(opt.id)}
+          aria-disabled={opt.disabled || undefined}
+          disabled={opt.disabled}
+          className={cn(
+            'play-seg-btn',
+            value === opt.id && 'play-seg-btn-on',
+            opt.disabled && 'play-seg-btn-disabled',
+          )}
+          onClick={() => !opt.disabled && onChange(opt.id)}
         >
           {opt.label}
         </button>
