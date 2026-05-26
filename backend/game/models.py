@@ -165,7 +165,7 @@ class GameState(BaseModel):
         return {
             "character": self.pc.model_dump() if self.pc else None,
             "enemies": {k: v.model_dump() for k, v in self.enemies.items()},
-            "countdowns": self.countdowns,
+            "countdowns": dict(self.countdowns),
             "in_combat": self.in_combat,
         }
 
