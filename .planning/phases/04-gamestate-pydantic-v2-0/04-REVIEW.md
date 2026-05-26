@@ -10,10 +10,10 @@ files_reviewed_list:
   - backend/api/schemas.py
 findings:
   critical: 0
-  warning: 2
+  warning: 0
   info: 2
   total: 4
-status: issues_found
+status: clean
 ---
 
 # Phase 4: Code Review Report
@@ -21,7 +21,7 @@ status: issues_found
 **Reviewed:** 2026-05-22
 **Depth:** standard
 **Files Reviewed:** 4
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
@@ -44,6 +44,17 @@ live references instead of copies, plus minor quality items. None block shipping
 the current call pattern, but both warnings are latent traps for the next caller.
 
 ## Warnings
+
+> **RESOLVED (2026-05-26):** Both WR-01 and WR-02 were fixed.
+> - WR-01: `GameState.snapshot()` now returns `dict(self.countdowns)`, so the
+>   snapshot is self-contained (no live-state aliasing); JSON output stays
+>   byte-identical (D-02 preserved).
+> - WR-02: Added `test_snapshot_byte_compat_with_old_gamestatesnapshot_mirror` in
+>   `backend/game/test_models.py`, which reconstructs the deleted
+>   `GameStateSnapshot` mirror locally and asserts canonical-JSON equivalence to
+>   `snapshot()`, pinning INV-01. Suite is now 10 tests, all green.
+>
+> The two Info items below remain open but are out of scope for this fix pass.
 
 ### WR-01: `snapshot()` returns live references to mutable state (`countdowns` aliasing)
 
