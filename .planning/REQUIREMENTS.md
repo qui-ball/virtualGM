@@ -27,9 +27,9 @@ Requirements for the active milestone. All map to roadmap phases.
 
 ### State (Tier 4 — GameState typing + snapshot consolidation)
 
-- [ ] **STATE-01**: `GameState` in `game/models.py` is a Pydantic `BaseModel` (not a plain Python class). Runtime-only fields (`_event_queue`, `narrations`) use `PrivateAttr` or equivalent so they do not appear in serialization output.
-- [ ] **STATE-02**: `GameState` exposes a `.snapshot()` method that returns the API-facing view (character + enemies + countdowns + in_combat).
-- [ ] **STATE-03**: The hand-maintained `GameStateSnapshot` class in `api/schemas.py` is removed. SSE payloads in `turn_engine.py` emit `GameState.snapshot()` (via `.model_dump()`) directly, and the frontend receives byte-compatible JSON for the `game_state` key in `pending_action` / `complete` events.
+- [x] **STATE-01**: `GameState` in `game/models.py` is a Pydantic `BaseModel` (not a plain Python class). Runtime-only fields (`_event_queue`, `narrations`) use `PrivateAttr` or equivalent so they do not appear in serialization output. (Validated in Phase 4: `_event_queue` is `PrivateAttr`, `narrations` is `Field(exclude=True)`.)
+- [x] **STATE-02**: `GameState` exposes a `.snapshot()` method that returns the API-facing view (character + enemies + countdowns + in_combat). (Validated in Phase 4.)
+- [x] **STATE-03**: The hand-maintained `GameStateSnapshot` class in `api/schemas.py` is removed. SSE payloads in `turn_engine.py` emit `GameState.snapshot()` directly, and the frontend receives byte-compatible JSON for the `game_state` key in `pending_action` / `complete` events. (Validated in Phase 4. **D-02 deviation:** `.snapshot()` returns a hand-built plain dict, so it is called directly with NO trailing `.model_dump()`; output proven byte-identical to the old mirror.)
 
 ### Invariants (must hold for every milestone phase)
 
@@ -134,9 +134,9 @@ Carried forward, not in this milestone. Will be revisited in a future hardening 
 | TOOLS-04 | Phase 3 | Complete (Plan 03-01) |
 | TOOLS-05 | Phase 3 | Deferred (D-09) |
 | TOOLS-06 | Phase 3 | Complete (Plan 03-01) |
-| STATE-01 | Phase 4 | Pending |
-| STATE-02 | Phase 4 | Pending |
-| STATE-03 | Phase 4 | Pending |
+| STATE-01 | Phase 4 | Complete |
+| STATE-02 | Phase 4 | Complete |
+| STATE-03 | Phase 4 | Complete |
 | INV-01 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
 | INV-02 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
 | INV-03 | Phases 2 / 3 / 4 | Phases 2, 3 verified (human-confirmed); must re-hold after Phase 4 |
