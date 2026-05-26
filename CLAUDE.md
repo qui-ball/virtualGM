@@ -1,19 +1,15 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**virtualGM — Generalist Backend**
+**virtualGM**
 
-virtualGM is a solo tabletop RPG GM agent built on `pydantic-ai`. The current `backend/` ships ~15 domain-specific tools (`narrate`, `apply_damage`, `create_enemy`, `ask_player_roll`, `load_campaign_section`, etc.). This GSD project scopes a parallel rewrite — `backend_generalist/` — that replaces the domain tool layer with **generic coding-agent primitives only** (Read, Write, Edit, Glob, Bash) acting on a per-session world directory of JSON files. The deliverable is CLI-only and tests whether a coding-agent-style harness is a viable substrate for a GM agent.
+virtualGM is a solo tabletop RPG GM agent built on `pydantic-ai`. `backend/` is the runnable system (FastAPI + SSE, run via `./launch.sh`), shipping domain-specific tools (`narrate`, `apply_damage`, `create_enemy`, `ask_player_roll`, `load_campaign_section`, etc.).
 
-**Core Value:** **Prove that a GM agent can run end-to-end with no domain tools — just generic primitives over a JSON world directory.** If e2e play is coherent and stateful, the harness pattern is viable; if it isn't, we'll know what's missing.
+A generalist-harness spike (`backend_generalist/`) explored replacing the domain tools with generic coding-agent primitives (Read, Write, Edit, Bash) over a JSON world directory. **That spike has concluded and been removed; the chosen direction is to simplify `backend/`'s existing domain tool surface rather than swap to a generic harness.**
 
 ### Constraints
 
 - **Tech stack**: Must use `pydantic-ai` (not switching agent frameworks).
-- **Tool surface**: Read, Write, Edit, Glob, Bash — and nothing domain-specific. Full unrestricted Bash (the user explicitly chose this; closer to a real coding-agent harness, max viability signal).
-- **Interface**: CLI only. No REST API, no websocket, no frontend wiring for this milestone.
-- **Session bootstrap**: Pre-seeded world directory copied from a template at session start. Agent then discovers everything via Read/Glob.
-- **Player I/O**: Pure stdin/stdout. The agent's free-text response is the narration; the next stdin line is the player's reply.
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:STACK.md -->

@@ -1,3 +1,0 @@
-# Potion of Flying
-
-This potion gives you a flying speed equal to your walking speed for 1 hour. If the potion wears off while you're flying and nothing else is holding you aloft, you must use your movement to descend. If you fail to land before 1 minute passes, you fall.

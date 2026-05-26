@@ -4,14 +4,14 @@
 
 virtualGM is a solo tabletop RPG GM agent built on `pydantic-ai`, fronted by a small React/Vite chat UI talking to a FastAPI/SSE backend.
 
-Two backends coexist in the repo:
+The repo has one backend:
 
 - **`backend/`** — the live, Pydantic-typed production stack. Strict schemas (`CharacterState`, `EnemyState`, and as of v2.0 a Pydantic-`BaseModel` `GameState` with `.snapshot()`), 14 domain-specific tools (`narrate`, `apply_damage`, `ask_player_roll`, `load_campaign_section`, …), a single shared SSE turn-stream core, FastAPI app with SSE streaming, deferred-tool dice prompts wired into the web UI. Simplified in v2.0 (de-dup, tool-surface consolidation, state-model unification) with the frontend wire format held byte-compatible.
-- **`backend_generalist/`** — a parallel viability spike (v1.0, complete). Replaced the domain-tool layer with generic primitives (Read, Write, Edit, Glob, Bash) over a per-session JSON world directory. Verdict: pattern works (`play passed`), but ad-hoc JSON state without schema enforcement is unsuitable for the production stack.
+- **`backend_generalist/`** — a parallel viability spike (v1.0, complete), since **removed** from the repo. It replaced the domain-tool layer with generic primitives (Read, Write, Edit, Glob, Bash) over a per-session JSON world directory. Verdict: pattern works (`play passed`), but ad-hoc JSON state without schema enforcement is unsuitable for the production stack — so the direction is to simplify `backend/`'s domain tools rather than adopt the generic harness. Code recoverable from git history.
 
 ## Core Value
 
-Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces. `backend/` is the production target; `backend_generalist/` stays archived as a viability reference.
+Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces. `backend/` is the production target; the `backend_generalist/` spike concluded and was removed (recoverable from git history).
 
 ## Current State
 
