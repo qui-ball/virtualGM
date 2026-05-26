@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — backend-simplification)
-status: milestone_complete
-last_updated: 2026-05-26T12:34:48.445Z
-last_activity: 2026-05-22 -- Phase 04 execution started
+status: Awaiting next milestone
+last_updated: "2026-05-26T12:41:37.655Z"
+last_activity: 2026-05-26 — Milestone v2.0 completed and archived
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
   completed_plans: 9
-  percent: 75
-stopped_at: Milestone complete (Phase 04 was final phase)
+  percent: 100
 ---
 
 # State: virtualGM — Solo TTRPG GM Agent
@@ -26,10 +25,10 @@ stopped_at: Milestone complete (Phase 04 was final phase)
 
 ## Current Position
 
-Phase: 04
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-26
+Phase: Milestone v2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-26 — Milestone v2.0 completed and archived
 
 ## Performance Metrics
 
@@ -80,6 +79,16 @@ Last activity: 2026-05-26
 
 None.
 
+## Deferred Items
+
+Items acknowledged and deferred at v2.0 milestone close on 2026-05-26:
+
+| Category | Item | Status |
+|----------|------|--------|
+| quick_task | 260428-kuu-add-deepseek-v4-flash-preset-to-backend- | shipped (commit 8f0a852); flagged open only due to missing status frontmatter |
+| quick_task | 260428-l47-pin-deepseek-v4-flash-preset-to-deepseek | shipped (commit aa59185); flagged open only due to missing status frontmatter |
+| quick_task | 260506-fuv-fix-gm-information-leakage-in-backend-ge | shipped (commit 4394942); flagged open only due to missing status frontmatter |
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
@@ -116,3 +125,7 @@ None.
 
 ---
 *State initialized: 2026-04-28 (v1.0). Milestone switched to v2.0 backend-simplification: 2026-05-19. ROADMAP.md generated for v2.0: 2026-05-19.*
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

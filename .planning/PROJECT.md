@@ -6,23 +6,20 @@ virtualGM is a solo tabletop RPG GM agent built on `pydantic-ai`, fronted by a s
 
 Two backends coexist in the repo:
 
-- **`backend/`** — the live, Pydantic-typed production stack. Strict schemas (`CharacterState`, `EnemyState`, `GameState`), ~15 domain-specific tools (`narrate`, `apply_damage`, `ask_player_roll`, `load_campaign_section`, …), FastAPI app with SSE streaming, deferred-tool dice prompts wired into the web UI.
+- **`backend/`** — the live, Pydantic-typed production stack. Strict schemas (`CharacterState`, `EnemyState`, and as of v2.0 a Pydantic-`BaseModel` `GameState` with `.snapshot()`), 14 domain-specific tools (`narrate`, `apply_damage`, `ask_player_roll`, `load_campaign_section`, …), a single shared SSE turn-stream core, FastAPI app with SSE streaming, deferred-tool dice prompts wired into the web UI. Simplified in v2.0 (de-dup, tool-surface consolidation, state-model unification) with the frontend wire format held byte-compatible.
 - **`backend_generalist/`** — a parallel viability spike (v1.0, complete). Replaced the domain-tool layer with generic primitives (Read, Write, Edit, Glob, Bash) over a per-session JSON world directory. Verdict: pattern works (`play passed`), but ad-hoc JSON state without schema enforcement is unsuitable for the production stack.
 
 ## Core Value
 
 Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the existing web UI without ad-hoc tool sprawl or duplicated state surfaces. `backend/` is the production target; `backend_generalist/` stays archived as a viability reference.
 
-## Current Milestone: v2.0 backend-simplification
+## Current State
 
-**Goal:** Cut duplication, prompt overhead, tool-surface bloat, and parallel-mirror state in `backend/` while preserving strict Pydantic schemas and the existing FastAPI/SSE wire format the frontend depends on.
+**v2.0 backend-simplification — SHIPPED 2026-05-26.** `backend/` now has one shared SSE turn-stream core, a trimmed system prompt with a statically-embedded ruleset, a tool surface reduced 17 → 14, and a unified Pydantic-`BaseModel` `GameState` with `.snapshot()` (the `GameStateSnapshot` mirror and dead `TurnResponse` are gone). The frontend SSE wire format was held byte-compatible throughout (human-verified golden-path deferred-dice turns after each phase, plus an automated byte-compat regression test in Phase 4). One target outcome was deliberately descoped: implicit-LRU section caching (TOOLS-05) — manual `load/unload_campaign_section` with the 3-section cap remains.
 
-**Target outcomes:**
+## Next Milestone Goals
 
-- Single shared SSE turn-stream function in `api/turn_engine.py` (no `stream_turn` vs `stream_deferred_response` near-duplicate).
-- System prompt no longer re-describes each tool's signature; relies on pydantic-ai docstrings. Static ruleset embedded at module-load, not re-injected per turn.
-- Tool surface trimmed from ~15 → ~10 by merging the inventory pair, the countdown pair, retiring `set_boss_battle`, factoring level-up out of `award_xp`, and replacing manual section load/unload + 3-section cap with implicit LRU.
-- `GameState` becomes a Pydantic `BaseModel` exposing `.snapshot()`; the hand-maintained `GameStateSnapshot` mirror in `api/schemas.py` is removed.
+No milestone is currently active. Candidate directions carried forward as a hardening backlog (orthogonal to simplification): atomic JSON writes, session-log persistence, agent-action quotas, and the deferred implicit-LRU section caching (TOOLS-05). Start the next milestone with `/gsd-new-milestone`.
 
 ## Requirements
 
@@ -34,24 +31,25 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 - ✓ Per-session world directory bootstrapped from template — `backend_generalist/template_world/` + `world.py` (v1.0)
 - ✓ CLI turn loop over stdin/stdout with state preserved on Ctrl-C — `backend_generalist/cli.py` (v1.0)
 - ✓ End-to-end coherent solo TTRPG play with no domain tools — human-verified across 7 sessions (v1.0)
-- ✓ Live production stack: ~15 domain tools, strict Pydantic schemas, FastAPI + SSE, deferred-tool web dice — `backend/` (pre-existing)
+- ✓ Live production stack: domain tools, strict Pydantic schemas, FastAPI + SSE, deferred-tool web dice — `backend/` (pre-existing)
 - ✓ React/Vite chat UI consuming SSE turn stream + dice-roll prompt — `frontend/` (pre-existing)
+
+<!-- v2.0 backend-simplification — shipped 2026-05-26. Archived criteria: milestones/v2.0-REQUIREMENTS.md. -->
+
+- ✓ De-duplicated `api/turn_engine.py` SSE stream functions into one shared `_stream_core` — v2.0 (Phase 2)
+- ✓ Trimmed agent system prompt to behavior/pacing rules; relies on tool docstrings for signatures — v2.0 (Phase 2)
+- ✓ Static ruleset embedded at module load instead of per-turn `@gm_agent.instructions` — v2.0 (Phase 2)
+- ✓ Consolidated duplicated test files (`agent_test.py` vs `test_agent.py`) — v2.0 (Phase 2)
+- ✓ Merged inventory tool pair into one tool — v2.0 (Phase 3)
+- ✓ Merged countdown tool pair into one tool — v2.0 (Phase 3)
+- ✓ Retired `set_boss_battle` (relocated onto `apply_damage(is_boss=True)` + auto-clear) — v2.0 (Phase 3)
+- ✓ Factored level-up logic out of `award_xp` into a non-tool helper — v2.0 (Phase 3)
+- ✓ Promoted `GameState` to a Pydantic `BaseModel` with `.snapshot()` — v2.0 (Phase 4)
+- ✓ Removed the `GameStateSnapshot` mirror; emit `GameState.snapshot()` directly over SSE (byte-identical, D-02) — v2.0 (Phase 4)
 
 ### Active
 
-<!-- Scope of this milestone (v2.0). REQ-IDs and full criteria live in REQUIREMENTS.md. -->
-
-- [ ] De-duplicate `api/turn_engine.py` SSE stream functions into one shared core
-- [ ] Trim agent system prompt to behavior/pacing rules only; rely on tool docstrings for signatures
-- [ ] Embed static ruleset at module load instead of per-turn `@gm_agent.instructions`
-- [ ] Audit and consolidate duplicated test files (`agent_test.py` vs `test_agent.py`)
-- [ ] Merge inventory tool pair into one tool
-- [ ] Merge countdown tool pair into one tool
-- [ ] Retire `set_boss_battle` (fold into `apply_damage` or scene state)
-- [ ] Factor level-up logic out of `award_xp` into a non-tool helper
-- [ ] Replace manual `load/unload_campaign_section` + 3-section cap with implicit LRU caching
-- [ ] Promote `GameState` to a Pydantic `BaseModel` with a `.snapshot()` method
-- [ ] Remove the `GameStateSnapshot` mirror in `api/schemas.py`; emit `GameState.snapshot()` directly over SSE
+(None — no milestone currently active. See Next Milestone Goals.)
 
 ### Out of Scope
 
@@ -62,6 +60,7 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 - Frontend changes — UI is in scope only as the smoke-test consumer for verifying no regressions
 - Migrating any session state from `backend/` to `backend_generalist/` or vice versa
 - Production hardening (auth, rate limiting, telemetry) — orthogonal to simplification
+- Implicit-LRU section caching (TOOLS-05) — **descoped from v2.0** (D-09): manual `load/unload_campaign_section` + 3-section cap retained; revisit in a future milestone if needed
 
 ## Context
 
@@ -83,9 +82,14 @@ Ship a maintainable, schema-enforced TTRPG GM agent backend that drives the exis
 |----------|-----------|---------|
 | Parallel `backend_generalist/` for v1.0 viability spike | Keep live `backend/` untouched while experimenting | ✓ Validated 2026-04-28 (`play passed`) |
 | Full Bash in generalist harness | Faithful coding-agent harness; max viability signal | ✓ Validated 2026-04-28 |
-| `backend/` is the production target, not `backend_generalist/` | Strict schemas catch invalid state and make the API contract checkable; the spike's "world as ad-hoc JSON" is the wrong trade for the live UI | — Pending validation in v2.0 |
-| Simplify in-place rather than re-port from generalist | Generalist's tool surface and prompt shape are useful lessons, not a target replacement; `backend/` already has the schema discipline we want | — Pending validation in v2.0 |
-| Three phases (Tier 2 → Tier 3 → Tier 4) in sequence | Each tier is independently verifiable against the same frontend smoke test; staging keeps blast radius small | — Pending validation in v2.0 |
+| `backend/` is the production target, not `backend_generalist/` | Strict schemas catch invalid state and make the API contract checkable; the spike's "world as ad-hoc JSON" is the wrong trade for the live UI | ✓ Validated v2.0 — schemas kept and extended (GameState typed) with no regressions |
+| Simplify in-place rather than re-port from generalist | Generalist's tool surface and prompt shape are useful lessons, not a target replacement; `backend/` already has the schema discipline we want | ✓ Validated v2.0 — three in-place tiers shipped, frontend untouched |
+| Three phases (Tier 2 → Tier 3 → Tier 4) in sequence | Each tier is independently verifiable against the same frontend smoke test; staging keeps blast radius small | ✓ Validated v2.0 — each phase smoke-tested independently |
+| Tool-count baseline corrected 17 → ≤14 (D-10), no over-merging | Roadmap's "~15 → ≤11" anchored to a wrong baseline; only named consolidations applied | ✓ Good — landed at exactly 14 |
+| Boss flag relocated, not removed (D-07/D-08) | `is_boss_battle` field kept; write moved onto `apply_damage(is_boss=True)`, auto-cleared on last-enemy removal | ✓ Good |
+| TOOLS-05 implicit-LRU section caching descoped (D-09) | Avoid a silent verification gap; manual load/unload + 3-section cap is adequate for now | — Deferred to a future milestone |
+| `GameState.snapshot()` returns a hand-built plain dict, called directly with no `.model_dump()` (D-01/D-02) | One source of truth; output proven byte-identical to the old mirror | ✓ Good — pinned by an automated byte-compat test |
+| Runtime fields excluded from serialization: `narrations` `Field(exclude=True)`, `_event_queue` `PrivateAttr` (D-03/D-04); no `validate_assignment` (D-05) | Keep the wire format clean and preserve plain-class in-place mutation semantics | ✓ Good |
 
 ## Evolution
 
@@ -105,4 +109,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — opened milestone v2.0 backend-simplification.*
+*Last updated: 2026-05-26 — after v2.0 backend-simplification milestone.*
