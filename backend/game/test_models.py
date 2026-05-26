@@ -1,5 +1,7 @@
 """Tests for GameState as a Pydantic BaseModel with .snapshot()."""
 
+import json
+
 from pydantic import BaseModel
 
 from game.models import CharacterState, EnemyState, GameState
@@ -106,6 +108,36 @@ def test_excluded_and_private_fields_absent_from_serialization():
         "enemies",
         "in_combat",
     ]
+
+
+def test_snapshot_byte_compat_with_old_gamestatesnapshot_mirror():
+    # Pin INV-01: snapshot() output must stay byte-identical to the now-removed
+    # GameStateSnapshot mirror's model_dump(). Reconstruct that mirror locally and
+    # compare canonical JSON so any drift (renamed/dropped key, changed nested
+    # model_dump) fails CI.
+    class _OldMirror(BaseModel):
+        character: CharacterState | None
+        enemies: dict[str, EnemyState]
+        countdowns: dict[str, int]
+        in_combat: bool
+
+    gs = GameState()
+    gs.pc = _make_character()
+    gs.enemies["goblin"] = _make_enemy()
+    gs.countdowns["alarm"] = 3
+    gs.in_combat = True
+
+    old_wire = json.dumps(
+        _OldMirror(
+            character=gs.pc,
+            enemies=gs.enemies,
+            countdowns=gs.countdowns,
+            in_combat=gs.in_combat,
+        ).model_dump(),
+        sort_keys=True,
+    )
+    new_wire = json.dumps(gs.snapshot(), sort_keys=True)
+    assert new_wire == old_wire
 
 
 def test_in_place_mutation_does_not_raise():
