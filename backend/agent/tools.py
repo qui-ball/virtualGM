@@ -427,46 +427,43 @@ def update_character_state(
 
 
 @gm_agent.tool
-def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) -> str:
-    """Create a new countdown tracker. Triggers when it reaches 0.
+def set_countdown(
+    ctx: RunContext[GameState],
+    name: str,
+    value: int,
+    mode: Literal["create", "adjust"],
+) -> str:
+    """Create or adjust a countdown tracker. Triggers when it reaches 0.
 
     Args:
-        name: Name/identifier for the countdown
-        initial_value: Starting value (must be >= 0)
+        name: Name/identifier for the countdown.
+        value: For mode="create", the starting value (must be >= 0). For
+            mode="adjust", the delta to apply (e.g. -1 to tick down, +1 to tick up).
+        mode: "create" for a new countdown, "adjust" to change an existing one.
     """
-    if name in ctx.deps.countdowns:
-        raise ModelRetry(
-            f"Countdown '{name}' already exists. Use update_countdown to modify it."
-        )
+    if mode == "create":
+        if name in ctx.deps.countdowns:
+            raise ModelRetry(
+                f"Countdown '{name}' already exists. Use mode='adjust' to modify it."
+            )
+        if value < 0:
+            raise ModelRetry(f"Countdown initial value must be >= 0, got {value}")
 
-    if initial_value < 0:
-        raise ModelRetry(f"Countdown initial value must be >= 0, got {initial_value}")
+        ctx.deps.countdowns[name] = value
+        logger.info(f"⏱️ Created countdown '{name}' with value {value}")
+        if value == 0:
+            return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
+        return f"Created countdown '{name}' with value {value}"
 
-    ctx.deps.countdowns[name] = initial_value
-    logger.info(f"⏱️ Created countdown '{name}' with value {initial_value}")
-
-    if initial_value == 0:
-        return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
-    return f"Created countdown '{name}' with value {initial_value}"
-
-
-@gm_agent.tool
-def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
-    """Update an existing countdown by applying a delta.
-
-    Args:
-        name: Name of the countdown
-        delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
-    """
     if name not in ctx.deps.countdowns:
         raise ModelRetry(
-            f"Countdown '{name}' not found. Available: {list(ctx.deps.countdowns.keys())}"
+            f"Countdown '{name}' not found. Use mode='create' first. "
+            f"Available: {list(ctx.deps.countdowns.keys())}"
         )
 
     old_value = ctx.deps.countdowns[name]
-    new_value = max(0, old_value + delta)
+    new_value = max(0, old_value + value)
     ctx.deps.countdowns[name] = new_value
-
     logger.info(f"⏱️ Countdown '{name}': {old_value} → {new_value}")
 
     if new_value == 0 and old_value > 0:

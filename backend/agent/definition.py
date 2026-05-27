@@ -125,8 +125,7 @@ Tools:
 - set_condition(target, condition, active): active=True when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone); active=False when it expires, is healed, or is escaped.
 - award_xp(amount, reason): Use after battles, quests, or skill successes. Automatically checks for level-up. Only use outside combat.
 - update_inventory(item, action): action="add" when the PC picks up, buys, receives, or loots an item; action="remove" when the PC drops, sells, uses up, or loses one. Always call this — do not just narrate inventory changes.
-- create_countdown(name, value): Use for timed narrative events — rituals completing, reinforcements arriving, a building collapsing.
-- update_countdown(name, delta): Use to tick countdowns forward or back as time passes or events occur.
+- set_countdown(name, value, mode): mode="create" to start a timed narrative event (rituals completing, reinforcements arriving, a building collapsing) with value as the starting count; mode="adjust" to tick it (value is the delta, e.g. -1) as time passes.
 
 When your turn is complete, return your internal notes string.
 """,
