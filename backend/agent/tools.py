@@ -339,69 +339,44 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
 
 
 @gm_agent.tool
-def apply_condition(
-    ctx: RunContext[GameState], target: str, condition: ConditionName
+def set_condition(
+    ctx: RunContext[GameState],
+    target: str,
+    condition: ConditionName,
+    active: bool,
 ) -> str:
-    """Apply a condition to the player character or an enemy.
+    """Apply or clear a condition on the player character or an enemy.
 
     Args:
         target: "pc" for player character, or enemy_id for an enemy
-        condition: The condition to apply
+        condition: The condition to set
+        active: True to inflict the condition, False to clear it (expired, healed, escaped)
     """
     if target == "pc":
         if ctx.deps.pc is None:
             raise ModelRetry("No player character initialized.")
-        if condition not in ctx.deps.pc.conditions:
-            ctx.deps.pc.conditions.append(condition)
-            logger.info(f"😵 PC is now {condition}")
-            return f"PC is now {condition}"
-        return f"PC already has {condition}"
-
+        conditions = ctx.deps.pc.conditions
+        label = "PC"
     elif target in ctx.deps.enemies:
-        enemy = ctx.deps.enemies[target]
-        if condition not in enemy.conditions:
-            enemy.conditions.append(condition)
-            logger.info(f"😵 '{target}' is now {condition}")
-            return f"'{target}' is now {condition}"
-        return f"'{target}' already has {condition}"
-
+        conditions = ctx.deps.enemies[target].conditions
+        label = f"'{target}'"
     else:
         raise ModelRetry(
             f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
         )
 
+    if active:
+        if condition in conditions:
+            return f"{label} already has {condition}"
+        conditions.append(condition)
+        logger.info(f"😵 {label} is now {condition}")
+        return f"{label} is now {condition}"
 
-@gm_agent.tool
-def remove_condition(
-    ctx: RunContext[GameState], target: str, condition: ConditionName
-) -> str:
-    """Remove a condition from the player character or an enemy.
-
-    Args:
-        target: "pc" for player character, or enemy_id for an enemy
-        condition: The condition to remove
-    """
-    if target == "pc":
-        if ctx.deps.pc is None:
-            raise ModelRetry("No player character initialized.")
-        if condition in ctx.deps.pc.conditions:
-            ctx.deps.pc.conditions.remove(condition)
-            logger.info(f"✨ PC is no longer {condition}")
-            return f"PC is no longer {condition}"
-        return f"PC did not have {condition}"
-
-    elif target in ctx.deps.enemies:
-        enemy = ctx.deps.enemies[target]
-        if condition in enemy.conditions:
-            enemy.conditions.remove(condition)
-            logger.info(f"✨ '{target}' is no longer {condition}")
-            return f"'{target}' is no longer {condition}"
-        return f"'{target}' did not have {condition}"
-
-    else:
-        raise ModelRetry(
-            f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
-        )
+    if condition not in conditions:
+        return f"{label} did not have {condition}"
+    conditions.remove(condition)
+    logger.info(f"✨ {label} is no longer {condition}")
+    return f"{label} is no longer {condition}"
 
 
 @gm_agent.tool

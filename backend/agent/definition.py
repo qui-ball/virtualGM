@@ -122,8 +122,7 @@ Tools:
 - update_character_state(target, field, value): Use for simple numeric changes — spending gold, restoring mana, adjusting evasion. Not for damage (use apply_damage) or items (use inventory tools).
 - set_boss_battle(active): Use when a campaign-designated boss encounter begins (True) or ends (False). Must be set before any damage is dealt in the encounter.
 - apply_damage(target, amount): Use whenever a creature takes damage. Handles HP clamping and death/defeat logic automatically.
-- apply_condition(target, condition): Use when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone).
-- remove_condition(target, condition): Use when a condition expires, is healed, or is escaped.
+- set_condition(target, condition, active): active=True when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone); active=False when it expires, is healed, or is escaped.
 - award_xp(amount, reason): Use after battles, quests, or skill successes. Automatically checks for level-up. Only use outside combat.
 - update_inventory(item, action): action="add" when the PC picks up, buys, receives, or loots an item; action="remove" when the PC drops, sells, uses up, or loses one. Always call this — do not just narrate inventory changes.
 - create_countdown(name, value): Use for timed narrative events — rituals completing, reinforcements arriving, a building collapsing.
