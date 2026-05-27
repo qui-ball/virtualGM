@@ -125,8 +125,7 @@ Tools:
 - apply_condition(target, condition): Use when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone).
 - remove_condition(target, condition): Use when a condition expires, is healed, or is escaped.
 - award_xp(amount, reason): Use after battles, quests, or skill successes. Automatically checks for level-up. Only use outside combat.
-- add_to_inventory(item): Use when the PC picks up, buys, receives, or loots an item. Always call this — do not just narrate acquiring items.
-- remove_from_inventory(item): Use when the PC drops, sells, uses up, or loses an item. Always call this — do not just narrate losing items.
+- update_inventory(item, action): action="add" when the PC picks up, buys, receives, or loots an item; action="remove" when the PC drops, sells, uses up, or loses one. Always call this — do not just narrate inventory changes.
 - create_countdown(name, value): Use for timed narrative events — rituals completing, reinforcements arriving, a building collapsing.
 - update_countdown(name, delta): Use to tick countdowns forward or back as time passes or events occur.
 

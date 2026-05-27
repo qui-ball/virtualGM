@@ -2,6 +2,7 @@
 
 import random
 from pathlib import Path
+from typing import Literal
 
 from loguru import logger
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
@@ -536,29 +537,22 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
 
 
 @gm_agent.tool
-def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Add an item to the player character's inventory.
+def update_inventory(
+    ctx: RunContext[GameState], item: str, action: Literal["add", "remove"]
+) -> str:
+    """Add or remove an item from the player character's inventory.
 
     Args:
-        item: Name of the item to add
+        item: Name of the item (for "remove", must match exactly).
+        action: "add" to add the item, "remove" to drop/use/lose it.
     """
     if ctx.deps.pc is None:
         raise ModelRetry("No player character initialized.")
 
-    ctx.deps.pc.inventory.append(item)
-    logger.info(f"🎒 Added '{item}' to inventory")
-    return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
-
-
-@gm_agent.tool
-def remove_from_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Remove an item from the player character's inventory.
-
-    Args:
-        item: Name of the item to remove (must match exactly)
-    """
-    if ctx.deps.pc is None:
-        raise ModelRetry("No player character initialized.")
+    if action == "add":
+        ctx.deps.pc.inventory.append(item)
+        logger.info(f"🎒 Added '{item}' to inventory")
+        return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
 
     if item not in ctx.deps.pc.inventory:
         raise ModelRetry(
