@@ -139,6 +139,9 @@ class EnemyState(BaseModel):
     conditions: list[ConditionName] = Field(
         default_factory=list, description="Active conditions"
     )
+    is_boss: bool = Field(
+        default=False, description="Whether this enemy is the encounter's boss"
+    )
 
 
 class GameState:

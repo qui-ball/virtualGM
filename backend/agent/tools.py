@@ -226,6 +226,7 @@ def create_enemy(
     evasion: int,
     attack_modifier: int = 0,
     damage: str = "1d6",
+    is_boss: bool = False,
 ) -> str:
     """Create an enemy in the encounter.
 
@@ -235,6 +236,9 @@ def create_enemy(
         evasion: Evasion value (target number to hit)
         attack_modifier: Bonus to attack rolls
         damage: Damage expression (e.g., "1d6+2")
+        is_boss: True for a campaign-designated boss. Marks the encounter as a
+            boss battle (set before any damage is dealt); auto-clears when this
+            enemy is defeated.
     """
     if enemy_id in ctx.deps.enemies:
         raise ModelRetry(
@@ -248,13 +252,18 @@ def create_enemy(
         evasion=evasion,
         attack_modifier=attack_modifier,
         damage=damage,
+        is_boss=is_boss,
     )
     ctx.deps.enemies[enemy_id] = enemy
 
+    if is_boss:
+        ctx.deps.is_boss_battle = True
+
+    boss_note = " 👑 BOSS — boss battle STARTED" if is_boss else ""
     logger.info(
-        f"Created enemy '{enemy_id}' (HP: {hp_max}, Evasion: {evasion}, Attack: +{attack_modifier}, Damage: {damage})"
+        f"Created enemy '{enemy_id}' (HP: {hp_max}, Evasion: {evasion}, Attack: +{attack_modifier}, Damage: {damage}){boss_note}"
     )
-    return f"Created '{enemy_id}' with {hp_max} HP, Evasion {evasion}"
+    return f"Created '{enemy_id}' with {hp_max} HP, Evasion {evasion}{boss_note}"
 
 
 @gm_agent.tool
@@ -272,19 +281,6 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
     del ctx.deps.enemies[enemy_id]
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
-
-
-@gm_agent.tool
-def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
-    """Toggle boss battle mode for the current encounter.
-
-    Args:
-        active: True to start a boss battle, False to end it
-    """
-    ctx.deps.is_boss_battle = active
-    status = "STARTED" if active else "ENDED"
-    logger.info(f"👑 Boss battle {status}")
-    return f"Boss battle {status}"
 
 
 @gm_agent.tool
@@ -328,6 +324,9 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
 
         if new_hp == 0:
             result += " (DEFEATED)"
+            if enemy.is_boss and ctx.deps.is_boss_battle:
+                ctx.deps.is_boss_battle = False
+                result += " 👑 BOSS DEFEATED — boss battle ENDED"
 
         logger.info(f"⚔️ {result}")
         return result

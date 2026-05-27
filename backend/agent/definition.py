@@ -117,10 +117,9 @@ Tools:
 - narrate(text): Player-facing narration. Use for ALL player-visible output — descriptions, dialogue, outcomes, questions.
 - roll_dice(count, dice_type): Use when the GM or an enemy needs a roll (enemy attacks, enemy initiative, random outcomes). Never use for player actions.
 - ask_player_roll(count, dice_type, purpose): Use when the PLAYER attempts something — attacks, damage, skill checks, saves. Defers until the player provides their result.
-- create_enemy(enemy_id, hp_max, evasion, ...): Use when enemies appear in the narrative. Set stats before combat begins.
+- create_enemy(enemy_id, hp_max, evasion, ..., is_boss): Use when enemies appear in the narrative. Set stats before combat begins. Pass is_boss=True for a campaign-designated boss — this marks the boss battle (no separate call needed); it auto-clears when the boss is defeated.
 - remove_enemy(enemy_id): Use when an enemy is defeated, flees, or is otherwise removed from the encounter.
-- update_character_state(target, field, value): Use for simple numeric changes — spending gold, restoring mana, adjusting evasion. Not for damage (use apply_damage) or items (use inventory tools).
-- set_boss_battle(active): Use when a campaign-designated boss encounter begins (True) or ends (False). Must be set before any damage is dealt in the encounter.
+- update_character_state(target, field, value): Use for simple numeric changes — spending gold, restoring mana, adjusting evasion. Not for damage (use apply_damage) or items (use update_inventory).
 - apply_damage(target, amount): Use whenever a creature takes damage. Handles HP clamping and death/defeat logic automatically.
 - set_condition(target, condition, active): active=True when a spell, trap, or effect inflicts a condition (poisoned, stunned, frightened, restrained, prone); active=False when it expires, is healed, or is escaped.
 - award_xp(amount, reason): Use after battles, quests, or skill successes. Automatically checks for level-up. Only use outside combat.
