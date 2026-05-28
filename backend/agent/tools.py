@@ -2,6 +2,7 @@
 
 import random
 from pathlib import Path
+from typing import Literal
 
 from loguru import logger
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
@@ -225,6 +226,7 @@ def create_enemy(
     evasion: int,
     attack_modifier: int = 0,
     damage: str = "1d6",
+    is_boss: bool = False,
 ) -> str:
     """Create an enemy in the encounter.
 
@@ -234,6 +236,9 @@ def create_enemy(
         evasion: Evasion value (target number to hit)
         attack_modifier: Bonus to attack rolls
         damage: Damage expression (e.g., "1d6+2")
+        is_boss: True for a campaign-designated boss. Marks the encounter as a
+            boss battle (set before any damage is dealt); auto-clears when this
+            enemy is defeated.
     """
     if enemy_id in ctx.deps.enemies:
         raise ModelRetry(
@@ -247,13 +252,18 @@ def create_enemy(
         evasion=evasion,
         attack_modifier=attack_modifier,
         damage=damage,
+        is_boss=is_boss,
     )
     ctx.deps.enemies[enemy_id] = enemy
 
+    if is_boss:
+        ctx.deps.is_boss_battle = True
+
+    boss_note = " 👑 BOSS — boss battle STARTED" if is_boss else ""
     logger.info(
-        f"Created enemy '{enemy_id}' (HP: {hp_max}, Evasion: {evasion}, Attack: +{attack_modifier}, Damage: {damage})"
+        f"Created enemy '{enemy_id}' (HP: {hp_max}, Evasion: {evasion}, Attack: +{attack_modifier}, Damage: {damage}){boss_note}"
     )
-    return f"Created '{enemy_id}' with {hp_max} HP, Evasion {evasion}"
+    return f"Created '{enemy_id}' with {hp_max} HP, Evasion {evasion}{boss_note}"
 
 
 @gm_agent.tool
@@ -271,19 +281,6 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
     del ctx.deps.enemies[enemy_id]
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
-
-
-@gm_agent.tool
-def set_boss_battle(ctx: RunContext[GameState], active: bool) -> str:
-    """Toggle boss battle mode for the current encounter.
-
-    Args:
-        active: True to start a boss battle, False to end it
-    """
-    ctx.deps.is_boss_battle = active
-    status = "STARTED" if active else "ENDED"
-    logger.info(f"👑 Boss battle {status}")
-    return f"Boss battle {status}"
 
 
 @gm_agent.tool
@@ -327,6 +324,9 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
 
         if new_hp == 0:
             result += " (DEFEATED)"
+            if enemy.is_boss and ctx.deps.is_boss_battle:
+                ctx.deps.is_boss_battle = False
+                result += " 👑 BOSS DEFEATED — boss battle ENDED"
 
         logger.info(f"⚔️ {result}")
         return result
@@ -338,69 +338,44 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
 
 
 @gm_agent.tool
-def apply_condition(
-    ctx: RunContext[GameState], target: str, condition: ConditionName
+def set_condition(
+    ctx: RunContext[GameState],
+    target: str,
+    condition: ConditionName,
+    active: bool,
 ) -> str:
-    """Apply a condition to the player character or an enemy.
+    """Apply or clear a condition on the player character or an enemy.
 
     Args:
         target: "pc" for player character, or enemy_id for an enemy
-        condition: The condition to apply
+        condition: The condition to set
+        active: True to inflict the condition, False to clear it (expired, healed, escaped)
     """
     if target == "pc":
         if ctx.deps.pc is None:
             raise ModelRetry("No player character initialized.")
-        if condition not in ctx.deps.pc.conditions:
-            ctx.deps.pc.conditions.append(condition)
-            logger.info(f"😵 PC is now {condition}")
-            return f"PC is now {condition}"
-        return f"PC already has {condition}"
-
+        conditions = ctx.deps.pc.conditions
+        label = "PC"
     elif target in ctx.deps.enemies:
-        enemy = ctx.deps.enemies[target]
-        if condition not in enemy.conditions:
-            enemy.conditions.append(condition)
-            logger.info(f"😵 '{target}' is now {condition}")
-            return f"'{target}' is now {condition}"
-        return f"'{target}' already has {condition}"
-
+        conditions = ctx.deps.enemies[target].conditions
+        label = f"'{target}'"
     else:
         raise ModelRetry(
             f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
         )
 
+    if active:
+        if condition in conditions:
+            return f"{label} already has {condition}"
+        conditions.append(condition)
+        logger.info(f"😵 {label} is now {condition}")
+        return f"{label} is now {condition}"
 
-@gm_agent.tool
-def remove_condition(
-    ctx: RunContext[GameState], target: str, condition: ConditionName
-) -> str:
-    """Remove a condition from the player character or an enemy.
-
-    Args:
-        target: "pc" for player character, or enemy_id for an enemy
-        condition: The condition to remove
-    """
-    if target == "pc":
-        if ctx.deps.pc is None:
-            raise ModelRetry("No player character initialized.")
-        if condition in ctx.deps.pc.conditions:
-            ctx.deps.pc.conditions.remove(condition)
-            logger.info(f"✨ PC is no longer {condition}")
-            return f"PC is no longer {condition}"
-        return f"PC did not have {condition}"
-
-    elif target in ctx.deps.enemies:
-        enemy = ctx.deps.enemies[target]
-        if condition in enemy.conditions:
-            enemy.conditions.remove(condition)
-            logger.info(f"✨ '{target}' is no longer {condition}")
-            return f"'{target}' is no longer {condition}"
-        return f"'{target}' did not have {condition}"
-
-    else:
-        raise ModelRetry(
-            f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
-        )
+    if condition not in conditions:
+        return f"{label} did not have {condition}"
+    conditions.remove(condition)
+    logger.info(f"✨ {label} is no longer {condition}")
+    return f"{label} is no longer {condition}"
 
 
 @gm_agent.tool
@@ -451,46 +426,43 @@ def update_character_state(
 
 
 @gm_agent.tool
-def create_countdown(ctx: RunContext[GameState], name: str, initial_value: int) -> str:
-    """Create a new countdown tracker. Triggers when it reaches 0.
+def set_countdown(
+    ctx: RunContext[GameState],
+    name: str,
+    value: int,
+    mode: Literal["create", "adjust"],
+) -> str:
+    """Create or adjust a countdown tracker. Triggers when it reaches 0.
 
     Args:
-        name: Name/identifier for the countdown
-        initial_value: Starting value (must be >= 0)
+        name: Name/identifier for the countdown.
+        value: For mode="create", the starting value (must be >= 0). For
+            mode="adjust", the delta to apply (e.g. -1 to tick down, +1 to tick up).
+        mode: "create" for a new countdown, "adjust" to change an existing one.
     """
-    if name in ctx.deps.countdowns:
-        raise ModelRetry(
-            f"Countdown '{name}' already exists. Use update_countdown to modify it."
-        )
+    if mode == "create":
+        if name in ctx.deps.countdowns:
+            raise ModelRetry(
+                f"Countdown '{name}' already exists. Use mode='adjust' to modify it."
+            )
+        if value < 0:
+            raise ModelRetry(f"Countdown initial value must be >= 0, got {value}")
 
-    if initial_value < 0:
-        raise ModelRetry(f"Countdown initial value must be >= 0, got {initial_value}")
+        ctx.deps.countdowns[name] = value
+        logger.info(f"⏱️ Created countdown '{name}' with value {value}")
+        if value == 0:
+            return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
+        return f"Created countdown '{name}' with value {value}"
 
-    ctx.deps.countdowns[name] = initial_value
-    logger.info(f"⏱️ Created countdown '{name}' with value {initial_value}")
-
-    if initial_value == 0:
-        return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
-    return f"Created countdown '{name}' with value {initial_value}"
-
-
-@gm_agent.tool
-def update_countdown(ctx: RunContext[GameState], name: str, delta: int) -> str:
-    """Update an existing countdown by applying a delta.
-
-    Args:
-        name: Name of the countdown
-        delta: Change to apply (e.g., -1 to tick down, +1 to tick up)
-    """
     if name not in ctx.deps.countdowns:
         raise ModelRetry(
-            f"Countdown '{name}' not found. Available: {list(ctx.deps.countdowns.keys())}"
+            f"Countdown '{name}' not found. Use mode='create' first. "
+            f"Available: {list(ctx.deps.countdowns.keys())}"
         )
 
     old_value = ctx.deps.countdowns[name]
-    new_value = max(0, old_value + delta)
+    new_value = max(0, old_value + value)
     ctx.deps.countdowns[name] = new_value
-
     logger.info(f"⏱️ Countdown '{name}': {old_value} → {new_value}")
 
     if new_value == 0 and old_value > 0:
@@ -536,29 +508,22 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
 
 
 @gm_agent.tool
-def add_to_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Add an item to the player character's inventory.
+def update_inventory(
+    ctx: RunContext[GameState], item: str, action: Literal["add", "remove"]
+) -> str:
+    """Add or remove an item from the player character's inventory.
 
     Args:
-        item: Name of the item to add
+        item: Name of the item (for "remove", must match exactly).
+        action: "add" to add the item, "remove" to drop/use/lose it.
     """
     if ctx.deps.pc is None:
         raise ModelRetry("No player character initialized.")
 
-    ctx.deps.pc.inventory.append(item)
-    logger.info(f"🎒 Added '{item}' to inventory")
-    return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
-
-
-@gm_agent.tool
-def remove_from_inventory(ctx: RunContext[GameState], item: str) -> str:
-    """Remove an item from the player character's inventory.
-
-    Args:
-        item: Name of the item to remove (must match exactly)
-    """
-    if ctx.deps.pc is None:
-        raise ModelRetry("No player character initialized.")
+    if action == "add":
+        ctx.deps.pc.inventory.append(item)
+        logger.info(f"🎒 Added '{item}' to inventory")
+        return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
 
     if item not in ctx.deps.pc.inventory:
         raise ModelRetry(
