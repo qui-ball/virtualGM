@@ -1,7 +1,22 @@
 ## Conclusion
 
-With hard work and a little luck, the adventurers have defeated the Black Spider and undone his destructive plots, cleared Phandalin of the ruffians who threatened its people, and reclaimed the lost mine of Wave Echo Cave. Their deeds will be long remembered in this corner of the Sword Coast. In years to come, the restored mines of the Phandelver’s Pact will bring great riches to Phandalin and help establish peace and prosperity in the area.
+With Nezznar defeated, the **Black Spider’s** plots collapse. Cragmaw goblins scatter; Redbrand remnants flee Phandalin. **Wave Echo Cave** can be reclaimed.
 
-Gundren and Nundro Rockseeker take over administration of the new mine. For the adventurers’ service to their family, they gladly award the party a 10 percent share of the mine’s profits. If the characters want to remain in Phandalin and perhaps restore Tresendar Manor or establish homes of their own, the people of the area are glad to have them stay. Even if they choose to move on in search of new adventures, they’ll always have a warm welcome in Phandalin.
+### Rewards
 
-By the end of the adventure, the characters should be 5th level. If your players wish to continue playing their characters, you can use the contents of this set to create your own adventures; the mysterious map found in [area 14](Wave_Echo_Cave.md#WizardsQuartersTreasure) of Wave Echo Cave provides one possible adventure hook, but feel free to explore other ideas using the monsters, magic items, and locations in this adventure. If you want to create adventures for characters higher than 5th level, you’ll need the core rulebooks or additional GM resources.
+- **Gundren and Nundro Rockseeker** offer the PC a **10% share** of future mine profits.
+- Phandalin celebrates the heroes; free lodging at Stonehill Inn.
+- **Sildar** reports success to the Lords’ Alliance.
+- Magic items from the mine remain with the party.
+
+### Epilogue beats
+
+- Townsfolk rebuild; Tresendar Manor may be restored.
+- Gundren begins reopening the mine carefully.
+- Hook: deeper caverns, map in wizards’ quarters, or Nezznar’s surviving agents (future adventure).
+
+### Campaign complete
+
+The PC should feel they have played **Lost Mine of Phandelver**: goblin threat → Phandalin saved → Gundren rescued → Black Spider stopped → lost mine found.
+
+Target character level **5** by end (adjust XP awards as needed).
