@@ -3,6 +3,7 @@
 import json
 import os
 import random
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,10 +79,16 @@ def get_campaigns():
     return list_campaigns()
 
 
+DEFAULT_CAMPAIGN_DIR = (
+    Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted"
+)
+
+
 @app.post("/sessions", response_model=CreateSessionResponse)
 def create_session(body: CreateSessionRequest | None = None):
     gs = GameState()
     gs.pc = create_player_character()
+    gs.campaign_dir = str(DEFAULT_CAMPAIGN_DIR)
     session = store.create(game_state=gs)
     logger.info(f"Created session {session.id} for {gs.pc.name}")
 

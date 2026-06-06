@@ -1,15 +1,39 @@
-# Part 3: The Spider’s Web
+## Part 3 — The Spider's Web
 
+**Level:** 3 · **Region:** Triboar Trail environs
 
+### Purpose
 
-In this part of the adventure, the characters follow up on existing leads and lines of inquiry. They can’t learn much more in Phandalin, so they need to set out into the forests and hills surrounding the town to uncover the larger plots they are caught up in. The characters are not required to visit all the locations in this section.
+Bridge Phandalin to **Cragmaw Castle**. The PC needs **Gundren** and his **map to Wave Echo Cave**. Sildar’s intel + Redbrand notes already establish Cragmaw Castle — side quests add color, XP, and clues.
 
-Depending on which NPCs the characters met and which quests or clues they picked up, some or all of the following information might be known to them:
+### Critical path
 
-- Sister Garaele wants the characters to seek out the banshee Agatha in the ruined town of Conyberry and ask her about Bowgentle’s spellbook.
-- Daran Edermath wants the characters to find out who is lurking near the ruins at Old Owl Well.
-- Qelline Alderleaf has suggested that the characters go to the ruined town of Thundertree and consult with the druid Reidoth, who might know the whereabouts of Cragmaw Castle, Wave Echo Cave, or both.
-- Townmaster Harbin Wester wants the characters to seek out an orc encampment near Wyvern Tor and chase the orcs away from the area.
-- Sildar Hallwinter wants the characters to find Cragmaw Castle, search for Gundren Rockseeker, rescue the dwarf, and retrieve his map.
+1. Learn Gundren is at **Cragmaw Castle** (from Part 1 — required).
+2. Travel northeast through wilderness (1–2 travel beats; optional random encounter: goblins or wolves).
+3. Assault or infiltrate castle → `Part3_The_Spiders_Web/Cragmaw_Castle`.
 
-Each of these possible quests has its own section in this part of the adventure. The characters can remain in Phandalin long enough to rest up and purchase supplies. When they’re done, have them pick a storyline to investigate, then set out for the appropriate destination.
+### Optional quests (one paragraph each — run if PC pursues)
+
+| Quest giver | Site | Reward / clue |
+|-------------|------|----------------|
+| **Sister Garaele** | **Conyberry** — banshee **Agatha** (`npc-agatha`) | Bowgentle’s spellbook question; Agatha may mention Cragmaws or Black Spider |
+| **Daran Edermath** | **Old Owl Well** — necromancer Hamun Kost + zombies | Kost works for Spider; journal hints at mine interest |
+| **Qelline Alderleaf** | **Thundertree** — **Reidoth** (`npc-reidoth`), blights, optional dragon rumor | Reidoth gives **Cragmaw Castle directions** |
+| **Harbin Wester** (townmaster) | **Wyvern Tor** — orc camp | Clear raiders; town gratitude; skip if pacing tight |
+
+**GM:** Do not require all four. If PC heads straight for the castle after Part 2, that is valid.
+
+### Travel
+
+- Short rest −1 time unit if using chapter counter; long rest −5 (match session `time_current` / `time_max` on snapshot if tracked).
+- Overland: 1–2 days to castle from Phandalin.
+
+### Story elements
+
+- **ev3-side-quest** — Optional location completed.
+- **ev3-castle-approach** — Castle in sight.
+- **tr3-castle** — Load `Part3_The_Spiders_Web/Cragmaw_Castle`.
+
+### XP
+
+**25–50 XP** per optional site cleared; travel encounters **25 XP** each.
