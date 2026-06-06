@@ -1,5 +1,5 @@
 /*
- * RPG Companion themes (feature 04) — storm, necropolis, obsidian, mithril.
+ * RPG Companion themes (feature 04) — storm, necropolis, obsidian, mithril, grimoire.
  * Source: frontend/design_wireframes_mockups/rpg/theme.css
  * Maps RPG tokens to app semantic vars (--background, --primary, …) for Tailwind/shadcn.
  */
@@ -12,7 +12,8 @@ html[data-theme] {
 [data-theme='storm'],
 [data-theme='necropolis'],
 [data-theme='obsidian'],
-[data-theme='mithril'] {
+[data-theme='mithril'],
+[data-theme='grimoire'] {
   color-scheme: dark;
 
   --coin-cp: #c47a4a;
@@ -75,9 +76,10 @@ html[data-theme] {
   --warn: #ffb454;
   --bad: #ff5c7a;
   --good: #6cf2c2;
-  --display: 'Cinzel', serif;
-  --body: 'Inter', system-ui, sans-serif;
+  --display: 'Orbitron', sans-serif;
+  --body: 'Exo 2', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --dice-face: 'd20';
   --r-sm: 6px;
   --r: 10px;
   --r-lg: 16px;
@@ -120,9 +122,10 @@ html[data-theme] {
   --warn: #ffb454;
   --bad: #ff5c7a;
   --good: #9bff7a;
-  --display: 'Cinzel', serif;
-  --body: 'Inter', system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --display: 'Cinzel Decorative', 'Cinzel', serif;
+  --body: 'Crimson Pro', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --dice-face: 'XX';
   --r-sm: 6px;
   --r: 10px;
   --r-lg: 16px;
@@ -156,9 +159,10 @@ html[data-theme] {
   --warn: #ffb454;
   --bad: #ff5c7a;
   --good: #7ad08a;
-  --display: 'Cinzel', serif;
-  --body: 'Inter', system-ui, sans-serif;
+  --display: 'Teko', sans-serif;
+  --body: 'Source Sans 3', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --dice-face: '20';
   --r-sm: 6px;
   --r: 10px;
   --r-lg: 16px;
@@ -198,9 +202,10 @@ html[data-theme] {
   --warn: #ffb454;
   --bad: #ff5c7a;
   --good: #7ad8b2;
-  --display: 'Cinzel', serif;
-  --body: 'Inter', system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --display: 'Cormorant Garamond', serif;
+  --body: 'Nunito Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --dice-face: '20';
   --r-sm: 6px;
   --r: 10px;
   --r-lg: 16px;
@@ -210,6 +215,61 @@ html[data-theme] {
       transparent 60%
     ),
     radial-gradient(ellipse at 80% 100%, rgba(122, 160, 208, 0.06), transparent 55%);
+}
+
+[data-theme='grimoire'] {
+  --bg-0: #100e0a;
+  --bg-1: #181410;
+  --bg-2: #201a14;
+  --panel: #1c1610;
+  --panel-2: #262018;
+  --panel-edge: #4a3c2a;
+  --ink: #f2e8d5;
+  --ink-2: #d4c4a8;
+  --ink-3: #9a8868;
+  --ink-4: #6b5a42;
+  --accent: #c9a84c;
+  --accent-2: #8a6420;
+  --accent-3: #e8d498;
+  --glow: 0 0 10px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 0 1px color-mix(in srgb, var(--accent-3) 55%, transparent);
+  --bolt: linear-gradient(
+    180deg,
+    #e8d498 0%,
+    #c9a84c 38%,
+    #8a6420 72%,
+    #3a2810 100%
+  );
+  --hp: #6b9e5a;
+  --hp-low: #d4874a;
+  --hp-crit: #b83c3c;
+  --mp: #5a7ab8;
+  --xp: #c9a84c;
+  --warn: #d4874a;
+  --bad: #b83c3c;
+  --good: #6b9e5a;
+  --display: 'EB Garamond', serif;
+  --body: 'Lora', Georgia, serif;
+  --mono: 'Courier Prime', ui-monospace, monospace;
+  --dice-face: '20';
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 16px;
+  --tex-noise: radial-gradient(
+      ellipse at 25% 0%,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 85% 100%,
+      color-mix(in srgb, #6b9e5a 5%, transparent),
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      color-mix(in srgb, var(--ink) 2%, transparent),
+      transparent 70%
+    );
 }
 
 /* Play route surfaces: subtle RPG background texture */
@@ -1618,7 +1678,7 @@ html[data-theme] {
 }
 
 .play-dice-glyph::after {
-  content: '20';
+  content: var(--dice-face, '20');
   position: absolute;
   inset: 0;
   display: grid;

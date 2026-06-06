@@ -6,6 +6,7 @@ import {
   CONDITION_CATALOG,
 } from '@/lib/play/conditions';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/theme/useTheme';
 import type { ConditionName } from '@/types';
 
 type ConditionsPopoverProps = {
@@ -21,6 +22,7 @@ export function ConditionsPopover({
   active,
   onClose,
 }: ConditionsPopoverProps) {
+  const { themeId } = useTheme();
   const panelRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<{
     left: number;
@@ -98,7 +100,7 @@ export function ConditionsPopover({
           {activeInfos.map((info) => (
             <li key={info.id} className="play-conditions-popover-item">
               <span className="play-condition-icon-lg" aria-hidden>
-                {conditionIcon(info.id)}
+                {conditionIcon(info.id, themeId)}
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-[var(--ink)]">{info.label}</p>
@@ -122,7 +124,7 @@ export function ConditionsPopover({
               className={cn(activeSet.has(id) && 'text-[var(--accent)]')}
             >
               <span className="mr-1.5" aria-hidden>
-                {conditionIcon(id)}
+                {conditionIcon(id, themeId)}
               </span>
               {CONDITION_CATALOG[id].label}
               {activeSet.has(id) ? ' · active' : ''}

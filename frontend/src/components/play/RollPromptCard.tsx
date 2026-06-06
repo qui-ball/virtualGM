@@ -4,6 +4,7 @@ import { PlayIcon } from '@/components/play/PlayIcon';
 import { Pill } from '@/components/play/Pill';
 import { cn } from '@/lib/utils';
 import { isDev } from '@/config';
+import { useThemeProfile } from '@/theme/useThemeProfile';
 
 type RollPromptCardProps = {
   prompt: RollPromptFields;
@@ -21,12 +22,6 @@ function advLabel(adv: import('@/lib/play/transcript').AdvType): string {
   return 'Normal roll';
 }
 
-function advGlyph(adv: import('@/lib/play/transcript').AdvType): string {
-  if (adv === 'adv') return '↟';
-  if (adv === 'dis') return '↡';
-  return '•';
-}
-
 export function RollPromptCard({
   prompt,
   timestamp,
@@ -36,10 +31,17 @@ export function RollPromptCard({
   onRoll,
   showStubBanner = isDev,
 }: RollPromptCardProps) {
+  const { advGlyphs } = useThemeProfile();
   const ts = new Date(timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  function advGlyph(adv: import('@/lib/play/transcript').AdvType): string {
+    if (adv === 'adv') return advGlyphs.advantage;
+    if (adv === 'dis') return advGlyphs.disadvantage;
+    return advGlyphs.normal;
+  }
 
   if (rolled) {
     const used = advUsed ?? prompt.advType;

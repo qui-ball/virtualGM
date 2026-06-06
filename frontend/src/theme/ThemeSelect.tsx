@@ -8,7 +8,7 @@ type ThemeSelectProps = {
   compact?: boolean;
 };
 
-/** Header / toolbar theme dropdown (four RPG presets). */
+/** Header / toolbar theme dropdown (RPG presets). */
 export function ThemeSelect({ className, compact = false }: ThemeSelectProps) {
   const { themeId, setThemeId } = useTheme();
 

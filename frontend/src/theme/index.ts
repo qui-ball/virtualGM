@@ -12,3 +12,10 @@ export {
   type RpgThemeId,
   type RpgThemeMeta,
 } from '@/theme/registry';
+export {
+  getRpgThemeProfile,
+  listRpgThemeProfiles,
+  type RpgThemeProfile,
+  type PlayGlyphName,
+} from '@/theme/profiles';
+export { useThemeProfile } from '@/theme/useThemeProfile';

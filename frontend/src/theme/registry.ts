@@ -1,4 +1,10 @@
-export const RPG_THEME_IDS = ['storm', 'necropolis', 'obsidian', 'mithril'] as const;
+export const RPG_THEME_IDS = [
+  'storm',
+  'necropolis',
+  'obsidian',
+  'mithril',
+  'grimoire',
+] as const;
 
 export type RpgThemeId = (typeof RPG_THEME_IDS)[number];
 
@@ -13,6 +19,7 @@ export const RPG_THEMES: readonly RpgThemeMeta[] = [
   { id: 'necropolis', label: 'Undead', tag: 'Lich-touched' },
   { id: 'obsidian', label: 'Obsidian', tag: 'Forge Warrior' },
   { id: 'mithril', label: 'Mithril', tag: 'Argent Cleric' },
+  { id: 'grimoire', label: 'Grimoire', tag: 'Spellbook Scholar' },
 ] as const;
 
 export const DEFAULT_RPG_THEME_ID: RpgThemeId = 'storm';

@@ -4,6 +4,7 @@ export { VitalBar, type VitalBarKind } from './VitalBar';
 export { Pill, type PillVariant } from './Pill';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { PlayIcon, type PlayIconName } from './PlayIcon';
+export { PlayGlyph } from './PlayGlyph';
 export { VitalStrip } from './VitalStrip';
 export { CharacterVitalsCard } from './CharacterVitalsCard';
 export { PlayPrimitivesDemo } from './PlayPrimitivesDemo';

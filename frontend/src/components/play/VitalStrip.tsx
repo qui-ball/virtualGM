@@ -1,6 +1,7 @@
 import { forwardRef, useRef } from 'react';
 import type { CharacterView } from '@/lib/play/characterView';
 import { conditionIcon } from '@/lib/play/conditions';
+import { useTheme } from '@/theme/useTheme';
 import { formatSignedModifier } from '@/lib/play/stats';
 import { hpChipVariant } from '@/lib/play/vitalStrip';
 import { StatChip } from '@/components/play/StatChip';
@@ -28,6 +29,7 @@ export const VitalStrip = forwardRef<HTMLDivElement, VitalStripProps>(
     },
     ref,
   ) {
+    const { themeId } = useTheme();
     const fallbackBtnRef = useRef<HTMLButtonElement>(null);
     const btnRef = conditionsButtonRef ?? fallbackBtnRef;
 
@@ -115,7 +117,7 @@ export const VitalStrip = forwardRef<HTMLDivElement, VitalStripProps>(
                       title={c.label}
                       aria-hidden
                     >
-                      {conditionIcon(c.id)}
+                      {conditionIcon(c.id, themeId)}
                     </span>
                   ))}
                 </span>
