@@ -1,4 +1,5 @@
 import type { CharacterView } from '@/lib/play/characterView';
+import { PlayGlyph } from '@/components/play/PlayGlyph';
 import { cn } from '@/lib/utils';
 
 export type PlusMenuAction =
@@ -43,9 +44,7 @@ export function PlusMenu({
             className="play-plus-menu-item min-h-[44px]"
             onClick={() => onAction('freeroll')}
           >
-            <span className="play-plus-menu-glyph" aria-hidden>
-              ◇
-            </span>
+            <PlayGlyph name="freeroll" className="play-plus-menu-glyph" />
             Free roll
           </button>
           {character.showMana ? (
@@ -54,9 +53,7 @@ export function PlusMenu({
               className="play-plus-menu-item min-h-[44px]"
               onClick={() => onAction('cast')}
             >
-              <span className="play-plus-menu-glyph" aria-hidden>
-                ✦
-              </span>
+              <PlayGlyph name="cast" className="play-plus-menu-glyph" />
               Cast spell
             </button>
           ) : null}
@@ -65,9 +62,7 @@ export function PlusMenu({
             className="play-plus-menu-item min-h-[44px]"
             onClick={() => onAction('shortrest')}
           >
-            <span className="play-plus-menu-glyph" aria-hidden>
-              ☼
-            </span>
+            <PlayGlyph name="shortrest" className="play-plus-menu-glyph" />
             Short rest
             <span className="play-plus-menu-cost">t−1</span>
           </button>
@@ -76,9 +71,7 @@ export function PlusMenu({
             className="play-plus-menu-item min-h-[44px]"
             onClick={() => onAction('longrest')}
           >
-            <span className="play-plus-menu-glyph" aria-hidden>
-              ☾
-            </span>
+            <PlayGlyph name="longrest" className="play-plus-menu-glyph" />
             Long rest
             <span className="play-plus-menu-cost">t−5</span>
           </button>
@@ -87,9 +80,7 @@ export function PlusMenu({
             className="play-plus-menu-item min-h-[44px]"
             onClick={() => onAction('item')}
           >
-            <span className="play-plus-menu-glyph" aria-hidden>
-              ⌘
-            </span>
+            <PlayGlyph name="item" className="play-plus-menu-glyph" />
             Use item
           </button>
           <button
@@ -100,9 +91,7 @@ export function PlusMenu({
             )}
             onClick={() => onAction('note')}
           >
-            <span className="play-plus-menu-glyph" aria-hidden>
-              ✎
-            </span>
+            <PlayGlyph name="note" className="play-plus-menu-glyph" />
             Note (OOC)
           </button>
         </div>

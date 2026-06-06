@@ -7,14 +7,15 @@ import {
 } from '@/theme/registry';
 
 describe('RPG theme registry', () => {
-  it('exposes exactly four themes', () => {
-    expect(RPG_THEME_IDS).toHaveLength(4);
-    expect(RPG_THEMES).toHaveLength(4);
+  it('exposes exactly five themes', () => {
+    expect(RPG_THEME_IDS).toHaveLength(5);
+    expect(RPG_THEMES).toHaveLength(5);
     expect(RPG_THEME_IDS).toEqual([
       'storm',
       'necropolis',
       'obsidian',
       'mithril',
+      'grimoire',
     ]);
   });
 

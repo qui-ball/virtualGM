@@ -1,3 +1,5 @@
+import { PlayGlyph } from '@/components/play/PlayGlyph';
+
 type SheetRestSectionProps = {
   onShortRest: () => void;
   onLongRest: () => void;
@@ -19,9 +21,7 @@ export function SheetRestSection({
         onClick={onShortRest}
         aria-label="Short rest — plus HP, time minus one"
       >
-        <span className="play-sheet-rest-glyph" aria-hidden>
-          ☼
-        </span>
+        <PlayGlyph name="shortrest" className="play-sheet-rest-glyph" />
         <span className="play-sheet-rest-text">
           <span className="play-sheet-rest-title">Short</span>
           <span className="play-sheet-rest-hint">+HP · t−1</span>
@@ -34,9 +34,7 @@ export function SheetRestSection({
         onClick={onLongRest}
         aria-label="Long rest — HP and MP full, time minus five"
       >
-        <span className="play-sheet-rest-glyph" aria-hidden>
-          ☾
-        </span>
+        <PlayGlyph name="longrest" className="play-sheet-rest-glyph" />
         <span className="play-sheet-rest-text">
           <span className="play-sheet-rest-title">Long</span>
           <span className="play-sheet-rest-hint">full · t−5</span>

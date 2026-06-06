@@ -1,4 +1,6 @@
 import type { ConditionName } from '@/types';
+import { getRpgThemeProfile } from '@/theme/profiles';
+import type { RpgThemeId } from '@/theme/registry';
 
 export type ConditionInfo = {
   id: ConditionName;
@@ -61,7 +63,13 @@ export const CONDITION_ICONS: Record<ConditionName, string> = {
   prone: '▽',
 };
 
-export function conditionIcon(id: ConditionName): string {
+export function conditionIcon(
+  id: ConditionName,
+  themeId?: RpgThemeId,
+): string {
+  if (themeId) {
+    return getRpgThemeProfile(themeId).conditionIcons[id];
+  }
   return CONDITION_ICONS[id];
 }
 

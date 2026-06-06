@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { enableAuth, isDev } from '@/config';
 import { useAuth } from '@/auth';
 import { PLAY_ROUTES } from '@/lib/play/routes';
+import { PlayGlyph } from '@/components/play/PlayGlyph';
 import { PlayIcon } from '@/components/play/PlayIcon';
 import { cn } from '@/lib/utils';
 
@@ -82,9 +83,7 @@ export function SessionMenu({
               void signOut();
             }}
           >
-            <span className="play-menu-glyph" aria-hidden>
-              ↩
-            </span>
+            <PlayGlyph name="signout" className="play-menu-glyph" />
             Sign out
           </button>
         ) : null}
@@ -101,9 +100,7 @@ export function SessionMenu({
                 onClose();
               }}
             >
-              <span className="play-menu-glyph" aria-hidden>
-                ◈
-              </span>
+              <PlayGlyph name="debug" className="play-menu-glyph" />
               Debug console
             </button>
           </div>
