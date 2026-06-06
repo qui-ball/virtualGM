@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createSession,
-  getSessionMessages,
   streamTurn,
   submitBossDeath,
   submitLevelUp,
@@ -18,11 +16,21 @@ import {
   createDevDemoRollPromptEntry,
   DEV_DEMO_PENDING_ACTION,
   DEV_DEMO_ROLL_PROMPT_ID,
+  isDevDemoPendingAction,
 } from '@/lib/play/devRollPromptFixture';
+import { parseApiErrorMessage } from '@/lib/play/apiError';
+import {
+  applyLevelUp,
+  levelUpSelectionToRequest,
+  shouldBlockForLevelUp,
+  type LevelUpSelection,
+} from '@/lib/play/levelUp';
+import { rollD20ToResultFields } from '@/lib/play/rollResultFields';
 import { pendingActionToRollPrompt } from '@/lib/play/pendingActionAdapter';
 import {
   createEntryId,
   markRollPromptRolled,
+  type RollResultFields,
   type TranscriptEntry,
 } from '@/lib/play/transcript';
 import {
@@ -37,22 +45,24 @@ import {
   rollRiskItAll,
   shouldNonBossAutoRecover,
 } from '@/lib/play/bossDeath';
-import {
-  levelUpSelectionToRequest,
-  shouldBlockForLevelUp,
-  type LevelUpSelection,
-} from '@/lib/play/levelUp';
 import { rollResultPayloadToFields } from '@/lib/play/rollResultAdapter';
-import { hydrateTranscript } from '@/lib/play/transcriptHydrate';
 import { findActiveRollPrompt } from '@/lib/play/transcript';
 import { rollD20 } from '@/lib/play/roll';
-import { toSessionContext } from '@/lib/play/sessionContext';
+import {
+  bootstrapPlaySession,
+  type PlaySessionStartOptions,
+} from '@/lib/play/sessionStart';
+import {
+  storeSessionCache,
+} from '@/lib/play/sessionCache';
 import type {
   GameStateSnapshot,
   PendingAction,
   TurnRequest,
 } from '@/types';
 import type { CastTrayResult } from '@/lib/play/castFlow';
+
+export type StartSessionOptions = PlaySessionStartOptions;
 
 export function useChat() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -61,8 +71,10 @@ export function useChat() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [gameState, setGameState] = useState<GameStateSnapshot | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [levelUpError, setLevelUpError] = useState<string | null>(null);
 
   const sessionIdRef = useRef<string | null>(null);
+  const campaignIdRef = useRef<string | null>(null);
   const startingRef = useRef(false);
   const pendingPromptIdRef = useRef<string | null>(null);
   const autoRecoveredRef = useRef(false);
@@ -76,6 +88,17 @@ export function useChat() {
       setGameState((prev) => {
         if (!prev) return prev;
         return syncGameStateFlags(patch(prev));
+      });
+    },
+    [],
+  );
+
+  const persistSession = useCallback(
+    (sessionId: string, state: GameStateSnapshot | null) => {
+      if (!state) return;
+      storeSessionCache(campaignIdRef.current, {
+        sessionId,
+        gameState: state,
       });
     },
     [],
@@ -138,11 +161,16 @@ export function useChat() {
             appendEntry(promptEntry);
             break;
           }
-          case 'complete':
+          case 'complete': {
             setPendingAction(null);
             pendingPromptIdRef.current = null;
-            setGameState(syncGameStateFlags(event.game_state));
+            const nextState = syncGameStateFlags(event.game_state);
+            setGameState(nextState);
+            if (sessionIdRef.current) {
+              persistSession(sessionIdRef.current, nextState);
+            }
             break;
+          }
           case 'error':
             appendEntry(
               chatMessageToTranscriptEntry({
@@ -165,57 +193,42 @@ export function useChat() {
     } finally {
       setLoading(false);
     }
-  }, [appendEntry]);
+  }, [appendEntry, persistSession]);
 
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (options?: StartSessionOptions) => {
     if (startingRef.current || sessionIdRef.current) return;
     startingRef.current = true;
+    campaignIdRef.current = options?.campaignId ?? null;
     setLoading(true);
     try {
-      const res = await createSession();
-      sessionIdRef.current = res.session_id;
-      if (res.game_state) {
-        setGameState(syncGameStateFlags(res.game_state));
+      const boot = await bootstrapPlaySession(options);
+      sessionIdRef.current = boot.sessionId;
+      if (boot.gameState) {
+        setGameState(boot.gameState);
       }
 
-      let entries: TranscriptEntry[] = [];
-      try {
-        const history = await getSessionMessages(res.session_id);
-        entries = hydrateTranscript(
-          history.transcript,
-          res.game_state?.character ?? null,
-        );
-      } catch {
-        const ctx = toSessionContext(res.game_state);
-        const now = Date.now();
-        entries = [
-          {
-            kind: 'scene',
-            id: createEntryId(),
-            text: `Scene · ${ctx.scene}`,
-            timestamp: now,
-          },
-          chatMessageToTranscriptEntry({
-            role: 'system',
-            content: `Session started. You are ${res.character_name}.`,
-            timestamp: now,
-          }),
-        ];
-      }
+      let entries = boot.transcript;
 
       if (isDev) {
-        const now = Date.now();
-        entries.push(
-          chatMessageToTranscriptEntry({
-            role: 'gm',
-            content:
-              'A goblin snarls and raises its shield. [Dev fixture] Use the roll card below to test the UI.',
-            timestamp: now + 1,
-          }),
-          createDevDemoRollPromptEntry(res.game_state?.character ?? null, now + 2),
-        );
-        setPendingAction(DEV_DEMO_PENDING_ACTION);
-        pendingPromptIdRef.current = DEV_DEMO_ROLL_PROMPT_ID;
+        const hasRollPrompt = entries.some((e) => e.kind === 'roll_prompt');
+        if (!hasRollPrompt) {
+          const now = Date.now();
+          entries = [
+            ...entries,
+            chatMessageToTranscriptEntry({
+              role: 'gm',
+              content:
+                'A goblin snarls and raises its shield. [Dev fixture] Use the roll card below to test the UI.',
+              timestamp: now + 1,
+            }),
+            createDevDemoRollPromptEntry(
+              boot.gameState?.character ?? null,
+              now + 2,
+            ),
+          ];
+          setPendingAction(DEV_DEMO_PENDING_ACTION);
+          pendingPromptIdRef.current = DEV_DEMO_ROLL_PROMPT_ID;
+        }
       }
 
       setTranscript(entries);
@@ -278,6 +291,30 @@ export function useChat() {
         });
 
         setTranscript((prev) => markRollPromptRolled(prev, promptId, r.advUsed));
+
+        if (isDevDemoPendingAction(pendingAction)) {
+          const result = rollD20ToResultFields(r, promptId, prompt.label, {
+            stat: prompt.stat,
+            vs: vs ?? undefined,
+          });
+          setPendingAction(null);
+          pendingPromptIdRef.current = null;
+          appendEntry({
+            kind: 'roll_result',
+            id: result.id,
+            result,
+            timestamp: Date.now(),
+          });
+          appendEntry(
+            chatMessageToTranscriptEntry({
+              role: 'system',
+              content:
+                '[Dev] Roll resolved locally. Send a message to the GM for a real roll prompt from the server.',
+              timestamp: Date.now(),
+            }),
+          );
+          return;
+        }
 
         const rolls =
           r.advUsed !== 'norm' && r.dieB != null
@@ -349,14 +386,16 @@ export function useChat() {
   }, [appendEntry]);
 
   const confirmLevelUp = useCallback(
-    async (selection: LevelUpSelection) => {
-      if (!sessionIdRef.current) return;
+    async (selection: LevelUpSelection): Promise<boolean> => {
+      if (!sessionIdRef.current || !gameState?.character) return false;
+      setLevelUpError(null);
       try {
         const res = await submitLevelUp(
           sessionIdRef.current,
           levelUpSelectionToRequest(selection),
         );
-        setGameState(res.game_state);
+        setGameState(syncGameStateFlags(res.game_state));
+        persistSession(sessionIdRef.current, res.game_state);
         const lv = res.game_state.character?.level ?? '?';
         appendEntry({
           kind: 'message',
@@ -365,18 +404,45 @@ export function useChat() {
           content: `Level up! Now Lv ${lv}. Choice: ${selection.kind}.`,
           timestamp: Date.now(),
         });
+        return true;
       } catch (err) {
+        const message = parseApiErrorMessage(err);
+        const canApplyLocally =
+          isDev &&
+          shouldBlockForLevelUp(gameState.character, gameState.in_combat);
+
+        if (canApplyLocally) {
+          const updated = applyLevelUp(gameState.character, selection);
+          const nextState = syncGameStateFlags({
+            ...gameState,
+            character: updated,
+            in_combat: false,
+          });
+          setGameState(nextState);
+          persistSession(sessionIdRef.current, nextState);
+          appendEntry({
+            kind: 'message',
+            id: createEntryId(),
+            role: 'system',
+            content: `[Dev] Level up applied locally (Lv ${updated.level}). Server still had ${message} — use a real XP grant from the GM for API level-up.`,
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+
+        setLevelUpError(message);
         appendEntry({
           kind: 'message',
           id: createEntryId(),
           role: 'system',
-          content: `Level up failed: ${err}`,
+          content: `Level up failed: ${message}`,
           timestamp: Date.now(),
           error: true,
         });
+        return false;
       }
     },
-    [appendEntry],
+    [appendEntry, persistSession, gameState],
   );
 
   const resolveBossDeath = useCallback(
@@ -391,6 +457,7 @@ export function useChat() {
           choice: action,
         });
         setGameState(res.game_state);
+        persistSession(sessionIdRef.current, res.game_state);
         appendEntry({
           kind: 'message',
           id: createEntryId(),
@@ -409,7 +476,7 @@ export function useChat() {
         });
       }
     },
-    [gameState, appendEntry],
+    [gameState, appendEntry, persistSession],
   );
 
   const performCast = useCallback(
@@ -582,6 +649,7 @@ export function useChat() {
     addRestEntry,
     addItemEntry,
     confirmLevelUp,
+    levelUpError,
     resolveBossDeath,
     performCast,
     mustResolveLevelUp,

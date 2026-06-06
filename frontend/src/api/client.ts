@@ -6,8 +6,10 @@ import { apiBaseUrl } from '@/config';
 import type {
   BossDeathRequest,
   CampaignListResponse,
+  CreateSessionRequest,
   CreateSessionResponse,
   GameStateSnapshot,
+  HealthResponse,
   LevelUpRequest,
   MessagesResponse,
   PendingAction,
@@ -27,8 +29,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function createSession(): Promise<CreateSessionResponse> {
-  return request<CreateSessionResponse>('/sessions', { method: 'POST' });
+export function getHealth(): Promise<HealthResponse> {
+  return request<HealthResponse>('/health');
+}
+
+export function createSession(
+  body?: CreateSessionRequest,
+): Promise<CreateSessionResponse> {
+  return request<CreateSessionResponse>('/sessions', {
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
+  });
 }
 
 export function getCampaigns(): Promise<CampaignListResponse> {

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { CharacterView } from '@/lib/play/characterView';
 import {
   abilitiesForLevelPick,
@@ -22,19 +22,47 @@ type LevelUpDialogProps = {
   open: boolean;
   character: CharacterView;
   characterState: CharacterState;
-  onConfirm: (selection: LevelUpSelection) => void;
+  submitError?: string | null;
+  onConfirm: (selection: LevelUpSelection) => void | Promise<boolean>;
 };
 
-const CHOICE_OPTIONS: { id: LevelUpChoiceKind; label: string }[] = [
-  { id: 'hp', label: 'HP' },
-  { id: 'evasion', label: 'Evasion' },
-  { id: 'ability', label: 'Ability' },
-];
+type LevelUpOptionProps = {
+  selected: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+};
+
+/** Selectable card without nested `<button>` (HP segment + ability picks use inner buttons). */
+function LevelUpOption({ selected, onSelect, children }: LevelUpOptionProps) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+
+  return (
+    <div
+      role="radio"
+      aria-checked={selected}
+      tabIndex={0}
+      className={cn(
+        'play-level-up-option min-h-[44px] w-full cursor-pointer text-left',
+        selected && 'play-level-up-option-on',
+      )}
+      onClick={onSelect}
+      onKeyDown={onKeyDown}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function LevelUpDialog({
   open,
   character,
   characterState,
+  submitError = null,
   onConfirm,
 }: LevelUpDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -44,6 +72,7 @@ export function LevelUpDialog({
   const [hpMode, setHpMode] = useState<HpGainMode>('fixed');
   const [rolledHp, setRolledHp] = useState<number | null>(null);
   const [abilityId, setAbilityId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const nextLevel = characterState.level + 1;
   const hitSides = hitDieSides(characterState.character_class);
@@ -82,13 +111,19 @@ export function LevelUpDialog({
     (choice === 'hp' && (hpMode === 'fixed' || rolledHp != null)) ||
     (choice === 'ability' && abilityId != null);
 
-  const handleConfirm = () => {
-    if (!selection) return;
-    onConfirm(selection);
-    setChoice(null);
-    setHpMode('fixed');
-    setRolledHp(null);
-    setAbilityId(null);
+  const handleConfirm = async () => {
+    if (!selection || submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = await onConfirm(selection);
+      if (ok === false) return;
+      setChoice(null);
+      setHpMode('fixed');
+      setRolledHp(null);
+      setAbilityId(null);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -113,15 +148,17 @@ export function LevelUpDialog({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <div className="space-y-3">
-            <button
-              type="button"
-              className={cn(
-                'play-level-up-option min-h-[44px] w-full text-left',
-                choice === 'hp' && 'play-level-up-option-on',
-              )}
-              onClick={() => setChoice('hp')}
+          {submitError ? (
+            <p
+              className="mb-3 rounded-md border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]"
+              role="alert"
             >
+              {submitError}
+            </p>
+          ) : null}
+
+          <div className="space-y-3" role="radiogroup" aria-label="Level-up choice">
+            <LevelUpOption selected={choice === 'hp'} onSelect={() => setChoice('hp')}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-sm">① HP</span>
                 <Pill variant="tint">{migSigned} Mig</Pill>
@@ -130,7 +167,11 @@ export function LevelUpDialog({
                 Choose Fixed or Roll.
               </p>
               {choice === 'hp' ? (
-                <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="mt-2 space-y-2"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
                   <SegmentedControl
                     options={[
                       {
@@ -164,15 +205,11 @@ export function LevelUpDialog({
                   ) : null}
                 </div>
               ) : null}
-            </button>
+            </LevelUpOption>
 
-            <button
-              type="button"
-              className={cn(
-                'play-level-up-option min-h-[44px] w-full text-left',
-                choice === 'evasion' && 'play-level-up-option-on',
-              )}
-              onClick={() => setChoice('evasion')}
+            <LevelUpOption
+              selected={choice === 'evasion'}
+              onSelect={() => setChoice('evasion')}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-sm">② Evasion</span>
@@ -181,15 +218,11 @@ export function LevelUpDialog({
               <p className="mt-1 text-sm text-[var(--ink-2)]">
                 {characterState.evasion} → {characterState.evasion + 1}
               </p>
-            </button>
+            </LevelUpOption>
 
-            <button
-              type="button"
-              className={cn(
-                'play-level-up-option min-h-[44px] w-full text-left',
-                choice === 'ability' && 'play-level-up-option-on',
-              )}
-              onClick={() => setChoice('ability')}
+            <LevelUpOption
+              selected={choice === 'ability'}
+              onSelect={() => setChoice('ability')}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-sm">③ Class ability</span>
@@ -201,6 +234,7 @@ export function LevelUpDialog({
                 <div
                   className="mt-2 space-y-1.5"
                   onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
                   {abilities.length === 0 ? (
                     <p className="text-sm text-[var(--ink-3)]">
@@ -231,16 +265,16 @@ export function LevelUpDialog({
                   Pick from your class table at Lv {nextLevel}.
                 </p>
               )}
-            </button>
+            </LevelUpOption>
           </div>
 
           <button
             type="button"
             className="play-btn-primary mt-4 w-full min-h-[48px]"
-            disabled={!canConfirm}
-            onClick={handleConfirm}
+            disabled={!canConfirm || submitting}
+            onClick={() => void handleConfirm()}
           >
-            Confirm choice
+            {submitting ? 'Confirming…' : 'Confirm choice'}
           </button>
           <p className="play-lbl mt-3 text-center text-[var(--ink-4)]">
             Level-ups happen outside battle · confirm required

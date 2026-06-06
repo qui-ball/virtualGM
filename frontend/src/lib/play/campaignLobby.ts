@@ -9,6 +9,7 @@ export type CampaignListItem = {
   timeCurrent: number;
   timeMax: number;
   characterName: string;
+  characterClass: string;
   classShort: string;
   level: number;
   lastScene: string;
@@ -133,6 +134,7 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     timeCurrent: 12,
     timeMax: 50,
     characterName: 'Aldric of Corlinn Hill',
+    characterClass: 'warrior',
     classShort: 'War',
     level: 1,
     lastScene: 'Road to Phandalin',
@@ -145,6 +147,7 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     timeCurrent: 50,
     timeMax: 50,
     characterName: 'Iolan',
+    characterClass: 'mage',
     classShort: 'Mage',
     level: 2,
     lastScene: 'Harbor at dawn',
@@ -156,6 +159,7 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     timeCurrent: 12,
     timeMax: 50,
     characterName: 'Wren',
+    characterClass: 'bard',
     classShort: 'Bard',
     level: 6,
     lastScene: 'Cliff path',
@@ -171,6 +175,25 @@ export function findLobbyCharacter(
   id: string,
 ): LobbyCharacterOption | undefined {
   return LOBBY_CHARACTERS.find((c) => c.id === id);
+}
+
+/** Match lobby fixture to campaign summary when API lacks full character payload. */
+export function findLobbyCharacterForCampaign(
+  campaign: Pick<CampaignListItem, 'characterName' | 'characterClass' | 'level'>,
+): LobbyCharacterOption {
+  const normalized = campaign.characterName.trim().toLowerCase();
+  const byName = LOBBY_CHARACTERS.find(
+    (c) => c.state.name.trim().toLowerCase() === normalized,
+  );
+  if (byName) return byName;
+
+  const byClass = LOBBY_CHARACTERS.find(
+    (c) =>
+      c.state.character_class.toLowerCase() ===
+        campaign.characterClass.toLowerCase() &&
+      c.state.level === campaign.level,
+  );
+  return byClass ?? LOBBY_CHARACTERS[0];
 }
 
 export function activeCampaign(): CampaignListItem {

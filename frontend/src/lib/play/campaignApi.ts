@@ -20,6 +20,7 @@ function summaryToListItem(c: CampaignSummary): CampaignListItem {
     timeCurrent: c.time_current,
     timeMax: c.time_max,
     characterName: c.character_name,
+    characterClass: c.character_class,
     classShort,
     level: c.level,
     lastScene: c.last_scene,

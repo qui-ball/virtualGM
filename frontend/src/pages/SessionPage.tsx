@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PlayShell, SessionLayout } from '@/components/play';
 import type { PlusMenuAction } from '@/components/play/PlusMenu';
 import type { FreeRollTrayConfig } from '@/components/play/RollTray';
@@ -7,6 +8,10 @@ import { toCharacterView } from '@/lib/play/characterView';
 
 /** Live play session at `/play` (WS-3 layout + WS-5 chat & rolls + WS-7 flows). */
 export function SessionPage() {
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaignId') ?? undefined;
+  const characterName = searchParams.get('characterName') ?? undefined;
+
   const {
     transcript,
     loading,
@@ -20,6 +25,7 @@ export function SessionPage() {
     performFreeRoll,
     submitPlayerAction,
     confirmLevelUp,
+    levelUpError,
     resolveBossDeath,
     performCast,
     mustResolveLevelUp,
@@ -30,8 +36,8 @@ export function SessionPage() {
   } = useChat();
 
   useEffect(() => {
-    startSession();
-  }, [startSession]);
+    void startSession({ campaignId, characterName });
+  }, [startSession, campaignId, characterName]);
 
   const characterView = useMemo(
     () =>
@@ -76,13 +82,14 @@ export function SessionPage() {
           rolling={rolling}
           showStubBanner={showStubBanner}
           mustResolveLevelUp={mustResolveLevelUp}
+          levelUpError={levelUpError}
           mustResolveBossDeath={mustResolveBossDeath}
           sessionBlocked={sessionBlocked}
           onSend={(text, opts) => void sendMessage(text, opts)}
           onRollPrompt={(id) => void rollPrompt(id)}
           onPlusAction={handlePlusAction}
           onFreeRoll={handleFreeRoll}
-          onConfirmLevelUp={(selection) => void confirmLevelUp(selection)}
+          onConfirmLevelUp={(selection) => confirmLevelUp(selection)}
           onBossDeath={resolveBossDeath}
           onCast={(cast) => void performCast(cast)}
           onRunDebugAction={runDebugAction}

@@ -30,7 +30,12 @@ export function ActiveCampaignCard({
         Last: {campaign.lastScene}
       </p>
       <Link
-        to={PLAY_ROUTES.session}
+        to={`${PLAY_ROUTES.session}?${new URLSearchParams({
+          campaignId: campaign.id,
+          ...(campaign.characterName
+            ? { characterName: campaign.characterName }
+            : {}),
+        }).toString()}`}
         className="play-btn-primary mt-2 flex w-full min-h-[44px] items-center justify-center gap-2"
       >
         <PlayIcon name="bolt" className="size-[18px]" />

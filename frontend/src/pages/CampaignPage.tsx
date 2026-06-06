@@ -9,6 +9,7 @@ import { fetchCampaignList } from '@/lib/play/campaignApi';
 import {
   activeCampaign,
   findLobbyCharacter,
+  findLobbyCharacterForCampaign,
   getDefaultLobbyCharacterId,
   LOBBY_CHARACTERS,
   otherCampaigns,
@@ -30,6 +31,7 @@ export function CampaignPage() {
     void fetchCampaignList().then(({ active: a, others: o }) => {
       setActive(a);
       setOthers(o);
+      setCharacterId(findLobbyCharacterForCampaign(a).id);
     });
   }, []);
 
