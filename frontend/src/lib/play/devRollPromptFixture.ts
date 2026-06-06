@@ -23,6 +23,13 @@ export const DEV_DEMO_PENDING_ACTION: PendingAction = {
   fail_text: 'The goblin deflects the blow.',
 };
 
+/** Dev-only roll card — not backed by `session.pending_deferred` on the API. */
+export function isDevDemoPendingAction(
+  action: PendingAction | null | undefined,
+): boolean {
+  return action?.tool_call_id === DEV_DEMO_PENDING_ACTION.tool_call_id;
+}
+
 export function createDevDemoRollPromptEntry(
   character: CharacterState | null,
   timestamp: number = Date.now(),

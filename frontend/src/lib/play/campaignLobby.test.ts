@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activeCampaign,
   findLobbyCharacter,
+  findLobbyCharacterForCampaign,
   getDefaultLobbyCharacterId,
   LOBBY_CAMPAIGNS,
   LOBBY_CHARACTERS,
@@ -33,5 +34,33 @@ describe('campaign lobby fixtures', () => {
   it('defaults to Aldric as active lobby character', () => {
     expect(getDefaultLobbyCharacterId()).toBe('aldric-of-corlinn-hill');
     expect(LOBBY_CHARACTERS.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('matches lobby character from campaign summary by name', () => {
+    const match = findLobbyCharacterForCampaign({
+      characterName: 'Wren',
+      characterClass: 'bard',
+      level: 6,
+    });
+    expect(match.state.name).toBe('Wren');
+  });
+
+  it('falls back to class and level when name differs', () => {
+    const match = findLobbyCharacterForCampaign({
+      characterName: 'Unknown Hero',
+      characterClass: 'mage',
+      level: 4,
+    });
+    expect(match.state.name).toBe('Zaelan');
+    expect(match.state.level).toBe(4);
+  });
+
+  it('defaults to first lobby character when no match', () => {
+    const match = findLobbyCharacterForCampaign({
+      characterName: 'Nobody',
+      characterClass: 'ranger',
+      level: 99,
+    });
+    expect(match.id).toBe(getDefaultLobbyCharacterId());
   });
 });

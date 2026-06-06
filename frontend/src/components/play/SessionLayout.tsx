@@ -38,13 +38,16 @@ type SessionLayoutProps = {
   rolling: boolean;
   showStubBanner?: boolean;
   mustResolveLevelUp: boolean;
+  levelUpError?: string | null;
   mustResolveBossDeath: boolean;
   sessionBlocked: boolean;
   onSend: (text: string, options?: { ooc?: boolean }) => void;
   onRollPrompt: (promptId: string) => void;
   onPlusAction: (action: PlusMenuAction) => void;
   onFreeRoll: (config: FreeRollTrayConfig) => void;
-  onConfirmLevelUp: (selection: LevelUpSelection) => void;
+  onConfirmLevelUp: (
+    selection: LevelUpSelection,
+  ) => void | Promise<boolean>;
   onBossDeath: (action: 'blaze' | 'risk') => void;
   onCast: (cast: CastTrayResult) => void;
   onRunDebugAction: (id: DevDebugActionId) => void;
@@ -60,6 +63,7 @@ export function SessionLayout({
   rolling,
   showStubBanner = false,
   mustResolveLevelUp,
+  levelUpError = null,
   mustResolveBossDeath,
   sessionBlocked,
   onSend,
@@ -164,7 +168,7 @@ export function SessionLayout({
   };
 
   const handleLevelUpConfirm = (selection: LevelUpSelection) => {
-    onConfirmLevelUp(selection);
+    return onConfirmLevelUp(selection);
   };
 
   const handleDebugAction = useCallback(
@@ -373,6 +377,7 @@ export function SessionLayout({
           open
           character={character}
           characterState={characterState}
+          submitError={levelUpError}
           onConfirm={handleLevelUpConfirm}
         />
       ) : null}

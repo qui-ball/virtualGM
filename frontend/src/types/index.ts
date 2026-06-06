@@ -127,10 +127,20 @@ export interface TurnResponse {
   roll_result?: RollResultPayload | null;
 }
 
+export interface CreateSessionRequest {
+  /** Optional PC name — backend schema accepts this; handler may ignore until wired. */
+  character_name?: string;
+}
+
 export interface CreateSessionResponse {
   session_id: string;
   character_name: string;
   game_state: GameStateSnapshot;
+}
+
+export interface HealthResponse {
+  status: string;
+  supabase_configured: boolean;
 }
 
 export interface CastSpellRequest {

@@ -234,6 +234,19 @@ function buildAbilities(character: CharacterState): AbilityRow[] {
 }
 
 function buildSpells(character: CharacterState): SpellRow[] {
+  if (character.spells?.length) {
+    return character.spells.map((spell) => ({
+      id: spell.id,
+      name: spell.name,
+      tier: spell.tier,
+      cost: spell.mp_cost,
+      description: spell.locked_reason ?? 'Cast via session turn API.',
+      locked: spell.locked,
+      lockReason: spell.locked ? spell.locked_reason ?? 'Locked' : undefined,
+      known: !spell.locked,
+    }));
+  }
+
   const known = new Set(character.spells_known);
   const extraIds = Object.keys(SPELL_CATALOG).filter((id) => !known.has(id));
   const ids = [...character.spells_known, ...extraIds].slice(0, 8);

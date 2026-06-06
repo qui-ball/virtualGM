@@ -107,4 +107,33 @@ describe('sheetData', () => {
     expect(minor.every((s) => s.tier === 'Minor')).toBe(true);
     expect(minor.length).toBeGreaterThan(0);
   });
+
+  it('uses API spell definitions when character.spells is populated', () => {
+    const view = buildSheetView({
+      ...DEMO_CHARACTER,
+      spells: [
+        {
+          id: 'test_bolt',
+          name: 'Test Bolt',
+          tier: 'Minor',
+          mp_cost: 1,
+          locked: false,
+          locked_reason: null,
+        },
+        {
+          id: 'locked_mythic',
+          name: 'Locked Mythic',
+          tier: 'Mythic',
+          mp_cost: 3,
+          locked: true,
+          locked_reason: 'Unlocks at Lv 6',
+        },
+      ],
+    });
+    expect(view.spells).toHaveLength(2);
+    expect(view.spells[0]?.name).toBe('Test Bolt');
+    expect(view.spells[0]?.known).toBe(true);
+    expect(view.spells[1]?.locked).toBe(true);
+    expect(view.spells[1]?.lockReason).toBe('Unlocks at Lv 6');
+  });
 });
