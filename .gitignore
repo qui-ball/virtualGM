@@ -13,3 +13,6 @@ local/
 
 # Editor — keep local only
 .vscode/
+
+# ui_cli.py local session cache (mock-UI CLI)
+.ui_cli_state/
