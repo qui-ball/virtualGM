@@ -39,6 +39,8 @@ import httpx
 DEFAULT_BASE_URL = "http://localhost:8000"
 STATE_DIR = Path(__file__).parent / ".ui_cli_state"
 _UNSET = object()
+# Safety cap: stop auto-rolling if the backend keeps re-prompting for dice (possible loop).
+MAX_AUTO_ROLLS = 50
 
 
 # --------------------------------------------------------------------------- #
@@ -78,9 +80,21 @@ def emit_json(ctx, payload):
 # --------------------------------------------------------------------------- #
 # HTTP plumbing
 # --------------------------------------------------------------------------- #
+class ApiError(click.ClickException):
+    """A backend/API failure.
+
+    Rendered through err() and exits non-zero from one-shot commands (Click catches
+    ClickException), but is caught inside the REPL loop so a single failed request
+    doesn't tear down the interactive session.
+    """
+
+    def show(self, file=None):
+        err(self.message)
+
+
 def make_client(base_url):
     # No read timeout: agent turns stream for a while. Short connect timeout so an
-    # unreachable backend fails fast.
+    # unreachable backend fails fast. A reachable-but-hung backend must be Ctrl-C'd.
     return httpx.Client(
         base_url=base_url,
         timeout=httpx.Timeout(connect=10.0, read=None, write=30.0, pool=10.0),
@@ -107,14 +121,14 @@ def _extract_detail(resp):
 
 def _api_request(ctx, method, path, body=None):
     try:
-        with make_client(ctx.obj["base_url"]) as client:
-            r = client.request(method, path, json=body)
-    except httpx.ConnectError:
-        err(_connection_hint(ctx))
-        sys.exit(1)
+        r = ctx.obj["client"].request(method, path, json=body)
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        raise ApiError(_connection_hint(ctx))
+    except httpx.RequestError as e:
+        # Read/write timeouts, protocol errors, mid-flight disconnects, etc.
+        raise ApiError(f"request to {path} failed: {e!r}")
     if r.status_code >= 400:
-        err(_extract_detail(r))
-        sys.exit(1)
+        raise ApiError(_extract_detail(r))
     return r.json()
 
 
@@ -177,6 +191,17 @@ def resolve_sid(session_id):
     return session_id
 
 
+def resolve_active(session_id):
+    """Resolve a session id for a command that acts on it, and make it the active one.
+
+    Keeps `.` pointing at the session you last *acted* on, rather than the last one
+    created — so it doesn't silently retarget after a `new-session`.
+    """
+    sid = resolve_sid(session_id)
+    set_active(sid)
+    return sid
+
+
 # --------------------------------------------------------------------------- #
 # Dice
 # --------------------------------------------------------------------------- #
@@ -206,6 +231,37 @@ def _roll_for(pending, rng):
 
 def _action_response(roll_result, individual_rolls=None):
     return {"action_response": {"roll_result": roll_result, "individual_rolls": individual_rolls}}
+
+
+def _parse_roll_values(text):
+    """Parse whitespace-separated die values into a list of ints, or None if any is invalid."""
+    toks = text.split()
+    if not toks:
+        return None
+    vals = [_parse_int(t) for t in toks]
+    if any(v is None for v in vals):
+        return None
+    return vals
+
+
+def _explicit_roll_payload(ctx, pending, values):
+    """Build an action_response from explicit die value(s) — one per die.
+
+    Pass one value per die for a multi-die prompt so the recorded roll matches what
+    you intended; a single value against a multi-die prompt is forwarded as a total,
+    which the backend then *approximates* into individual dice (app._distribute).
+    """
+    dice_count = int(pending.get("dice_count", 1) or 1)
+    if len(values) == 1 and dice_count > 1 and not ctx.obj["json_mode"]:
+        out(_c(
+            f"   ⚠ this prompt is {dice_count}{pending.get('dice_type')}; pass {dice_count} "
+            f"values (one per die) — the backend will otherwise approximate the dice from "
+            f"the total {values[0]}",
+            C.YELLOW,
+        ))
+    if len(values) > 1:
+        return _action_response(sum(values), list(values))
+    return _action_response(values[0], None)
 
 
 def _auto_roll_response(ctx, pending, *, announce=True):
@@ -371,28 +427,31 @@ def render_roll_result(rr):
 def stream_turn(ctx, sid, payload):
     """Yield (event_type, data) tuples from the /turns SSE stream."""
     try:
-        with make_client(ctx.obj["base_url"]) as client:
-            with client.stream("POST", f"/sessions/{sid}/turns", json=payload) as resp:
-                if resp.status_code >= 400:
-                    resp.read()
-                    yield ("error", {"message": _extract_detail(resp)})
-                    return
-                event_type = None
-                data_buf = []
-                for line in resp.iter_lines():
-                    if line == "":
-                        if event_type is not None and data_buf:
-                            yield (event_type, _parse_data(data_buf))
-                        event_type, data_buf = None, []
-                        continue
-                    if line.startswith("event:"):
-                        event_type = line[len("event:"):].strip()
-                    elif line.startswith("data:"):
-                        data_buf.append(line[len("data:"):].strip())
-                if event_type is not None and data_buf:
-                    yield (event_type, _parse_data(data_buf))
-    except httpx.ConnectError:
+        with ctx.obj["client"].stream("POST", f"/sessions/{sid}/turns", json=payload) as resp:
+            if resp.status_code >= 400:
+                resp.read()
+                yield ("error", {"message": _extract_detail(resp)})
+                return
+            event_type = None
+            data_buf = []
+            for line in resp.iter_lines():
+                if line == "":
+                    if event_type is not None and data_buf:
+                        yield (event_type, _parse_data(data_buf))
+                    event_type, data_buf = None, []
+                    continue
+                if line.startswith("event:"):
+                    event_type = line[len("event:"):].strip()
+                elif line.startswith("data:"):
+                    data_buf.append(line[len("data:"):].strip())
+            if event_type is not None and data_buf:
+                yield (event_type, _parse_data(data_buf))
+    except (httpx.ConnectError, httpx.ConnectTimeout):
         yield ("error", {"message": _connection_hint(ctx)})
+    except httpx.RequestError as e:
+        # Backend crashed / dropped the connection mid-stream (RemoteProtocolError,
+        # ReadError, ReadTimeout, ...) — surface it instead of crashing the caller.
+        yield ("error", {"message": f"stream interrupted: {e!r}"})
 
 
 def _parse_data(data_buf):
@@ -436,27 +495,43 @@ def run_turn(ctx, sid, payload, *, auto=True, pause_hint=True):
     later `roll` command — or the REPL's inline prompt — can resolve it explicitly).
     Returns True if the turn ended in an error (callers may map that to a non-zero exit).
     """
+    auto_rolls = 0
     while True:
         pending = None
         saw_error = False
+        saw_complete = False
         for event_type, data in stream_turn(ctx, sid, payload):
             render_event(ctx, event_type, data)
             if event_type == "pending_action":
                 pending = data.get("pending_action")
                 save_state(sid, game_state=data.get("game_state"), pending_action=pending)
             elif event_type == "complete":
+                saw_complete = True
                 save_state(sid, game_state=data.get("game_state"), pending_action=None)
             elif event_type == "error":
                 saw_error = True
         if saw_error:
             return True
-        if pending is None:
-            return False
-        if not auto:
-            if pause_hint and not ctx.obj["json_mode"]:
-                out(_c(f"   ↳ paused — run `roll {sid} <value>`  (or `roll {sid}` to auto-roll)", C.DIM))
-            return False
-        payload = _auto_roll_response(ctx, pending)
+        if pending is not None:
+            if not auto:
+                if pause_hint and not ctx.obj["json_mode"]:
+                    out(_c(f"   ↳ paused — run `roll {sid} <value>`  (or `roll {sid}` to auto-roll)", C.DIM))
+                return False
+            auto_rolls += 1
+            if auto_rolls > MAX_AUTO_ROLLS:
+                err(f"aborting after {MAX_AUTO_ROLLS} consecutive auto-rolls — the backend "
+                    f"keeps requesting dice (possible loop)")
+                return True
+            payload = _auto_roll_response(ctx, pending)
+            continue
+        # No pending and no error: only a clean success if the stream actually completed.
+        # A stream that ends with no `complete` (backend crashed mid-turn, dropped event)
+        # would otherwise leave the cache stale while reporting success.
+        if not saw_complete:
+            err("turn ended without a 'complete' event — the backend may have crashed "
+                "mid-turn; cached state may be stale")
+            return True
+        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -475,6 +550,11 @@ def cli(ctx, base_url, json_mode, seed):
     ctx.obj["base_url"] = base_url.rstrip("/")
     ctx.obj["json_mode"] = json_mode
     ctx.obj["rng"] = random.Random(seed)
+    # One client per process so requests (and each auto-roll round-trip / REPL line)
+    # reuse a keep-alive connection instead of reconnecting every time.
+    client = make_client(ctx.obj["base_url"])
+    ctx.obj["client"] = client
+    ctx.call_on_close(client.close)
 
 
 # -- Read-only / setup commands -------------------------------------------- #
@@ -529,20 +609,33 @@ def new_session(ctx):
 
 
 @cli.command()
-def sessions():
+@click.pass_context
+def sessions(ctx):
     """List locally-cached sessions (no server list endpoint exists)."""
     active = get_active()
     files = sorted(STATE_DIR.glob("*.json")) if STATE_DIR.exists() else []
-    if not files:
-        out("(no local sessions yet — run `new-session`)")
-        return
+    rows = []
     for f in files:
         sid = f.stem
         st = load_state(sid)
         gs = st.get("game_state") or {}
         ch = gs.get("character") or {}
-        marker = _c("  *active", C.GREEN) if sid == active else ""
-        out(f"- {sid}   {st.get('character_name', '?')} Lv{ch.get('level', '?')}   scene:{gs.get('scene_label', '?')}{marker}")
+        rows.append({
+            "session_id": sid,
+            "character_name": st.get("character_name"),
+            "level": ch.get("level"),
+            "scene_label": gs.get("scene_label"),
+            "active": sid == active,
+        })
+    if emit_json(ctx, {"sessions": rows}):
+        return
+    if not rows:
+        out("(no local sessions yet — run `new-session`)")
+        return
+    for r in rows:
+        marker = _c("  *active", C.GREEN) if r["active"] else ""
+        out(f"- {r['session_id']}   {r['character_name'] or '?'} Lv{r['level'] or '?'}   "
+            f"scene:{r['scene_label'] or '?'}{marker}")
     out(_c("note: cache reflects only turns run through this CLI.", C.DIM))
 
 
@@ -561,49 +654,65 @@ def state(ctx, session_id):
     render_state_full(st)
 
 
+def _render_messages(ctx, data):
+    """Render a /messages response, honoring --json.
+
+    The player/gm dialogue lives in `messages`; system notifications (session start,
+    level-up, boss-death) live only in `transcript`, so surface those too.
+    """
+    if emit_json(ctx, data):
+        return
+    msgs = data.get("messages", [])
+    transcript = data.get("transcript", [])
+    if not msgs and not transcript:
+        out("(no messages)")
+        return
+    for m in msgs:
+        role = m.get("role")
+        color = {"player": C.CYAN, "gm": C.GREEN, "system": C.DIM}.get(role, C.RESET)
+        out(_c(f"[{role}] ", color) + (m.get("content") or ""))
+    system_notes = [t for t in transcript if t.get("role") == "system"]
+    if system_notes:
+        out(_c("— system —", C.DIM))
+        for t in system_notes:
+            out(_c("[system] ", C.DIM) + (t.get("content") or t.get("text") or ""))
+
+
 @cli.command()
 @click.argument("session_id")
 @click.pass_context
 def messages(ctx, session_id):
     """GET /sessions/{id}/messages — message history."""
     sid = resolve_sid(session_id)
-    data = api_get(ctx, f"/sessions/{sid}/messages")
-    if emit_json(ctx, data):
-        return
-    msgs = data.get("messages", [])
-    if not msgs:
-        out("(no messages)")
-    for m in msgs:
-        role = m.get("role")
-        color = {"player": C.CYAN, "gm": C.GREEN, "system": C.DIM}.get(role, C.RESET)
-        out(_c(f"[{role}] ", color) + (m.get("content") or ""))
+    _render_messages(ctx, api_get(ctx, f"/sessions/{sid}/messages"))
 
 
 # -- Turn commands (SSE) ---------------------------------------------------- #
-@cli.command()
+@cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("session_id")
 @click.argument("message", nargs=-1, required=True)
 @click.option("--auto/--no-auto", default=True, help="Auto-roll dice prompts (default) or stop at them.")
 @click.pass_context
 def send(ctx, session_id, message, auto):
     """POST a player message turn (SSE). Auto-rolls dice prompts unless --no-auto."""
-    sid = resolve_sid(session_id)
+    sid = resolve_active(session_id)
     run_turn_cmd(ctx, sid, {"message": " ".join(message)}, auto=auto)
 
 
-@cli.command()
+@cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("session_id")
-@click.argument("value", required=False, type=int)
+@click.argument("values", required=False, nargs=-1, type=int)
 @click.option("--auto/--no-auto", default=True, help="Auto-resolve further pending rolls.")
 @click.pass_context
-def roll(ctx, session_id, value, auto):
-    """Resolve a pending dice prompt. VALUE optional → auto-roll the cached dice."""
-    sid = resolve_sid(session_id)
+def roll(ctx, session_id, values, auto):
+    """Resolve a pending dice prompt. No VALUES → auto-roll; pass one value per die."""
+    sid = resolve_active(session_id)
     pending = load_state(sid).get("pending_action") or {"dice_count": 1, "dice_type": "d20"}
-    if value is not None:
+    if values:
         if not ctx.obj["json_mode"]:
-            out(_c(f"   ↳ using {value}", C.DIM))
-        payload = _action_response(int(value), None)
+            shown = str(values[0]) if len(values) == 1 else f"{list(values)} = {sum(values)}"
+            out(_c(f"   ↳ using {shown}", C.DIM))
+        payload = _explicit_roll_payload(ctx, pending, values)
     else:
         payload = _auto_roll_response(ctx, pending)
     run_turn_cmd(ctx, sid, payload, auto=auto)
@@ -615,17 +724,17 @@ def roll(ctx, session_id, value, auto):
 @click.pass_context
 def rest(ctx, session_id, rest_type):
     """POST a rest action (short/long)."""
-    sid = resolve_sid(session_id)
+    sid = resolve_active(session_id)
     run_turn_cmd(ctx, sid, {"rest_type": rest_type})
 
 
-@cli.command(name="use-item")
+@cli.command(name="use-item", context_settings={"ignore_unknown_options": True})
 @click.argument("session_id")
 @click.argument("item", nargs=-1, required=True)
 @click.pass_context
 def use_item(ctx, session_id, item):
     """POST a use-item action."""
-    sid = resolve_sid(session_id)
+    sid = resolve_active(session_id)
     run_turn_cmd(ctx, sid, {"use_item": " ".join(item)})
 
 
@@ -637,21 +746,18 @@ def use_item(ctx, session_id, item):
 @click.pass_context
 def cast(ctx, session_id, spell_id, tier, mp_cost):
     """POST a cast-spell action."""
-    sid = resolve_sid(session_id)
+    sid = resolve_active(session_id)
     run_turn_cmd(ctx, sid, {"cast_spell": {"spell_id": spell_id, "tier": tier, "mp_cost": mp_cost}})
 
 
 # -- Non-SSE state mutations ------------------------------------------------ #
-@cli.command(name="level-up")
-@click.argument("session_id")
-@click.option("--kind", type=click.Choice(["hp", "evasion", "ability"]), required=True)
-@click.option("--hp-mode", type=click.Choice(["fixed", "roll"]), default=None)
-@click.option("--hp-amount", type=int, default=None)
-@click.option("--ability-id", default=None)
-@click.pass_context
-def level_up(ctx, session_id, kind, hp_mode, hp_amount, ability_id):
-    """POST /level-up — apply a level-up choice."""
-    sid = resolve_sid(session_id)
+def _do_level_up(ctx, sid, *, kind, hp_mode=None, hp_amount=None, ability_id=None):
+    """POST /level-up and render the result. Shared by the command and the REPL."""
+    if kind == "ability" and not ability_id:
+        # The server now rejects this too, but fail client-side with a clear message:
+        # an ability level-up with no id would otherwise burn the level for nothing.
+        raise ApiError("ability level-up requires an ability id "
+                       "(--ability-id, or `/level-up ability <id>` in the REPL)")
     body = {"kind": kind}
     if hp_mode is not None:
         body["hp_mode"] = hp_mode
@@ -667,19 +773,37 @@ def level_up(ctx, session_id, kind, hp_mode, hp_amount, ability_id):
     render_state_full(st)
 
 
-@cli.command(name="boss-death")
-@click.argument("session_id")
-@click.option("--choice", type=click.Choice(["blaze", "risk"]), required=True)
-@click.pass_context
-def boss_death(ctx, session_id, choice):
-    """POST /boss-death — resolve a boss-death decision."""
-    sid = resolve_sid(session_id)
+def _do_boss_death(ctx, sid, choice):
+    """POST /boss-death and render the result. Shared by the command and the REPL."""
     data = api_post(ctx, f"/sessions/{sid}/boss-death", {"choice": choice})
     st = save_state(sid, game_state=data["game_state"]) if data.get("game_state") else load_state(sid)
     if emit_json(ctx, data):
         return
     out(_c("Boss-death resolved.", C.YELLOW))
     render_state_full(st)
+
+
+@cli.command(name="level-up")
+@click.argument("session_id")
+@click.option("--kind", type=click.Choice(["hp", "evasion", "ability"]), required=True)
+@click.option("--hp-mode", type=click.Choice(["fixed", "roll"]), default=None)
+@click.option("--hp-amount", type=int, default=None)
+@click.option("--ability-id", default=None)
+@click.pass_context
+def level_up(ctx, session_id, kind, hp_mode, hp_amount, ability_id):
+    """POST /level-up — apply a level-up choice."""
+    sid = resolve_active(session_id)
+    _do_level_up(ctx, sid, kind=kind, hp_mode=hp_mode, hp_amount=hp_amount, ability_id=ability_id)
+
+
+@cli.command(name="boss-death")
+@click.argument("session_id")
+@click.option("--choice", type=click.Choice(["blaze", "risk"]), required=True)
+@click.pass_context
+def boss_death(ctx, session_id, choice):
+    """POST /boss-death — resolve a boss-death decision."""
+    sid = resolve_active(session_id)
+    _do_boss_death(ctx, sid, choice)
 
 
 # --------------------------------------------------------------------------- #
@@ -693,9 +817,9 @@ Interactive commands:
   /rest short|long           rest action
   /use-item <item>           use an item
   /cast <spell_id> [tier] [mp]   cast a spell (tier default Minor, mp default 1)
-  /level-up <kind> [hp-mode] kind = hp|evasion|ability
+  /level-up <kind> [arg]     kind=hp|evasion|ability; arg=hp_mode (hp) or ability_id (ability)
   /boss-death <blaze|risk>   resolve a boss-death decision
-  /roll [value]              resolve a pending roll (blank = auto)
+  /roll [v ...]              resolve a pending roll (blank = auto; one value per die)
   /json                      toggle raw-JSON output
   /help                      this help
   /quit                      exit
@@ -710,13 +834,90 @@ def _prompt_pending_rolls(ctx, sid):
             return
         dc = f"{pa.get('dice_count')}{pa.get('dice_type')}"
         try:
-            ans = input(_c(f"🎲 roll {dc} (blank=auto, or a number)> ", C.YELLOW)).strip()
+            ans = input(_c(f"🎲 roll {dc} (blank=auto, or value(s))> ", C.YELLOW)).strip()
         except (EOFError, KeyboardInterrupt):
             out("")
             return
-        value = _parse_int(ans)
-        payload = _action_response(value, None) if value is not None else _auto_roll_response(ctx, pa, announce=False)
+        values = _parse_roll_values(ans)
+        payload = (
+            _explicit_roll_payload(ctx, pa, values)
+            if values
+            else _auto_roll_response(ctx, pa, announce=False)
+        )
         run_turn(ctx, sid, payload, auto=False, pause_hint=False)
+
+
+def _repl_dispatch(ctx, sid, line):
+    """Handle one REPL input line. Raises ApiError on backend failure (caller continues)."""
+    if line == "/state":
+        st = load_state(sid)
+        if not emit_json(ctx, st):
+            render_state_full(st)
+        return
+    if line == "/messages":
+        _render_messages(ctx, api_get(ctx, f"/sessions/{sid}/messages"))
+        return
+
+    parts = line.split()
+    cmd = parts[0]
+    # Exact command match (parts[0]) so `/restart`/`/rolling` don't trip `/rest`/`/roll`.
+    if cmd == "/rest":
+        run_turn(ctx, sid, {"rest_type": parts[1] if len(parts) > 1 else "short"})
+        return
+    if cmd == "/use-item":
+        item = line[len("/use-item"):].strip()
+        if not item:
+            out("usage: /use-item <item>")
+            return
+        run_turn(ctx, sid, {"use_item": item})
+        return
+    if cmd == "/cast":
+        if len(parts) < 2:
+            out("usage: /cast <spell_id> [tier] [mp]")
+            return
+        tier = parts[2] if len(parts) > 2 else "Minor"
+        if tier not in ("Minor", "Major", "Mythic"):
+            out("tier must be Minor, Major, or Mythic")
+            return
+        mp_val = _parse_int(parts[3]) if len(parts) > 3 else None
+        mp = mp_val if mp_val is not None else 1
+        run_turn(ctx, sid, {"cast_spell": {"spell_id": parts[1], "tier": tier, "mp_cost": mp}})
+        return
+    if cmd == "/level-up":
+        kind = parts[1] if len(parts) > 1 else "hp"
+        if kind not in ("hp", "evasion", "ability"):
+            out("usage: /level-up hp|evasion|ability [hp_mode|ability_id]")
+            return
+        kw = {}
+        if kind == "hp":
+            kw["hp_mode"] = parts[2] if len(parts) > 2 else "fixed"
+        elif kind == "ability":
+            kw["ability_id"] = parts[2] if len(parts) > 2 else None
+        _do_level_up(ctx, sid, kind=kind, **kw)
+        return
+    if cmd == "/boss-death":
+        choice = parts[1] if len(parts) > 1 else "risk"
+        if choice not in ("blaze", "risk"):
+            out("usage: /boss-death blaze|risk")
+            return
+        _do_boss_death(ctx, sid, choice)
+        return
+    if cmd == "/roll":
+        values = _parse_roll_values(" ".join(parts[1:])) if len(parts) > 1 else None
+        if values:
+            pending = load_state(sid).get("pending_action") or {"dice_count": 1, "dice_type": "d20"}
+            run_turn(ctx, sid, _explicit_roll_payload(ctx, pending, values),
+                     auto=False, pause_hint=False)
+        # Resolve this prompt and any follow-up roll the turn surfaces.
+        _prompt_pending_rolls(ctx, sid)
+        return
+    if cmd.startswith("/"):
+        out(_c("unknown command — /help", C.DIM))
+        return
+
+    # Plain text → message turn; stop at any dice prompt and resolve it interactively.
+    run_turn(ctx, sid, {"message": line}, auto=False, pause_hint=False)
+    _prompt_pending_rolls(ctx, sid)
 
 
 @cli.command()
@@ -756,59 +957,11 @@ def repl(ctx, session_id):
             ctx.obj["json_mode"] = not ctx.obj["json_mode"]
             out(_c(f"json mode {'on' if ctx.obj['json_mode'] else 'off'}", C.DIM))
             continue
-        if line == "/state":
-            render_state_full(load_state(sid))
-            continue
-        if line == "/messages":
-            data = api_get(ctx, f"/sessions/{sid}/messages")
-            for m in data.get("messages", []):
-                out(_c(f"[{m.get('role')}] ", C.DIM) + (m.get("content") or ""))
-            continue
-
-        parts = line.split()
-        if line.startswith("/rest"):
-            run_turn(ctx, sid, {"rest_type": parts[1] if len(parts) > 1 else "short"})
-            continue
-        if line.startswith("/use-item"):
-            run_turn(ctx, sid, {"use_item": line[len("/use-item"):].strip()})
-            continue
-        if line.startswith("/cast"):
-            if len(parts) < 2:
-                out("usage: /cast <spell_id> [tier] [mp]")
-                continue
-            tier = parts[2] if len(parts) > 2 else "Minor"
-            mp = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else 1
-            run_turn(ctx, sid, {"cast_spell": {"spell_id": parts[1], "tier": tier, "mp_cost": mp}})
-            continue
-        if line.startswith("/level-up"):
-            kind = parts[1] if len(parts) > 1 else "hp"
-            body = {"kind": kind}
-            if kind == "hp":
-                body["hp_mode"] = parts[2] if len(parts) > 2 else "fixed"
-            data = api_post(ctx, f"/sessions/{sid}/level-up", body)
-            st = save_state(sid, game_state=data["game_state"]) if data.get("game_state") else load_state(sid)
-            render_state_full(st)
-            continue
-        if line.startswith("/boss-death"):
-            data = api_post(ctx, f"/sessions/{sid}/boss-death",
-                            {"choice": parts[1] if len(parts) > 1 else "risk"})
-            st = save_state(sid, game_state=data["game_state"]) if data.get("game_state") else load_state(sid)
-            render_state_full(st)
-            continue
-        if line.startswith("/roll"):
-            val = _parse_int(parts[1]) if len(parts) > 1 else None
-            if val is not None:
-                run_turn(ctx, sid, _action_response(val, None), auto=False, pause_hint=False)
-            else:
-                _prompt_pending_rolls(ctx, sid)
-            continue
-        if line.startswith("/"):
-            out(_c("unknown command — /help", C.DIM))
-            continue
-
-        # Plain text → message turn; stop at any dice prompt and resolve it interactively.
-        run_turn(ctx, sid, {"message": line}, auto=False, pause_hint=False)
-        _prompt_pending_rolls(ctx, sid)
+        # A failed backend call must not tear down the interactive session.
+        try:
+            _repl_dispatch(ctx, sid, line)
+        except ApiError as e:
+            err(e.message)
 
 
 if __name__ == "__main__":
