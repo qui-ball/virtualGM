@@ -268,11 +268,19 @@ def create_enemy(
         is_boss=is_boss,
     )
     ctx.deps.enemies[enemy_id] = enemy
+    ctx.deps.in_combat = True
 
     if is_boss:
         ctx.deps.is_boss_battle = True
 
-    _notify_state_changed(ctx.deps, *(["enemies", "boss_encounter"] if is_boss else ["enemies"]))
+    _notify_state_changed(
+        ctx.deps,
+        *(
+            ["enemies", "boss_encounter", "in_combat"]
+            if is_boss
+            else ["enemies", "in_combat"]
+        ),
+    )
 
     boss_note = " 👑 BOSS — boss battle STARTED" if is_boss else ""
     logger.info(
@@ -294,7 +302,12 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
         )
 
     del ctx.deps.enemies[enemy_id]
-    _notify_state_changed(ctx.deps, "enemies")
+    fields = ["enemies"]
+    if not ctx.deps.enemies:
+        # Encounter cleared — combat is over.
+        ctx.deps.in_combat = False
+        fields.append("in_combat")
+    _notify_state_changed(ctx.deps, *fields)
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
 
@@ -323,7 +336,11 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
             if ctx.deps.is_boss_battle:
                 result += " (DEFEATED in boss battle - player must choose: Blaze of Glory or Risk It All)"
             else:
-                result += " (DEFEATED - recovers with full HP/mana, but loot is stolen)"
+                result += (
+                    " (DEFEATED, non-boss - the PC survives, not death. Resolve the"
+                    " aftermath per ruleset section 9.2 and remove the remaining enemies"
+                    " to end the encounter.)"
+                )
 
         _notify_state_changed(ctx.deps, "hp")
         logger.info(f"💔 {result}")
@@ -355,6 +372,43 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
         raise ModelRetry(
             f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
         )
+
+
+@gm_agent.tool
+def heal(ctx: RunContext[GameState], target: str, amount: int) -> str:
+    """Restore hit points to the player character or an enemy.
+
+    Args:
+        target: "pc" for player character, or enemy_id for an enemy
+        amount: HP to restore (non-negative; capped at the target's max HP)
+    """
+    if amount < 0:
+        raise ModelRetry("Heal amount must be non-negative. Use apply_damage instead.")
+
+    if target == "pc":
+        if ctx.deps.pc is None:
+            raise ModelRetry("No player character initialized.")
+        old_hp = ctx.deps.pc.hp
+        ctx.deps.pc.hp = min(ctx.deps.pc.hp_max, ctx.deps.pc.hp + amount)
+        new_hp = ctx.deps.pc.hp
+        _notify_state_changed(ctx.deps, "hp")
+        result = f"PC healed {amount}: {old_hp} → {new_hp}/{ctx.deps.pc.hp_max} HP"
+        logger.info(f"💚 {result}")
+        return result
+
+    if target in ctx.deps.enemies:
+        enemy = ctx.deps.enemies[target]
+        old_hp = enemy.hp
+        enemy.hp = min(enemy.hp_max, enemy.hp + amount)
+        new_hp = enemy.hp
+        _notify_state_changed(ctx.deps, "enemies")
+        result = f"'{target}' healed {amount}: {old_hp} → {new_hp}/{enemy.hp_max} HP"
+        logger.info(f"💚 {result}")
+        return result
+
+    raise ModelRetry(
+        f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
+    )
 
 
 @gm_agent.tool
