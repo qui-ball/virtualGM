@@ -52,6 +52,13 @@ export function getSessionMessages(
   return request<MessagesResponse>(`/sessions/${sessionId}/messages`);
 }
 
+/** Authoritative current game state — single source of truth (resume + ping-refetch). */
+export function getSessionState(
+  sessionId: string,
+): Promise<{ game_state: GameStateSnapshot }> {
+  return request(`/sessions/${sessionId}/state`);
+}
+
 export function submitLevelUp(
   sessionId: string,
   body: LevelUpRequest,
@@ -78,6 +85,7 @@ export type TurnEvent =
   | { type: 'narration'; text: string }
   | { type: 'thinking'; text: string }
   | { type: 'scene'; text: string }
+  | { type: 'state_changed'; fields: string[] }
   | {
       type: 'pending_action';
       pending_action: PendingAction;

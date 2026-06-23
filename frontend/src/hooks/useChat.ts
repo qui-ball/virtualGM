@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  getSessionState,
   streamTurn,
   submitBossDeath,
   submitLevelUp,
@@ -104,6 +105,41 @@ export function useChat() {
     [],
   );
 
+  // Mid-turn `state_changed` pings → debounced refetch of the authoritative state
+  // (ping-to-refetch, single source of truth). Bursts of pings coalesce into one GET.
+  const stateRefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStateRefetch = useCallback(() => {
+    if (stateRefetchTimer.current) {
+      clearTimeout(stateRefetchTimer.current);
+      stateRefetchTimer.current = null;
+    }
+  }, []);
+
+  const refetchGameState = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try {
+      const res = await getSessionState(sid);
+      if (!res.game_state) return;
+      const next = syncGameStateFlags(res.game_state);
+      setGameState(next);
+      persistSession(sid, next);
+    } catch {
+      // Transient — the turn's `complete` event (or the next ping) reconciles.
+    }
+  }, [persistSession]);
+
+  const scheduleStateRefetch = useCallback(() => {
+    clearStateRefetch();
+    stateRefetchTimer.current = setTimeout(() => {
+      stateRefetchTimer.current = null;
+      void refetchGameState();
+    }, 80);
+  }, [clearStateRefetch, refetchGameState]);
+
+  useEffect(() => () => clearStateRefetch(), [clearStateRefetch]);
+
   const processTurnStream = useCallback(async (body: TurnRequest) => {
     if (!sessionIdRef.current) return;
     setLoading(true);
@@ -150,7 +186,11 @@ export function useChat() {
             });
             break;
           }
+          case 'state_changed':
+            scheduleStateRefetch();
+            break;
           case 'pending_action': {
+            clearStateRefetch();
             setPendingAction(event.pending_action);
             setGameState(syncGameStateFlags(event.game_state));
             const promptEntry = rollPromptFromPendingAction(
@@ -162,6 +202,7 @@ export function useChat() {
             break;
           }
           case 'complete': {
+            clearStateRefetch();
             setPendingAction(null);
             pendingPromptIdRef.current = null;
             const nextState = syncGameStateFlags(event.game_state);
@@ -179,6 +220,9 @@ export function useChat() {
                 timestamp: Date.now(),
               }),
             );
+            // The turn may have mutated state before failing (no snapshot rides on
+            // `error`). Reconcile to the server's authoritative state.
+            scheduleStateRefetch();
             break;
         }
       }
@@ -193,7 +237,7 @@ export function useChat() {
     } finally {
       setLoading(false);
     }
-  }, [appendEntry, persistSession]);
+  }, [appendEntry, persistSession, scheduleStateRefetch, clearStateRefetch]);
 
   const startSession = useCallback(async (options?: StartSessionOptions) => {
     if (startingRef.current || sessionIdRef.current) return;

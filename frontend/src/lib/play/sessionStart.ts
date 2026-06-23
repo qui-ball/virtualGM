@@ -1,4 +1,8 @@
-import { createSession, getSessionMessages } from '@/api/client';
+import {
+  createSession,
+  getSessionMessages,
+  getSessionState,
+} from '@/api/client';
 import { syncGameStateFlags } from '@/lib/play/devDebugActions';
 import {
   getSessionCache,
@@ -65,14 +69,21 @@ export async function bootstrapPlaySession(
 
   if (cached) {
     try {
-      await getSessionMessages(cached.sessionId);
-      const transcript = await loadPlayTranscript(
-        cached.sessionId,
-        cached.gameState,
-      );
+      // Read authoritative state from the server (also confirms the session still
+      // exists — 404s here fall through to create). Trust the server over the cache,
+      // which may be stale if state changed since this client last took a turn.
+      const live = await getSessionState(cached.sessionId);
+      const gameState = syncGameStateFlags(live.game_state ?? cached.gameState);
+      const transcript = await loadPlayTranscript(cached.sessionId, gameState);
+      if (live.game_state) {
+        storeSessionCache(campaignId, {
+          sessionId: cached.sessionId,
+          gameState,
+        });
+      }
       return {
         sessionId: cached.sessionId,
-        gameState: syncGameStateFlags(cached.gameState),
+        gameState,
         transcript,
         resumedFromCache: true,
       };

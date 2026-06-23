@@ -6,10 +6,11 @@ exactly like the React frontend does — exercising request validation, the sess
 streaming, and dice-roll round-trips. It lets Claude Code / the user drive and test the whole
 app without launching the React UI.
 
-There is no server endpoint that returns a session's current game_state, so — like the real UI
-(which holds it in memory) — this CLI caches the latest game_state snapshot and pending dice
-prompt to disk per session under `.ui_cli_state/`. That cache only advances when this CLI runs
-turns.
+The backend exposes GET /sessions/{id}/state (authoritative game_state). The `state` command
+reads it live, and turns surface mid-turn `state_changed` SSE pings (the AI mutating inventory,
+HP, gold, ...). This CLI still caches the latest snapshot + pending dice prompt to disk per
+session under `.ui_cli_state/` as a fallback for when the server is unreachable or the session
+has expired (the in-memory session store is lost on backend restart).
 
 Run from the backend dir so it picks up the venv:
     cd backend && .venv/bin/python ui_cli.py <command> [...]
@@ -472,6 +473,10 @@ def render_event(ctx, event_type, data):
         out(_c("📜 ", C.GREEN) + (data.get("text") or ""))
     elif event_type == "scene":
         out(_c(f"🎬 {data.get('text', '')}", C.BOLD + C.CYAN))
+    elif event_type == "state_changed":
+        fields = data.get("fields") or []
+        hint = f" ({', '.join(fields)})" if fields else ""
+        out(_c(f"↻ state changed{hint} — GET /state to refetch", C.MAGENTA))
     elif event_type == "pending_action":
         render_pending(data.get("pending_action") or {})
     elif event_type == "roll_result":
@@ -643,14 +648,26 @@ def sessions(ctx):
 @click.argument("session_id")
 @click.pass_context
 def state(ctx, session_id):
-    """Render the cached game_state snapshot for a session."""
+    """GET /sessions/{id}/state — authoritative game_state (falls back to cache)."""
     sid = resolve_sid(session_id)
-    st = load_state(sid)
-    if not st:
-        err(f"no cached state for {sid} (run a turn first; there is no server GET-state endpoint)")
-        sys.exit(1)
+    stale = False
+    try:
+        data = api_get(ctx, f"/sessions/{sid}/state")
+        gs = data.get("game_state")
+        st = save_state(sid, game_state=gs) if gs else load_state(sid)
+    except ApiError as e:
+        # Server unreachable or session expired (in-memory store lost on restart).
+        st = load_state(sid)
+        if not st:
+            err(f"no live or cached state for {sid}: {e.message}")
+            sys.exit(1)
+        stale = True
+        if not ctx.obj["json_mode"]:
+            err(f"server state unavailable ({e.message}); showing cached snapshot")
     if emit_json(ctx, st):
         return
+    if stale:
+        out(_c("  (cached — may be stale; server unreachable or session expired)", C.YELLOW))
     render_state_full(st)
 
 

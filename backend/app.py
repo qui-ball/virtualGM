@@ -130,6 +130,21 @@ def get_messages(session_id: str):
     )
 
 
+@app.get("/sessions/{session_id}/state")
+async def get_session_state(session_id: str):
+    """Authoritative current game state — the single source of truth for clients.
+
+    Clients call this after a `state_changed` SSE ping (and on resume) instead of
+    trusting an embedded snapshot. `async def` so it runs on the event loop; the read
+    is cheap and self-healing — if it races a mid-turn mutation the client simply
+    refetches on the next event.
+    """
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"game_state": game_state_snapshot(session.game_state).model_dump()}
+
+
 @app.post("/sessions/{session_id}/level-up")
 def submit_level_up(session_id: str, body: LevelUpRequest):
     session = store.get(session_id)
