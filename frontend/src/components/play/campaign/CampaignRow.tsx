@@ -1,4 +1,5 @@
 import type { CampaignListItem } from '@/lib/play/campaignLobby';
+import { CampaignMetaLine } from '@/components/play/campaign/CampaignMetaLine';
 import { Pill } from '@/components/play/Pill';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ export function CampaignRow({ campaign, onOpen, className }: CampaignRowProps) {
             {campaign.characterName} · {campaign.classShort} · Lv{' '}
             {campaign.level}
           </p>
+          <CampaignMetaLine campaign={campaign} className="mt-1" />
         </div>
         <button
           type="button"

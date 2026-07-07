@@ -1,6 +1,21 @@
+import { DICE_SIDES, rollDie } from '@/lib/play/dice';
 import type { AdvType } from '@/lib/play/transcript';
+import type { DiceType } from '@/types';
+import {
+  rollBreakdownForResult,
+  rollButtonLabelForDice,
+  rollVerdictForResult,
+} from '@/lib/play/rollFormula';
 
 export type RollD20Input = {
+  adv?: AdvType;
+  modifier?: number;
+  vs?: number | null;
+};
+
+export type RollDiceInput = {
+  diceCount?: number;
+  diceType?: DiceType;
   adv?: AdvType;
   modifier?: number;
   vs?: number | null;
@@ -18,18 +33,20 @@ export type RollD20Result = {
   pass: boolean | null;
 };
 
-function rollDie(): number {
-  return 1 + Math.floor(Math.random() * 20);
-}
+export type RollDiceResult = RollD20Result & {
+  diceCount: number;
+  diceType: DiceType;
+  rolls: number[];
+};
 
-/** d20 attack/check/save roll with optional advantage (matches Session.jsx prototype). */
+/** d20 attack/check/save roll with optional advantage. */
 export function rollD20(input: RollD20Input = {}): RollD20Result {
   const adv = input.adv ?? 'norm';
   const mod = input.modifier ?? 0;
   const vs = input.vs ?? null;
 
-  const dieA = rollDie();
-  const dieB = adv !== 'norm' ? rollDie() : undefined;
+  const dieA = rollDie(20);
+  const dieB = adv !== 'norm' ? rollDie(20) : undefined;
   const nat =
     adv === 'adv' && dieB != null
       ? Math.max(dieA, dieB)
@@ -51,34 +68,98 @@ export function rollD20(input: RollD20Input = {}): RollD20Result {
   };
 }
 
+/** Roll any dice expression from a pending GM prompt. */
+export function rollDice(input: RollDiceInput = {}): RollDiceResult {
+  const diceType = input.diceType ?? 'd20';
+  const diceCount = Math.max(1, input.diceCount ?? 1);
+  const modifier = input.modifier ?? 0;
+  const vs = input.vs ?? null;
+
+  if (diceType === 'd20' && diceCount === 1) {
+    const r = rollD20({ adv: input.adv, modifier, vs });
+    const rolls =
+      r.advUsed !== 'norm' && r.dieB != null ? [r.dieA, r.dieB] : [r.nat];
+    return {
+      diceCount: 1,
+      diceType: 'd20',
+      rolls,
+      ...r,
+    };
+  }
+
+  const sides = DICE_SIDES[diceType];
+  const rolls = Array.from({ length: diceCount }, () => rollDie(sides));
+  const rollSum = rolls.reduce((sum, value) => sum + value, 0);
+  const total = rollSum + modifier;
+
+  return {
+    diceCount,
+    diceType,
+    rolls,
+    dieA: rolls[0] ?? 1,
+    dieB: rolls[1],
+    nat: rolls[0] ?? 1,
+    total,
+    modifier,
+    advUsed: 'norm',
+    crit: false,
+    fumble: false,
+    pass: vs != null ? total >= vs : null,
+  };
+}
+
 export function rollButtonLabel(
   adv: AdvType,
   modifier: number,
   stat?: string,
+  diceCount = 1,
+  diceType: DiceType = 'd20',
 ): string {
-  const modStr = modifier >= 0 ? `+${modifier}` : `${modifier}`;
-  const dice =
-    adv === 'adv' ? '2d20↑' : adv === 'dis' ? '2d20↓' : 'd20';
-  return `Roll ${dice} ${modStr}${stat ? ` ${stat}` : ''}`;
+  return rollButtonLabelForDice(diceCount, diceType, adv, modifier, stat);
 }
 
 export function rollBreakdownText(
   result: RollD20Result,
   stat?: string,
 ): string {
-  const modStr = result.modifier >= 0 ? `+${result.modifier}` : `${result.modifier}`;
-  const statLabel = stat ?? 'mod';
-  if (result.advUsed !== 'norm' && result.dieB != null) {
-    const take = result.advUsed === 'adv' ? 'higher' : 'lower';
-    return `2d20 (${result.advUsed === 'adv' ? 'Adv' : 'Dis'}) = ${result.dieA}, ${result.dieB} · take ${take} ${result.nat} · ${modStr} ${statLabel}`;
-  }
-  return `d20 = ${result.nat} · ${modStr} ${statLabel}`;
+  return rollBreakdownForResult({
+    id: '',
+    promptId: '',
+    label: '',
+    stat,
+    nat: result.nat,
+    dieA: result.dieA,
+    dieB: result.dieB,
+    total: result.total,
+    modifier: result.modifier,
+    advUsed: result.advUsed,
+    crit: result.crit,
+    fumble: result.fumble,
+    pass: result.pass,
+    diceCount: 1,
+    diceType: 'd20',
+    rolls: result.advUsed !== 'norm' && result.dieB != null
+      ? [result.dieA, result.dieB]
+      : [result.nat],
+  });
 }
 
 export function rollVerdictText(result: RollD20Result): string | null {
-  if (result.crit) return 'Critical hit';
-  if (result.fumble) return 'Fumble';
-  if (result.pass === true) return 'Success';
-  if (result.pass === false) return 'Miss';
-  return null;
+  return rollVerdictForResult({
+    id: '',
+    promptId: '',
+    label: '',
+    nat: result.nat,
+    dieA: result.dieA,
+    dieB: result.dieB,
+    total: result.total,
+    modifier: result.modifier,
+    advUsed: result.advUsed,
+    crit: result.crit,
+    fumble: result.fumble,
+    pass: result.pass,
+    diceCount: 1,
+    diceType: 'd20',
+    rolls: [result.nat],
+  });
 }

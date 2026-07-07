@@ -15,6 +15,11 @@ export type CampaignListItem = {
   lastScene: string;
   active?: boolean;
   pendingLevelUp?: boolean;
+  recommendedPlayers: number;
+  levelMin: number;
+  levelMax: number;
+  avgLevel?: number;
+  soloMode: boolean;
 };
 
 export type LobbyCharacterOption = {
@@ -139,6 +144,11 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     level: 1,
     lastScene: 'Road to Phandalin',
     active: true,
+    recommendedPlayers: 4,
+    levelMin: 1,
+    levelMax: 5,
+    avgLevel: 3,
+    soloMode: true,
   },
   {
     id: 'salt-smoke',
@@ -151,6 +161,11 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     classShort: 'Mage',
     level: 2,
     lastScene: 'Harbor at dawn',
+    recommendedPlayers: 3,
+    levelMin: 1,
+    levelMax: 4,
+    avgLevel: 2,
+    soloMode: false,
   },
   {
     id: 'ribcage-coast',
@@ -164,6 +179,11 @@ export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
     level: 6,
     lastScene: 'Cliff path',
     pendingLevelUp: isPendingLevelUp(WREN_STATE.xp, WREN_STATE.level),
+    recommendedPlayers: 4,
+    levelMin: 4,
+    levelMax: 7,
+    avgLevel: 5,
+    soloMode: false,
   },
 ];
 

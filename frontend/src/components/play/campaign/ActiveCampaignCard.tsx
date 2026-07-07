@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { CampaignListItem } from '@/lib/play/campaignLobby';
+import { CampaignMetaLine } from '@/components/play/campaign/CampaignMetaLine';
+import { soloModeToParam } from '@/lib/play/campaignMeta';
 import { PLAY_ROUTES } from '@/lib/play/routes';
 import { PlayIcon } from '@/components/play/PlayIcon';
 import { Pill } from '@/components/play/Pill';
@@ -26,12 +28,15 @@ export function ActiveCampaignCard({
         </Pill>
       </div>
       <h2 className="play-h-display text-xl">{campaign.title}</h2>
+      <CampaignMetaLine campaign={campaign} />
       <p className="text-sm text-[var(--ink-3)]">
         Last: {campaign.lastScene}
       </p>
       <Link
         to={`${PLAY_ROUTES.session}?${new URLSearchParams({
           campaignId: campaign.id,
+          soloMode: soloModeToParam(campaign.soloMode),
+          recommendedPlayers: String(campaign.recommendedPlayers),
           ...(campaign.characterName
             ? { characterName: campaign.characterName }
             : {}),

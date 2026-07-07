@@ -143,8 +143,27 @@ describe('sessionStart', () => {
 
       expect(result.resumedFromCache).toBe(false);
       expect(result.sessionId).toBe('new-sess');
-      expect(createSession).toHaveBeenCalledWith(undefined);
+      expect(createSession).toHaveBeenCalledWith({});
       expect(getSessionCache('lost-mine')?.sessionId).toBe('new-sess');
+    });
+
+    it('creates session with solo_mode when provided', async () => {
+      vi.mocked(createSession).mockResolvedValue({
+        session_id: 'solo-sess',
+        character_name: 'Aldric of Corlinn Hill',
+        game_state: { ...GAME_STATE, solo_mode: true },
+      });
+      vi.mocked(getSessionMessages).mockResolvedValue({
+        messages: [],
+        transcript: [],
+      });
+
+      await bootstrapPlaySession({
+        campaignId: 'lost-mine',
+        soloMode: true,
+      });
+
+      expect(createSession).toHaveBeenCalledWith({ solo_mode: true });
     });
 
     it('creates session with character_name when provided', async () => {

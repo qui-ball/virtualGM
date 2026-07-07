@@ -22,6 +22,7 @@ def game_state_snapshot(gs: GameState) -> GameStateSnapshot:
         time_max=gs.time_max,
         campaign_title=gs.campaign_title,
         pending_level_up=pending_level_up,
+        solo_mode=gs.solo_mode,
     )
 
 

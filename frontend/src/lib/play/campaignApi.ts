@@ -26,6 +26,11 @@ function summaryToListItem(c: CampaignSummary): CampaignListItem {
     lastScene: c.last_scene,
     active: c.active,
     pendingLevelUp: c.pending_level_up,
+    recommendedPlayers: c.recommended_players ?? 4,
+    levelMin: c.level_min ?? 1,
+    levelMax: c.level_max ?? 5,
+    avgLevel: c.avg_level ?? undefined,
+    soloMode: c.solo_mode ?? false,
   };
 }
 

@@ -26,7 +26,7 @@ import {
   shouldBlockForLevelUp,
   type LevelUpSelection,
 } from '@/lib/play/levelUp';
-import { rollD20ToResultFields } from '@/lib/play/rollResultFields';
+import { rollDiceToResultFields } from '@/lib/play/rollResultFields';
 import { pendingActionToRollPrompt } from '@/lib/play/pendingActionAdapter';
 import {
   createEntryId,
@@ -48,7 +48,7 @@ import {
 } from '@/lib/play/bossDeath';
 import { rollResultPayloadToFields } from '@/lib/play/rollResultAdapter';
 import { findActiveRollPrompt } from '@/lib/play/transcript';
-import { rollD20 } from '@/lib/play/roll';
+import { rollDice } from '@/lib/play/roll';
 import {
   bootstrapPlaySession,
   type PlaySessionStartOptions,
@@ -327,8 +327,11 @@ export function useChat() {
       );
       setRolling(true);
       try {
-        const vs = prompt.vs ?? prompt.dc ?? null;
-        const r = rollD20({
+        const isD20 = pendingAction.dice_type === 'd20';
+        const vs = isD20 ? (prompt.vs ?? prompt.dc ?? null) : null;
+        const r = rollDice({
+          diceCount: pendingAction.dice_count,
+          diceType: pendingAction.dice_type,
           adv: prompt.advType,
           modifier: prompt.modifier,
           vs,
@@ -337,7 +340,7 @@ export function useChat() {
         setTranscript((prev) => markRollPromptRolled(prev, promptId, r.advUsed));
 
         if (isDevDemoPendingAction(pendingAction)) {
-          const result = rollD20ToResultFields(r, promptId, prompt.label, {
+          const result = rollDiceToResultFields(r, promptId, prompt.label, {
             stat: prompt.stat,
             vs: vs ?? undefined,
           });
@@ -361,9 +364,9 @@ export function useChat() {
         }
 
         const rolls =
-          r.advUsed !== 'norm' && r.dieB != null
+          r.diceType === 'd20' && r.advUsed !== 'norm' && r.dieB != null
             ? [r.dieA, r.dieB]
-            : [r.nat];
+            : r.rolls;
         await submitRollResult(r.total, rolls);
       } finally {
         setRolling(false);

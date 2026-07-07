@@ -96,4 +96,23 @@ describe('pendingActionToRollPrompt', () => {
     );
     expect(prompt.footer).toBe('crit on nat-20');
   });
+
+  it('omits dc and crit footer for damage dice', () => {
+    const prompt = pendingActionToRollPrompt(
+      {
+        action_type: 'damage',
+        dice_count: 1,
+        dice_type: 'd8',
+        purpose: 'Longsword damage',
+        tool_call_id: 't6',
+        modifier: 2,
+      },
+      WARRIOR,
+    );
+    expect(prompt.diceType).toBe('d8');
+    expect(prompt.dc).toBeUndefined();
+    expect(prompt.vsLabel).toBeUndefined();
+    expect(prompt.footer).toBeUndefined();
+    expect(prompt.advType).toBe('norm');
+  });
 });

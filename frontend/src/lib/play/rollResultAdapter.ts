@@ -7,10 +7,19 @@ export function rollResultPayloadToFields(
   payload: RollResultPayload,
   promptId: string = createEntryId(),
 ): RollResultFields {
+  const rolls =
+    payload.rolls ??
+    (payload.die_b != null
+      ? [payload.die_a, payload.die_b]
+      : [payload.die_a]);
+
   return {
     id: createEntryId(),
     promptId: payload.prompt_id ?? promptId,
     label: payload.label,
+    diceType: payload.dice_type ?? undefined,
+    diceCount: payload.dice_count ?? undefined,
+    rolls,
     stat: payload.stat ?? undefined,
     nat: payload.nat,
     dieA: payload.die_a,

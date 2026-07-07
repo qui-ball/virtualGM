@@ -74,35 +74,40 @@ def build_pending_action(
     if modifier is None:
         modifier = 0
 
+    dice_type = args.get("dice_type", "d20")
+    dice_count = int(args.get("dice_count", 1))
+    is_d20_roll = dice_type == "d20" and dice_count == 1
+    purpose = str(args.get("purpose", ""))
+
     dc = args.get("dc")
-    if dc is None:
+    if dc is None and is_d20_roll:
         dc = 13
 
     vs_label = args.get("vs_label")
-    if vs_label is None and character and re.search(
-        r"attack|hit|vs", str(args.get("purpose", "")), re.I
+    if vs_label is None and is_d20_roll and character and re.search(
+        r"attack|hit|vs", purpose, re.I
     ):
         vs_label = f"vs Eva {character.evasion}"
-    elif vs_label is None:
+    elif vs_label is None and is_d20_roll and dc is not None:
         vs_label = f"DC {dc}"
 
-    adv_type = _parse_adv(args.get("adv_type"))
+    adv_type = _parse_adv(args.get("adv_type")) if is_d20_roll else "norm"
     footer = args.get("footer")
-    if footer is None and args.get("dice_type", "d20") == "d20":
+    if footer is None and is_d20_roll:
         footer = "crit on nat-20"
 
     stat_short = STAT_SHORT.get(stat_key) if stat_key else None
 
     return PendingAction(
         action_type=tool_name,
-        dice_count=int(args.get("dice_count", 1)),
-        dice_type=args.get("dice_type", "d20"),
+        dice_count=dice_count,
+        dice_type=dice_type,
         purpose=str(args.get("purpose", "")),
         tool_call_id=tool_call_id,
         stat=stat_short or stat_key,
         modifier=int(modifier),
-        dc=int(dc),
-        vs_label=str(vs_label),
+        dc=int(dc) if dc is not None else None,
+        vs_label=str(vs_label) if vs_label is not None else None,
         adv_type=adv_type,
         adv_reason=args.get("adv_reason"),
         success_text=args.get("success_text"),

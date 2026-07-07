@@ -66,6 +66,24 @@ describe('api client', () => {
     });
   });
 
+  it('createSession POSTs solo_mode when provided', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        session_id: 'sess3',
+        character_name: 'Aldric',
+        game_state: { character: null, enemies: {}, countdowns: {}, in_combat: false },
+      }),
+    } as Response);
+
+    await createSession({ solo_mode: false });
+    expect(fetch).toHaveBeenCalledWith('http://test.api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ solo_mode: false }),
+    });
+  });
+
   it('throws on non-ok responses', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,

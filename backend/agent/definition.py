@@ -105,6 +105,7 @@ The hardness above is for fiction. Genuine real-world distress — self-harm, su
 ## Rolls and skill checks
 When the player attempts something consequential, call for the roll BEFORE narrating the outcome — even when the campaign requires a particular result. The roll sets the degree of success, side effects, and texture.
 - ask_player_roll() is for anything the PC does (attacks, damage, checks, saves). It pauses until the player submits the roll, then returns the result to you like any other tool. So narrate the setup and request the roll; when the result comes back, continue in the same flow — request a follow-up roll if needed (e.g. damage after a hit), or apply the outcome and narrate it. Don't end your turn just because you asked for a roll; only end it once the action is resolved. Fill the card fields (stat, modifier, dc, vs_label, success_text, fail_text) so the player sees what is at stake; on a plain damage roll, omit dc/vs_label (damage is not a checked roll).
+- ask_player_roll dice types: d20 for attacks, skill checks, and saves (set dc or vs_label; advantage/disadvantage only here). Use d4/d6/d8/d10/d12 for damage, healing, and other non-check rolls — pass the correct dice_count and dice_type (e.g. ask_player_roll(1, "d8", "Longsword damage", modifier=2) after a hit). Never use d20 for weapon or spell damage.
 - roll_dice() is for what the GM and enemies do (enemy attacks, enemy initiative, random outcomes); it resolves immediately.
 - Skill check: d20 + stat modifier vs a DC you set — easy 8, moderate 12, hard 15. Match the stat to the action: Might (force, endurance), Finesse (agility, stealth), Wit (perception, knowledge), Presence (persuasion, intimidation).
 
@@ -112,7 +113,7 @@ When the player attempts something consequential, call for the roll BEFORE narra
 - When hostilities start, set the scene and create each adversary with create_enemy() (this marks combat active). Pass is_boss=True for a campaign boss.
 - Roll initiative once at the start — ask_player_roll() for the PC, roll_dice() for enemies (d20 + Finesse).
 - Alternate beats between the player and the enemies. The PC's action is one beat: to-hit, then damage, then narrate the result and apply_damage(). The enemies' response is the next beat — resolve every enemy that acts that round together (roll each attack, apply_damage, narrate them as one exchange); don't pause between individual enemy attacks, since the player has no choice to make there. Then hand the turn back to the player.
-- Attack: d20 + stat modifier + ability bonuses vs the target's Evasion. Damage: weapon/spell dice + stat modifier. Natural 20: roll damage dice normally, add one set of dice at maximum value, then add the modifier once. Advantage/disadvantage: roll 2d20, take the higher/lower.
+- Attack: d20 + stat modifier + ability bonuses vs the target's Evasion. Damage: weapon/spell dice + stat modifier — NOT a d20. Natural 20: roll damage dice normally, add one set of dice at maximum value, then add the modifier once. Advantage/disadvantage: roll 2d20, take the higher/lower (d20 rolls only).
 - Record every hit with apply_damage() (it handles HP clamping, death, and boss resolution). Remove fallen or fleeing enemies with remove_enemy(); clearing the last enemy ends combat. Award XP only after combat ends.
 
 ## Campaign context
@@ -122,7 +123,7 @@ Run the campaign from <campaign_index>. Load only the section you need for the c
 - narrate(text): the only player-visible channel — all description, dialogue, outcomes, questions.
 - set_scene(label): update the scene shown in the app bar whenever the place or situation changes (e.g. "Tavern, dusk", "Combat — goblin ambush").
 - load_campaign_section / unload_campaign_section: manage campaign context (max 3 loaded).
-- ask_player_roll(...): the player rolls; your turn pauses until they answer.
+- ask_player_roll(...): the player rolls; your turn pauses until they answer. Use d20 for attacks/checks/saves; use weapon/spell dice (d4–d12) for damage and similar rolls.
 - roll_dice(...): GM/enemy rolls, resolved at once.
 - create_enemy / remove_enemy: adversaries entering or leaving the encounter.
 - apply_damage(target, amount) / heal(target, amount): any HP loss or gain, for "pc" or an enemy id.
@@ -238,6 +239,17 @@ def final_reminders() -> str:
         "- Every mechanical change you narrate must be written through a tool the same turn.\n"
         "- The world is indifferent: let failure land and never rescue the PC from an earned consequence (genuine real-world-harm topics excepted).\n"
         "</reminders>"
+    )
+
+
+@gm_agent.instructions
+def solo_mode_rules(ctx: RunContext[GameState]) -> str:
+    """Inject encounter scaling rules when solo mode is enabled."""
+    from game.solo_mode import solo_mode_instruction_block
+
+    return solo_mode_instruction_block(
+        ctx.deps.solo_mode,
+        recommended_players=ctx.deps.recommended_players,
     )
 
 

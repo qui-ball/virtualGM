@@ -82,6 +82,7 @@ export interface GameStateSnapshot {
   time_max?: number;
   campaign_title?: string;
   pending_level_up?: boolean;
+  solo_mode?: boolean;
 }
 
 export interface PendingAction {
@@ -105,6 +106,9 @@ export interface RollResultPayload {
   prompt_id?: string | null;
   label: string;
   stat?: string | null;
+  dice_type?: DiceType | null;
+  dice_count?: number | null;
+  rolls?: number[] | null;
   nat: number;
   die_a: number;
   die_b?: number | null;
@@ -130,6 +134,10 @@ export interface TurnResponse {
 export interface CreateSessionRequest {
   /** Optional PC name — backend schema accepts this; handler may ignore until wired. */
   character_name?: string;
+  /** When true, GM scales encounters for a single player (default on backend: true). */
+  solo_mode?: boolean;
+  /** Campaign design party size; solo mode scales enemies as 1/N of listed count. */
+  recommended_players?: number;
 }
 
 export interface CreateSessionResponse {
@@ -183,6 +191,11 @@ export interface CampaignSummary {
   level: number;
   pending_level_up: boolean;
   active?: boolean;
+  recommended_players?: number;
+  level_min?: number;
+  level_max?: number;
+  avg_level?: number | null;
+  solo_mode?: boolean;
 }
 
 export interface CampaignListResponse {
