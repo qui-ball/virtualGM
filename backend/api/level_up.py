@@ -41,7 +41,9 @@ def apply_level_up(
         updated.hp = min(updated.hp + hp_amount, updated.hp_max)
     elif kind == "evasion":
         updated.evasion += 1
-    elif kind == "ability" and ability_id:
+    elif kind == "ability":
+        if not ability_id:
+            raise ValueError("Ability level-up requires an ability_id")
         if ability_id not in updated.class_abilities:
             updated.class_abilities = [*updated.class_abilities, ability_id]
 

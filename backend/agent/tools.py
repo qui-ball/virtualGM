@@ -28,6 +28,18 @@ class Colors:
     RESET = "\033[0m"
 
 
+def _notify_state_changed(gs: GameState, *fields: str) -> None:
+    """Signal the client that game state changed mid-turn (ping-to-refetch).
+
+    Reuses the SSE event queue (same path as narrate/set_scene). The event carries
+    only a hint of which fields changed — the authoritative state is read back by the
+    client via GET /sessions/{id}/state. No-op outside an active stream (e.g. the
+    in-process CLI), where _event_queue is None.
+    """
+    if gs._event_queue is not None:
+        gs._event_queue.put_nowait(("state_changed", {"fields": list(fields)}))
+
+
 @gm_agent.tool
 def narrate(ctx: RunContext[GameState], text: str) -> str:
     """Show text to the player.
@@ -164,6 +176,7 @@ def set_scene(ctx: RunContext[GameState], scene_label: str) -> str:
         ctx.deps._event_queue.put_nowait(
             ("scene", {"text": f"Scene · {scene_label}"})
         )
+    _notify_state_changed(ctx.deps, "scene_label")
     return f"Scene set to {scene_label}"
 
 
@@ -255,9 +268,19 @@ def create_enemy(
         is_boss=is_boss,
     )
     ctx.deps.enemies[enemy_id] = enemy
+    ctx.deps.in_combat = True
 
     if is_boss:
         ctx.deps.is_boss_battle = True
+
+    _notify_state_changed(
+        ctx.deps,
+        *(
+            ["enemies", "boss_encounter", "in_combat"]
+            if is_boss
+            else ["enemies", "in_combat"]
+        ),
+    )
 
     boss_note = " 👑 BOSS — boss battle STARTED" if is_boss else ""
     logger.info(
@@ -279,6 +302,12 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
         )
 
     del ctx.deps.enemies[enemy_id]
+    fields = ["enemies"]
+    if not ctx.deps.enemies:
+        # Encounter cleared — combat is over.
+        ctx.deps.in_combat = False
+        fields.append("in_combat")
+    _notify_state_changed(ctx.deps, *fields)
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
 
@@ -307,8 +336,13 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
             if ctx.deps.is_boss_battle:
                 result += " (DEFEATED in boss battle - player must choose: Blaze of Glory or Risk It All)"
             else:
-                result += " (DEFEATED - recovers with full HP/mana, but loot is stolen)"
+                result += (
+                    " (DEFEATED, non-boss - the PC survives, not death. Resolve the"
+                    " aftermath per ruleset section 9.2 and remove the remaining enemies"
+                    " to end the encounter.)"
+                )
 
+        _notify_state_changed(ctx.deps, "hp")
         logger.info(f"💔 {result}")
         return result
 
@@ -322,12 +356,15 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
             f"'{target}' took {amount} damage: {old_hp} → {new_hp}/{enemy.hp_max} HP"
         )
 
+        boss_ended = False
         if new_hp == 0:
             result += " (DEFEATED)"
             if enemy.is_boss and ctx.deps.is_boss_battle:
                 ctx.deps.is_boss_battle = False
+                boss_ended = True
                 result += " 👑 BOSS DEFEATED — boss battle ENDED"
 
+        _notify_state_changed(ctx.deps, *(["enemies", "boss_encounter"] if boss_ended else ["enemies"]))
         logger.info(f"⚔️ {result}")
         return result
 
@@ -335,6 +372,43 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
         raise ModelRetry(
             f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
         )
+
+
+@gm_agent.tool
+def heal(ctx: RunContext[GameState], target: str, amount: int) -> str:
+    """Restore hit points to the player character or an enemy.
+
+    Args:
+        target: "pc" for player character, or enemy_id for an enemy
+        amount: HP to restore (non-negative; capped at the target's max HP)
+    """
+    if amount < 0:
+        raise ModelRetry("Heal amount must be non-negative. Use apply_damage instead.")
+
+    if target == "pc":
+        if ctx.deps.pc is None:
+            raise ModelRetry("No player character initialized.")
+        old_hp = ctx.deps.pc.hp
+        ctx.deps.pc.hp = min(ctx.deps.pc.hp_max, ctx.deps.pc.hp + amount)
+        new_hp = ctx.deps.pc.hp
+        _notify_state_changed(ctx.deps, "hp")
+        result = f"PC healed {amount}: {old_hp} → {new_hp}/{ctx.deps.pc.hp_max} HP"
+        logger.info(f"💚 {result}")
+        return result
+
+    if target in ctx.deps.enemies:
+        enemy = ctx.deps.enemies[target]
+        old_hp = enemy.hp
+        enemy.hp = min(enemy.hp_max, enemy.hp + amount)
+        new_hp = enemy.hp
+        _notify_state_changed(ctx.deps, "enemies")
+        result = f"'{target}' healed {amount}: {old_hp} → {new_hp}/{enemy.hp_max} HP"
+        logger.info(f"💚 {result}")
+        return result
+
+    raise ModelRetry(
+        f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
+    )
 
 
 @gm_agent.tool
@@ -356,9 +430,11 @@ def set_condition(
             raise ModelRetry("No player character initialized.")
         conditions = ctx.deps.pc.conditions
         label = "PC"
+        field_hint = "conditions"
     elif target in ctx.deps.enemies:
         conditions = ctx.deps.enemies[target].conditions
         label = f"'{target}'"
+        field_hint = "enemies"
     else:
         raise ModelRetry(
             f"Target '{target}' not found. Use 'pc' or one of: {list(ctx.deps.enemies.keys())}"
@@ -368,12 +444,14 @@ def set_condition(
         if condition in conditions:
             return f"{label} already has {condition}"
         conditions.append(condition)
+        _notify_state_changed(ctx.deps, field_hint)
         logger.info(f"😵 {label} is now {condition}")
         return f"{label} is now {condition}"
 
     if condition not in conditions:
         return f"{label} did not have {condition}"
     conditions.remove(condition)
+    _notify_state_changed(ctx.deps, field_hint)
     logger.info(f"✨ {label} is no longer {condition}")
     return f"{label} is no longer {condition}"
 
@@ -404,6 +482,7 @@ def update_character_state(
 
         old_value = getattr(pc, field)
         setattr(pc, field, value)
+        _notify_state_changed(ctx.deps, field)
         logger.info(f"📝 PC {field}: {old_value} → {value}")
         return f"PC {field}: {old_value} → {value}"
 
@@ -416,6 +495,7 @@ def update_character_state(
 
         old_value = getattr(enemy, field)
         setattr(enemy, field, value)
+        _notify_state_changed(ctx.deps, "enemies")
         logger.info(f"📝 '{target}' {field}: {old_value} → {value}")
         return f"'{target}' {field}: {old_value} → {value}"
 
@@ -449,6 +529,7 @@ def set_countdown(
             raise ModelRetry(f"Countdown initial value must be >= 0, got {value}")
 
         ctx.deps.countdowns[name] = value
+        _notify_state_changed(ctx.deps, "countdowns")
         logger.info(f"⏱️ Created countdown '{name}' with value {value}")
         if value == 0:
             return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
@@ -463,6 +544,7 @@ def set_countdown(
     old_value = ctx.deps.countdowns[name]
     new_value = max(0, old_value + value)
     ctx.deps.countdowns[name] = new_value
+    _notify_state_changed(ctx.deps, "countdowns")
     logger.info(f"⏱️ Countdown '{name}': {old_value} → {new_value}")
 
     if new_value == 0 and old_value > 0:
@@ -493,17 +575,22 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     logger.info(f"⭐ {result}")
 
     # Check for level-up
+    leveled = False
     if pc.level < 10:
         next_threshold = XP_THRESHOLDS.get(pc.level + 1)
         if next_threshold and pc.xp >= next_threshold:
             old_level = pc.level
             pc.level += 1
+            leveled = True
             result += (
                 f"\n🎉 LEVEL UP! {old_level} → {pc.level}! "
                 f"The player must choose one: HP increase, +1 Evasion, or a class ability."
             )
             logger.info(f"🎉 Level up! {old_level} → {pc.level}")
 
+    _notify_state_changed(
+        ctx.deps, *(["xp", "level", "pending_level_up"] if leveled else ["xp"])
+    )
     return result
 
 
@@ -522,6 +609,7 @@ def update_inventory(
 
     if action == "add":
         ctx.deps.pc.inventory.append(item)
+        _notify_state_changed(ctx.deps, "inventory")
         logger.info(f"🎒 Added '{item}' to inventory")
         return f"Added '{item}' to inventory. Inventory: {ctx.deps.pc.inventory}"
 
@@ -531,6 +619,7 @@ def update_inventory(
         )
 
     ctx.deps.pc.inventory.remove(item)
+    _notify_state_changed(ctx.deps, "inventory")
     logger.info(f"🎒 Removed '{item}' from inventory")
     return f"Removed '{item}' from inventory. Inventory: {ctx.deps.pc.inventory}"
 
