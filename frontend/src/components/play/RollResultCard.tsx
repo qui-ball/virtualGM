@@ -1,9 +1,8 @@
 import type { RollResultFields } from '@/lib/play/transcript';
 import {
-  rollBreakdownText,
-  rollVerdictText,
-  type RollD20Result,
-} from '@/lib/play/roll';
+  rollBreakdownForResult,
+  rollVerdictForResult,
+} from '@/lib/play/rollFormula';
 import { cn } from '@/lib/utils';
 
 type RollResultCardProps = {
@@ -11,18 +10,7 @@ type RollResultCardProps = {
 };
 
 export function RollResultCard({ result }: RollResultCardProps) {
-  const rollLike: RollD20Result = {
-    dieA: result.dieA,
-    dieB: result.dieB,
-    nat: result.nat,
-    total: result.total,
-    modifier: result.modifier,
-    advUsed: result.advUsed,
-    crit: result.crit,
-    fumble: result.fumble,
-    pass: result.pass,
-  };
-  const verdict = rollVerdictText(rollLike);
+  const verdict = rollVerdictForResult(result);
   const verdictClass = result.crit
     ? 'crit'
     : result.fumble
@@ -33,7 +21,7 @@ export function RollResultCard({ result }: RollResultCardProps) {
           ? 'fail'
           : '';
 
-  let breakdown = rollBreakdownText(rollLike, result.stat);
+  let breakdown = rollBreakdownForResult(result);
   if (result.vs != null) {
     breakdown += ` · vs ${result.vs}`;
   } else if (result.dc != null) {
@@ -41,6 +29,7 @@ export function RollResultCard({ result }: RollResultCardProps) {
   }
 
   const summary = `${result.label}: ${result.total}${verdict ? `, ${verdict}` : ''}`;
+  const showNatPills = result.diceType === 'd20' || result.diceType == null;
 
   return (
     <div
@@ -66,10 +55,10 @@ export function RollResultCard({ result }: RollResultCardProps) {
         </header>
         <div className="flex items-baseline gap-2.5">
           <span className="play-result-big">{result.total}</span>
-          {result.crit ? (
+          {showNatPills && result.crit ? (
             <span className="play-result-nat-pill">✦ NAT 20</span>
           ) : null}
-          {result.fumble ? (
+          {showNatPills && result.fumble ? (
             <span
               className="play-result-nat-pill"
               style={{ background: 'var(--bad)' }}

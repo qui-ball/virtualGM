@@ -1,9 +1,9 @@
 import { createEntryId, type RollResultFields } from '@/lib/play/transcript';
-import type { RollD20Result } from '@/lib/play/roll';
+import type { RollDiceResult } from '@/lib/play/roll';
 
-/** Build transcript roll-result fields from a client d20 roll. */
-export function rollD20ToResultFields(
-  roll: RollD20Result,
+/** Build transcript roll-result fields from a client dice roll. */
+export function rollDiceToResultFields(
+  roll: RollDiceResult,
   promptId: string,
   label: string,
   opts?: { stat?: string; vs?: number | null },
@@ -12,6 +12,9 @@ export function rollD20ToResultFields(
     id: createEntryId(),
     promptId,
     label,
+    diceCount: roll.diceCount,
+    diceType: roll.diceType,
+    rolls: roll.rolls,
     stat: opts?.stat,
     nat: roll.nat,
     dieA: roll.dieA,
@@ -25,4 +28,14 @@ export function rollD20ToResultFields(
     vs: opts?.vs ?? undefined,
     dc: opts?.vs ?? undefined,
   };
+}
+
+/** @deprecated Use rollDiceToResultFields */
+export function rollD20ToResultFields(
+  roll: RollDiceResult,
+  promptId: string,
+  label: string,
+  opts?: { stat?: string; vs?: number | null },
+): RollResultFields {
+  return rollDiceToResultFields(roll, promptId, label, opts);
 }

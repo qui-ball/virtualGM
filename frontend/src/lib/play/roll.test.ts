@@ -3,6 +3,7 @@ import {
   rollBreakdownText,
   rollButtonLabel,
   rollD20,
+  rollDice,
   rollVerdictText,
 } from '@/lib/play/roll';
 
@@ -31,6 +32,28 @@ describe('rollD20', () => {
     const r = rollD20({ adv: 'norm', modifier: 0 });
     expect(r.nat).toBe(1);
     expect(r.fumble).toBe(true);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('rollDice', () => {
+  it('rolls weapon damage dice instead of d20', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // d8 → 5
+    const r = rollDice({ diceCount: 1, diceType: 'd8', modifier: 2 });
+    expect(r.diceType).toBe('d8');
+    expect(r.rolls).toEqual([5]);
+    expect(r.total).toBe(7);
+    expect(r.crit).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it('sums multiple damage dice', () => {
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.2) // d6 → 2
+      .mockReturnValueOnce(0.8); // d6 → 5
+    const r = rollDice({ diceCount: 2, diceType: 'd6', modifier: 1 });
+    expect(r.rolls).toEqual([2, 5]);
+    expect(r.total).toBe(8);
     vi.restoreAllMocks();
   });
 });

@@ -73,6 +73,9 @@ class RollResultPayload(BaseModel):
     prompt_id: str | None = None
     label: str
     stat: str | None = None
+    dice_type: DiceType | None = None
+    dice_count: int | None = None
+    rolls: list[int] | None = None
     nat: int
     die_a: int
     die_b: int | None = None

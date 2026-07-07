@@ -1,5 +1,9 @@
 import type { RollPromptFields } from '@/lib/play/transcript';
-import { rollButtonLabel } from '@/lib/play/roll';
+import {
+  formatRollFormula,
+  promptShowsTarget,
+  rollButtonLabelForDice,
+} from '@/lib/play/rollFormula';
 import { PlayIcon } from '@/components/play/PlayIcon';
 import { Pill } from '@/components/play/Pill';
 import { cn } from '@/lib/utils';
@@ -36,6 +40,13 @@ export function RollPromptCard({
     hour: '2-digit',
     minute: '2-digit',
   });
+  const showAdv = prompt.diceType === 'd20' && prompt.diceCount === 1;
+  const formula = formatRollFormula(
+    prompt.diceCount,
+    prompt.diceType,
+    prompt.modifier,
+    prompt.stat,
+  );
 
   function advGlyph(adv: import('@/lib/play/transcript').AdvType): string {
     if (adv === 'adv') return advGlyphs.advantage;
@@ -55,7 +66,7 @@ export function RollPromptCard({
           <time className="play-bubble-ts">{ts}</time>
         </header>
         <p className="play-mono text-[0.6875rem] text-[var(--ink-3)]">
-          rolled {advLabel(used)} → see result below
+          rolled {showAdv ? advLabel(used) : formula} → see result below
         </p>
       </div>
     );
@@ -86,7 +97,7 @@ export function RollPromptCard({
         <h3 id={titleId} className="play-h-display text-lg">
           {prompt.label}
         </h3>
-        {prompt.vsLabel || prompt.dc != null ? (
+        {promptShowsTarget(prompt) ? (
           <Pill variant="tint">{prompt.vsLabel ?? `DC ${prompt.dc}`}</Pill>
         ) : null}
       </div>
@@ -94,25 +105,25 @@ export function RollPromptCard({
         id={`roll-prompt-${prompt.id}-formula`}
         className="play-mono text-[0.6875rem] leading-snug text-[var(--ink-3)]"
       >
-        d20 {prompt.modifier >= 0 ? '+' : ''}
-        {prompt.modifier}
-        {prompt.stat ? ` ${prompt.stat}` : ''}
+        {formula}
         {prompt.source ? ` · ${prompt.source}` : ''}
       </p>
-      <div
-        id={`roll-prompt-${prompt.id}-adv`}
-        className={cn('play-adv-indicator', prompt.advType)}
-        role="status"
-        aria-label={advLabel(prompt.advType)}
-      >
-        <span className="play-adv-glyph" aria-hidden>
-          {advGlyph(prompt.advType)}
-        </span>
-        <span className="play-adv-text">{advLabel(prompt.advType)}</span>
-        {prompt.advReason ? (
-          <span className="play-adv-reason">— {prompt.advReason}</span>
-        ) : null}
-      </div>
+      {showAdv ? (
+        <div
+          id={`roll-prompt-${prompt.id}-adv`}
+          className={cn('play-adv-indicator', prompt.advType)}
+          role="status"
+          aria-label={advLabel(prompt.advType)}
+        >
+          <span className="play-adv-glyph" aria-hidden>
+            {advGlyph(prompt.advType)}
+          </span>
+          <span className="play-adv-text">{advLabel(prompt.advType)}</span>
+          {prompt.advReason ? (
+            <span className="play-adv-reason">— {prompt.advReason}</span>
+          ) : null}
+        </div>
+      ) : null}
       <button
         type="button"
         className="play-btn-primary flex w-full min-h-[44px] items-center justify-center gap-2"
@@ -126,7 +137,15 @@ export function RollPromptCard({
         }
       >
         <PlayIcon name="bolt" className="size-4" />
-        {rolling ? 'Rolling…' : rollButtonLabel(prompt.advType, prompt.modifier, prompt.stat)}
+        {rolling
+          ? 'Rolling…'
+          : rollButtonLabelForDice(
+              prompt.diceCount,
+              prompt.diceType,
+              prompt.advType,
+              prompt.modifier,
+              prompt.stat,
+            )}
       </button>
       {prompt.footer ? (
         <p className="play-roll-card-footer">{prompt.footer}</p>

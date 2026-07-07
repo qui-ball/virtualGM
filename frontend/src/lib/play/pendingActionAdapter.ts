@@ -1,3 +1,4 @@
+import { isD20Roll } from '@/lib/play/rollFormula';
 import { statToShort, type StatKey } from '@/lib/play/stats';
 import type { AdvType, RollPromptFields } from '@/lib/play/transcript';
 import { createEntryId } from '@/lib/play/transcript';
@@ -71,28 +72,35 @@ export function pendingActionToRollPrompt(
   character: CharacterState | null,
   promptId: string = createEntryId(),
 ): RollPromptFields {
+  const diceCount = action.dice_count;
+  const diceType = action.dice_type;
+  const isD20 = isD20Roll(diceType);
   const statKey = inferStat(action, character);
   const statShort = statKey ? statToShort(statKey) : undefined;
   const modifier =
     action.modifier ??
     (statKey && character ? character.stats[statKey] : 0);
-  const dc = action.dc ?? 13;
+  const dc = isD20 ? (action.dc ?? 13) : action.dc;
   const stubEnriched = !hasApiEnrichment(action);
 
   return {
     id: promptId,
     label: action.purpose || action.action_type || 'Roll',
-    source: `${action.dice_count}${action.dice_type}${action.action_type !== action.purpose ? ` · ${action.action_type}` : ''}`,
+    diceCount,
+    diceType,
+    source: `${diceCount}${diceType}${action.action_type !== action.purpose ? ` · ${action.action_type}` : ''}`,
     stat: statShort,
     modifier,
     dc,
     vs: dc,
-    vsLabel: action.vs_label ?? `DC ${dc}`,
-    advType: parseAdvType(action.adv_type),
-    advReason: action.adv_reason,
+    vsLabel:
+      action.vs_label ??
+      (isD20 && dc != null ? `DC ${dc}` : undefined),
+    advType: isD20 ? parseAdvType(action.adv_type) : 'norm',
+    advReason: isD20 ? action.adv_reason : undefined,
     footer:
       action.footer ??
-      (action.dice_type === 'd20' ? 'crit on nat-20' : undefined),
+      (isD20 && diceCount === 1 ? 'crit on nat-20' : undefined),
     successText: action.success_text,
     failText: action.fail_text,
     stubEnriched,

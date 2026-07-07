@@ -1,7 +1,9 @@
-"""Shared d20 roll logic (aligned with frontend src/lib/play/roll.ts)."""
+"""Shared dice roll logic (aligned with frontend src/lib/play/roll.ts)."""
 
 import random
 from typing import Literal
+
+from game.models import DICE_SIDES, DiceType
 
 AdvType = Literal["norm", "adv", "dis"]
 
@@ -72,4 +74,36 @@ def resolve_d20_from_rolls(
         "crit": crit,
         "fumble": fumble,
         "pass": passed,
+    }
+
+
+def resolve_dice_from_rolls(
+    rolls: list[int],
+    *,
+    dice_count: int,
+    dice_type: DiceType,
+    modifier: int = 0,
+) -> dict:
+    """Resolve non-d20 (or multi-die) player rolls from individual die values."""
+    sides = DICE_SIDES[dice_type]
+    if not rolls:
+        rolls = [roll_die(sides) for _ in range(dice_count)]
+    else:
+        rolls = rolls[:dice_count]
+
+    roll_sum = sum(rolls)
+    total = roll_sum + modifier
+    return {
+        "dice_type": dice_type,
+        "dice_count": dice_count,
+        "rolls": rolls,
+        "die_a": rolls[0] if rolls else 1,
+        "die_b": rolls[1] if len(rolls) > 1 else None,
+        "nat": rolls[0] if rolls else 1,
+        "total": total,
+        "modifier": modifier,
+        "adv_used": "norm",
+        "crit": False,
+        "fumble": False,
+        "pass": None,
     }

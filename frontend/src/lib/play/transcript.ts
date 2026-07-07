@@ -6,6 +6,8 @@ export type RollPromptFields = {
   id: string;
   label: string;
   source?: string;
+  diceCount: number;
+  diceType: import('@/types').DiceType;
   stat?: StatShort;
   modifier: number;
   dc?: number;
@@ -24,6 +26,9 @@ export type RollResultFields = {
   id: string;
   promptId: string;
   label: string;
+  diceCount?: number;
+  diceType?: import('@/types').DiceType;
+  rolls?: number[];
   stat?: StatShort;
   nat: number;
   dieA: number;

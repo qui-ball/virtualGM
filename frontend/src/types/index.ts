@@ -106,6 +106,9 @@ export interface RollResultPayload {
   prompt_id?: string | null;
   label: string;
   stat?: string | null;
+  dice_type?: DiceType | null;
+  dice_count?: number | null;
+  rolls?: number[] | null;
   nat: number;
   die_a: number;
   die_b?: number | null;
