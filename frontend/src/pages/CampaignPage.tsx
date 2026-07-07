@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PlayShell } from '@/components/play';
 import {
   CampaignLobby,
@@ -15,11 +16,14 @@ import {
   otherCampaigns,
   type CampaignListItem,
 } from '@/lib/play/campaignLobby';
+import { soloModeToParam } from '@/lib/play/campaignMeta';
+import { PLAY_ROUTES } from '@/lib/play/routes';
 import { ThemeSelect } from '@/theme';
 import { useIsTabletOrUp } from '@/hooks';
 
 /** Campaign lobby (/campaign) — WS-4 resume-first layout. */
 export function CampaignPage() {
+  const navigate = useNavigate();
   const isTabletOrUp = useIsTabletOrUp();
   const [characterId, setCharacterId] = useState(getDefaultLobbyCharacterId);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -66,6 +70,15 @@ export function CampaignPage() {
       <NewCampaignModal
         open={newCampaignOpen}
         onClose={() => setNewCampaignOpen(false)}
+        onCreate={({ soloMode, campaignId, recommendedPlayers }) => {
+          setNewCampaignOpen(false);
+          const params = new URLSearchParams({
+            campaignId,
+            soloMode: soloModeToParam(soloMode),
+            recommendedPlayers: String(recommendedPlayers),
+          });
+          navigate(`${PLAY_ROUTES.session}?${params.toString()}`);
+        }}
       />
     </PlayShell>
   );

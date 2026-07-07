@@ -169,6 +169,10 @@ class GameState:
         self.initiative_order: list[str] = []  # Names in initiative order
         self.current_turn_index: int = 0
 
+        # Solo / party scaling (POC default: solo-friendly encounters)
+        self.solo_mode: bool = True
+        self.recommended_players: int = 4
+
         # Campaign context management
         self.campaign_dir: str | None = None  # Path to campaign directory
         self.loaded_sections: dict[str, str] = {}  # section_path -> content

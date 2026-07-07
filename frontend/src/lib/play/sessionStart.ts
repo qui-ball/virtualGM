@@ -19,6 +19,8 @@ import type { GameStateSnapshot } from '@/types';
 export type PlaySessionStartOptions = {
   campaignId?: string;
   characterName?: string;
+  soloMode?: boolean;
+  recommendedPlayers?: number;
 };
 
 export type PlaySessionBootstrap = {
@@ -92,11 +94,17 @@ export async function bootstrapPlaySession(
     }
   }
 
-  const res = await createSession(
-    options?.characterName
+  const res = await createSession({
+    ...(options?.characterName
       ? { character_name: options.characterName }
-      : undefined,
-  );
+      : {}),
+    ...(options?.soloMode !== undefined
+      ? { solo_mode: options.soloMode }
+      : {}),
+    ...(options?.recommendedPlayers !== undefined
+      ? { recommended_players: options.recommendedPlayers }
+      : {}),
+  });
   const gameState = res.game_state ? syncGameStateFlags(res.game_state) : null;
   if (gameState) {
     storeSessionCache(campaignId, {

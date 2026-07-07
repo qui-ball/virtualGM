@@ -11,6 +11,10 @@ import {
 import { isPendingLevelUp } from '@/lib/play/xp';
 
 describe('campaign lobby fixtures', () => {
+  it('marks lost-mine with solo mode on', () => {
+    expect(activeCampaign().soloMode).toBe(true);
+  });
+
   it('has exactly one active campaign', () => {
     const active = LOBBY_CAMPAIGNS.filter((c) => c.active);
     expect(active).toHaveLength(1);

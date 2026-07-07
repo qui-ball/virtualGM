@@ -89,6 +89,11 @@ def create_session(body: CreateSessionRequest | None = None):
     gs = GameState()
     gs.pc = create_player_character()
     gs.campaign_dir = str(DEFAULT_CAMPAIGN_DIR)
+    if body is not None:
+        if body.solo_mode is not None:
+            gs.solo_mode = body.solo_mode
+        if body.recommended_players is not None:
+            gs.recommended_players = max(1, body.recommended_players)
     session = store.create(game_state=gs)
     logger.info(f"Created session {session.id} for {gs.pc.name}")
 

@@ -4,6 +4,7 @@ import { PlayShell, SessionLayout } from '@/components/play';
 import type { PlusMenuAction } from '@/components/play/PlusMenu';
 import type { FreeRollTrayConfig } from '@/components/play/RollTray';
 import { useChat } from '@/hooks/useChat';
+import { parseRecommendedPlayersParam, parseSoloModeParam } from '@/lib/play/campaignMeta';
 import { toCharacterView } from '@/lib/play/characterView';
 
 /** Live play session at `/play` (WS-3 layout + WS-5 chat & rolls + WS-7 flows). */
@@ -11,6 +12,10 @@ export function SessionPage() {
   const [searchParams] = useSearchParams();
   const campaignId = searchParams.get('campaignId') ?? undefined;
   const characterName = searchParams.get('characterName') ?? undefined;
+  const soloMode = parseSoloModeParam(searchParams.get('soloMode'));
+  const recommendedPlayers = parseRecommendedPlayersParam(
+    searchParams.get('recommendedPlayers'),
+  );
 
   const {
     transcript,
@@ -36,8 +41,8 @@ export function SessionPage() {
   } = useChat();
 
   useEffect(() => {
-    void startSession({ campaignId, characterName });
-  }, [startSession, campaignId, characterName]);
+    void startSession({ campaignId, characterName, soloMode, recommendedPlayers });
+  }, [startSession, campaignId, characterName, soloMode, recommendedPlayers]);
 
   const characterView = useMemo(
     () =>

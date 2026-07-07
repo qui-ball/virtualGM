@@ -241,5 +241,16 @@ def final_reminders() -> str:
     )
 
 
+@gm_agent.instructions
+def solo_mode_rules(ctx: RunContext[GameState]) -> str:
+    """Inject encounter scaling rules when solo mode is enabled."""
+    from game.solo_mode import solo_mode_instruction_block
+
+    return solo_mode_instruction_block(
+        ctx.deps.solo_mode,
+        recommended_players=ctx.deps.recommended_players,
+    )
+
+
 # Register tools by importing the tools module
 import agent.tools  # noqa: E402, F401 — registers tools on gm_agent

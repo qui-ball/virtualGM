@@ -24,6 +24,11 @@ const API_CAMPAIGNS: CampaignSummary[] = [
     level: 2,
     pending_level_up: false,
     active: true,
+    recommended_players: 4,
+    level_min: 1,
+    level_max: 5,
+    avg_level: 3,
+    solo_mode: true,
   },
   {
     id: 'sunless-citadel',
@@ -37,6 +42,11 @@ const API_CAMPAIGNS: CampaignSummary[] = [
     level: 4,
     pending_level_up: true,
     active: false,
+    recommended_players: 4,
+    level_min: 1,
+    level_max: 3,
+    avg_level: 2,
+    solo_mode: false,
   },
 ];
 
@@ -55,6 +65,8 @@ describe('campaignApi', () => {
     expect(active.characterClass).toBe('warrior');
     expect(active.classShort).toBe('Warrior');
     expect(active.timeCurrent).toBe(20);
+    expect(active.recommendedPlayers).toBe(4);
+    expect(active.soloMode).toBe(true);
     expect(others).toHaveLength(1);
     expect(others[0]?.id).toBe('sunless-citadel');
     expect(others[0]?.pendingLevelUp).toBe(true);

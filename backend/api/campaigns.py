@@ -23,6 +23,11 @@ def list_campaigns() -> CampaignListResponse:
                 level=pc.level,
                 pending_level_up=is_pending_level_up(pc.xp, pc.level),
                 active=True,
+                recommended_players=4,
+                level_min=1,
+                level_max=5,
+                avg_level=3,
+                solo_mode=True,
             ),
             CampaignSummary(
                 id="sunless-citadel",
@@ -35,6 +40,11 @@ def list_campaigns() -> CampaignListResponse:
                 character_class="mage",
                 level=zaelan_level,
                 pending_level_up=is_pending_level_up(zaelan_xp, zaelan_level),
+                recommended_players=4,
+                level_min=1,
+                level_max=3,
+                avg_level=2,
+                solo_mode=False,
             ),
             CampaignSummary(
                 id="cragmaw-hideout",
@@ -47,6 +57,11 @@ def list_campaigns() -> CampaignListResponse:
                 character_class="bard",
                 level=6,
                 pending_level_up=False,
+                recommended_players=4,
+                level_min=1,
+                level_max=3,
+                avg_level=2,
+                solo_mode=False,
             ),
         ]
     )

@@ -11,6 +11,8 @@ from game.models import CharacterState, ConditionName, DiceType, EnemyState, Spe
 
 class CreateSessionRequest(BaseModel):
     character_name: str | None = None
+    solo_mode: bool | None = None
+    recommended_players: int | None = None
 
 
 class ActionResponse(BaseModel):
@@ -98,6 +100,7 @@ class GameStateSnapshot(BaseModel):
     time_max: int = 50
     campaign_title: str = "Lost Mine of Phandelver"
     pending_level_up: bool = False
+    solo_mode: bool = True
 
 
 class TurnResponse(BaseModel):
@@ -158,6 +161,11 @@ class CampaignSummary(BaseModel):
     level: int = 1
     pending_level_up: bool = False
     active: bool = False
+    recommended_players: int = 4
+    level_min: int = 1
+    level_max: int = 5
+    avg_level: int | None = None
+    solo_mode: bool = False
 
 
 class CampaignListResponse(BaseModel):
