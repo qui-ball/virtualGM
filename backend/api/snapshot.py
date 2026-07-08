@@ -23,6 +23,8 @@ def game_state_snapshot(gs: GameState) -> GameStateSnapshot:
         campaign_title=gs.campaign_title,
         pending_level_up=pending_level_up,
         solo_mode=gs.solo_mode,
+        initiative_order=list(gs.initiative_order),
+        current_turn_index=gs.current_turn_index,
     )
 
 

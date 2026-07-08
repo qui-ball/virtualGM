@@ -83,6 +83,8 @@ export interface GameStateSnapshot {
   campaign_title?: string;
   pending_level_up?: boolean;
   solo_mode?: boolean;
+  initiative_order?: string[];
+  current_turn_index?: number;
 }
 
 export interface PendingAction {
@@ -120,6 +122,7 @@ export interface RollResultPayload {
   pass?: boolean | null;
   vs?: number | null;
   dc?: number | null;
+  vs_label?: string | null;
 }
 
 export interface TurnResponse {
@@ -203,7 +206,7 @@ export interface CampaignListResponse {
 }
 
 export interface TranscriptEntryDto {
-  kind: 'scene' | 'message' | 'roll_prompt' | 'roll_result' | 'rest' | 'item';
+  kind: 'scene' | 'message' | 'roll_prompt' | 'roll_result' | 'rest' | 'item' | 'combat_start' | 'combat_end';
   id: string;
   timestamp: number;
   role?: string | null;

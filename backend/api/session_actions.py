@@ -10,6 +10,8 @@ from game.session import Session
 
 
 def apply_short_rest(gs: GameState) -> str:
+    if gs.in_combat:
+        raise ValueError("Cannot rest during combat")
     if gs.pc is None:
         return "No character"
     gs.pc.hp = min(gs.pc.hp_max, gs.pc.hp + max(1, gs.pc.hp_max // 2))
@@ -21,6 +23,8 @@ def apply_short_rest(gs: GameState) -> str:
 
 
 def apply_long_rest(gs: GameState) -> str:
+    if gs.in_combat:
+        raise ValueError("Cannot rest during combat")
     if gs.pc is None:
         return "No character"
     gs.pc.hp = gs.pc.hp_max
@@ -28,6 +32,8 @@ def apply_long_rest(gs: GameState) -> str:
         gs.pc.mana = gs.pc.mana_max
     gs.in_combat = False
     gs.is_boss_battle = False
+    gs.initiative_order = []
+    gs.current_turn_index = 0
     if gs.time_current is not None:
         gs.time_current = max(0, gs.time_current - 5)
     return "Long rest · HP & MP full · time −5"
@@ -88,6 +94,8 @@ def apply_boss_death(gs: GameState, choice: str) -> str:
         gs.pc.hp = 0
         gs.in_combat = False
         gs.is_boss_battle = False
+        gs.initiative_order = []
+        gs.current_turn_index = 0
         return (
             f"{name} unleashes Blaze of Glory — one auto-crit action, then falls to 0 HP."
         )
@@ -100,6 +108,8 @@ def apply_boss_death(gs: GameState, choice: str) -> str:
     gs.pc.hp = 0
     gs.in_combat = False
     gs.is_boss_battle = False
+    gs.initiative_order = []
+    gs.current_turn_index = 0
     return f"{name} risks it all — fails and falls to 0 HP."
 
 

@@ -54,6 +54,8 @@ export function StoryStack({
       {visible.map((entry) => {
         switch (entry.kind) {
           case 'scene':
+          case 'combat_start':
+          case 'combat_end':
             return <SceneMarker key={entry.id} text={entry.text} />;
 
           case 'roll_prompt':

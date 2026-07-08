@@ -362,13 +362,11 @@ These are **server behavior** gaps on existing endpoints, not necessarily new UR
 
 **Optional:** `GET .../level-up/options` for discovery — **not required** for the basic flow (POST already works).
 
-#### 16. `award_xp` auto-level vs blocking Level-Up dialog (playtest)
+#### 16. ~~`award_xp` auto-level vs blocking Level-Up dialog~~ ✅ Fixed (feature 05, WS-2)
 
-**Today:** `award_xp` in `agent/tools.py` increments `pc.level` when XP crosses the threshold and tells the player to choose HP/Evasion/Ability in **chat text only**. It does **not** set a pending-choice flag or call `POST /level-up`.
+**Was:** `award_xp` incremented `pc.level` when XP crossed the threshold, so `pending_level_up` stayed false and `LevelUpDialog` rarely appeared.
 
-**Frontend:** Blocking `LevelUpDialog` opens when `isPendingLevelUp(xp, level) && !in_combat` — i.e. XP at threshold **before** level is incremented. After `award_xp` auto-levels, `pending_level_up` on the snapshot is usually **false**, so the modal never appears during real play (unlike debug “Level-up pending”, which sets XP without bumping level).
-
-**Fix:** `award_xp` should only add XP; level increment + HP/Evasion/Ability should happen exclusively via `POST /level-up` after the player confirms in the UI.
+**Now:** `award_xp` only adds XP. Level increment + HP/Evasion/Ability happen exclusively via `POST /level-up`. XP may be awarded during combat; the UI defers the dialog until `in_combat` is false.
 
 #### 17. Loot / gold narration without state mutation (playtest)
 

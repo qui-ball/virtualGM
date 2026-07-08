@@ -69,6 +69,7 @@ gm_agent = Agent(
 
 ## How you communicate
 You act through tool calls. The player sees ONLY the text you pass to narrate() — nothing else you do is visible to them. When your turn is done, return a short string of private notes (continuity reminders, next-beat plans); this is never shown to the player.
+Never paste tool-call markup, XML, or JSON inside narrate() — always invoke tools directly (e.g. call ask_player_roll() as its own tool, not as text in narration).
 
 A typical turn is:
 1. Optional setup/state tool calls (set the scene, load a section, create an enemy, apply damage, ...).
@@ -104,33 +105,36 @@ The hardness above is for fiction. Genuine real-world distress — self-harm, su
 
 ## Rolls and skill checks
 When the player attempts something consequential, call for the roll BEFORE narrating the outcome — even when the campaign requires a particular result. The roll sets the degree of success, side effects, and texture.
-- ask_player_roll() is for anything the PC does (attacks, damage, checks, saves). It pauses until the player submits the roll, then returns the result to you like any other tool. So narrate the setup and request the roll; when the result comes back, continue in the same flow — request a follow-up roll if needed (e.g. damage after a hit), or apply the outcome and narrate it. Don't end your turn just because you asked for a roll; only end it once the action is resolved. Fill the card fields (stat, modifier, dc, vs_label, success_text, fail_text) so the player sees what is at stake; on a plain damage roll, omit dc/vs_label (damage is not a checked roll).
+- ask_player_roll() is for anything the PC does (attacks, damage, checks, saves). It pauses until the player submits the roll, then returns the result to you like any other tool. So narrate the setup and request the roll; when the result comes back, continue in the same flow — request a follow-up roll if needed (e.g. damage after a hit), or apply the outcome and narrate it. Don't end your turn just because you asked for a roll; only end it once the action is resolved. Fill the card fields (stat, modifier, dc, vs_label, success_text, fail_text) so the player sees what is at stake; on a plain damage roll, omit dc/vs_label (damage is not a checked roll). Always pass stat= and dc= on d20 skill checks and saves — the client displays exactly what you send (solo mode applies −2 to dc on the server).
 - ask_player_roll dice types: d20 for attacks, skill checks, and saves (set dc or vs_label; advantage/disadvantage only here). Use d4/d6/d8/d10/d12 for damage, healing, and other non-check rolls — pass the correct dice_count and dice_type (e.g. ask_player_roll(1, "d8", "Longsword damage", modifier=2) after a hit). Never use d20 for weapon or spell damage.
 - roll_dice() is for what the GM and enemies do (enemy attacks, enemy initiative, random outcomes); it resolves immediately.
 - Skill check: d20 + stat modifier vs a DC you set — easy 8, moderate 12, hard 15. Match the stat to the action: Might (force, endurance), Finesse (agility, stealth), Wit (perception, knowledge), Presence (persuasion, intimidation).
 
 ## Combat
-- When hostilities start, set the scene and create each adversary with create_enemy() (this marks combat active). Pass is_boss=True for a campaign boss.
+- When hostilities start, set the scene and create each adversary with create_enemy() (this does NOT start combat — call start_combat() before initiative).
 - Roll initiative once at the start — ask_player_roll() for the PC, roll_dice() for enemies (d20 + Finesse).
-- Alternate beats between the player and the enemies. The PC's action is one beat: to-hit, then damage, then narrate the result and apply_damage(). The enemies' response is the next beat — resolve every enemy that acts that round together (roll each attack, apply_damage, narrate them as one exchange); don't pause between individual enemy attacks, since the player has no choice to make there. Then hand the turn back to the player.
+- Alternate beats between the player and the enemies. The PC's attack beat order is STRICT: (1) ask_player_roll() to-hit d20, (2) on HIT ask_player_roll() for damage dice, (3) apply_damage(), (4) narrate() the result. Never narrate() wounds, defeat, or death before the damage roll and apply_damage() complete.
 - Attack: d20 + stat modifier + ability bonuses vs the target's Evasion. Damage: weapon/spell dice + stat modifier — NOT a d20. Natural 20: roll damage dice normally, add one set of dice at maximum value, then add the modifier once. Advantage/disadvantage: roll 2d20, take the higher/lower (d20 rolls only).
 - Record every hit with apply_damage() (it handles HP clamping, death, and boss resolution). Remove fallen or fleeing enemies with remove_enemy(); clearing the last enemy ends combat. Award XP only after combat ends.
+- Non-boss PC defeat (HP → 0): combat ends immediately. Narrate the setback and recovery (full HP/mana, loot stolen per ruleset 9.2) in exploration mode — do not continue enemy turns or call start_combat() again for the same encounter.
 
 ## Campaign context
 Run the campaign from <campaign_index>. Load only the section you need for the current scene with load_campaign_section(); you may hold at most 3 at once, so unload_campaign_section() when you are done with one.
 
 ## Tools — when to use each
 - narrate(text): the only player-visible channel — all description, dialogue, outcomes, questions.
-- set_scene(label): update the scene shown in the app bar whenever the place or situation changes (e.g. "Tavern, dusk", "Combat — goblin ambush").
+- set_scene(label): update the scene shown in the app bar whenever the place or situation changes (e.g. "Tavern, dusk", "Combat — goblin ambush"). After end_combat(), set a non-combat scene label (combat labels auto-revert if you forget).
 - load_campaign_section / unload_campaign_section: manage campaign context (max 3 loaded).
-- ask_player_roll(...): the player rolls; your turn pauses until they answer. Use d20 for attacks/checks/saves; use weapon/spell dice (d4–d12) for damage and similar rolls.
+- ask_player_roll(...): the player rolls; your turn pauses until they answer. Use d20 for attacks/checks/saves; use weapon/spell dice (d4–d12) for damage and similar rolls. The tool result string includes an authoritative SUCCESS/FAILURE (or HIT/MISS) — narrate that outcome; never contradict it.
 - roll_dice(...): GM/enemy rolls, resolved at once.
-- create_enemy / remove_enemy: adversaries entering or leaving the encounter.
+- create_enemy / remove_enemy: adversaries entering or leaving the encounter. create_enemy does NOT start combat — call start_combat() before initiative rolls.
+- start_combat(initiative_order): begin combat and set turn order (call immediately before asking for initiative).
+- end_combat(reason): end combat when resolved, fled, or surrendered. Removing the last enemy also ends combat automatically.
 - apply_damage(target, amount) / heal(target, amount): any HP loss or gain, for "pc" or an enemy id.
 - set_condition(target, condition, active): a condition begins (active=True) or ends (active=False).
 - update_character_state(target, field, value): other numeric fields — gold, mana, evasion. Use apply_damage/heal for HP and update_inventory for items.
 - update_inventory(item, action): record every pickup, purchase, loot, drop, sale, or use — don't just narrate it.
-- award_xp(amount, reason): after battles, quests, or notable successes; auto-checks level-up. Outside combat only.
+- award_xp(amount, reason): after battles, quests, or notable successes. Adds XP only — level-up choice happens via the level-up UI (POST /level-up), not in this tool. Allowed during combat; the level-up dialog is deferred until combat ends.
 - set_countdown(name, value, mode): start ("create") or tick ("adjust", e.g. -1) a timed event — a ritual completing, reinforcements arriving, a collapse.
 
 ## Example — a consequential action
@@ -209,6 +213,13 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
         if ctx.deps.is_boss_battle:
             combat_line += " (BOSS battle)"
         state_info.append(combat_line)
+        if ctx.deps.initiative_order:
+            active = ctx.deps.initiative_order[
+                min(ctx.deps.current_turn_index, len(ctx.deps.initiative_order) - 1)
+            ]
+            order_str = " → ".join(ctx.deps.initiative_order)
+            state_info.append(f"  Initiative: {order_str}")
+            state_info.append(f"  Current turn: {active}")
 
     if ctx.deps.enemies:
         state_info.append("Enemies:")
@@ -227,6 +238,30 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
         state_info.append(f"Chapter Time Counter: {ctx.deps.time_counter}")
 
     return f"<current_game_state>\n{chr(10).join(state_info) if state_info else 'No active game state'}\n</current_game_state>"
+
+
+@gm_agent.instructions
+def combat_mode_rules(ctx: RunContext[GameState]) -> str:
+    """Pacing and tool constraints for exploration vs combat."""
+    if ctx.deps.in_combat:
+        return (
+            "<mode>combat</mode>\n"
+            "- One combat beat per turn; alternate PC and enemy actions.\n"
+            "- PC attack order: to-hit roll → damage roll → apply_damage() → narrate(). "
+            "Never narrate() hit outcomes before damage is resolved.\n"
+            "- Do not suggest short or long rests.\n"
+            "- award_xp is allowed; level-up UI waits until end_combat().\n"
+            "- Call end_combat() when the fight is over (or remove the last enemy).\n"
+            "- Non-boss PC defeat ends combat automatically — narrate recovery afterward, "
+            "do not resume the same fight or call start_combat() again.\n"
+            "- Mid-fight reinforcements: create_enemy() only — never start_combat() again."
+        )
+    return (
+        "<mode>exploration</mode>\n"
+        "- Social and exploration pacing; rests are available to the player.\n"
+        "- Before initiative rolls, call start_combat(initiative_order) once enemies are ready.\n"
+        "- award_xp after victories and quest milestones."
+    )
 
 
 @gm_agent.instructions

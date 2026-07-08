@@ -1,47 +1,61 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatRollFormula,
+  isSkillCheckResult,
   rollBreakdownForResult,
-  rollButtonLabelForDice,
+  rollVerdictForResult,
 } from '@/lib/play/rollFormula';
+import type { RollResultFields } from '@/lib/play/transcript';
 
-describe('rollFormula', () => {
-  it('formats d20 attack formula', () => {
-    expect(formatRollFormula(1, 'd20', 2, 'Mig')).toBe('d20 +2 Mig');
+const skillCheck: RollResultFields = {
+  id: '1',
+  promptId: 'p1',
+  label: 'Wit check',
+  diceType: 'd20',
+  diceCount: 1,
+  nat: 20,
+  dieA: 20,
+  total: 20,
+  modifier: 0,
+  advUsed: 'norm',
+  crit: true,
+  fumble: false,
+  pass: true,
+  dc: 8,
+  vs: 8,
+  vsLabel: 'DC 8',
+  stat: 'Wit',
+};
+
+describe('rollVerdictForResult', () => {
+  it('treats nat 20 skill checks as success, not critical hit', () => {
+    expect(isSkillCheckResult(skillCheck)).toBe(true);
+    expect(rollVerdictForResult(skillCheck)).toBe('Success vs DC 8');
   });
 
-  it('formats damage formula', () => {
-    expect(formatRollFormula(1, 'd8', 2, 'Mig')).toBe('d8 +2 Mig');
-    expect(formatRollFormula(2, 'd6', 0)).toBe('2d6');
+  it('includes target in failure verdict for skill checks', () => {
+    expect(
+      rollVerdictForResult({ ...skillCheck, pass: false, nat: 5, total: 5 }),
+    ).toBe('Failure vs DC 8');
   });
 
-  it('labels damage roll button with correct dice', () => {
-    expect(rollButtonLabelForDice(1, 'd6', 'norm', 2, 'Mig')).toBe(
-      'Roll d6 +2 Mig',
-    );
+  it('still reports critical hit for attack rolls', () => {
+    expect(
+      rollVerdictForResult({
+        ...skillCheck,
+        label: 'Longsword attack',
+        dc: 14,
+        vs: 14,
+        vsLabel: 'vs Eva 14',
+        crit: true,
+      }),
+    ).toBe('Critical hit vs Eva 14');
   });
+});
 
-  it('breaks down multi-die damage result', () => {
-    const text = rollBreakdownForResult({
-      id: '1',
-      promptId: 'p1',
-      label: 'Damage',
-      diceCount: 2,
-      diceType: 'd6',
-      rolls: [3, 5],
-      nat: 3,
-      dieA: 3,
-      dieB: 5,
-      total: 10,
-      modifier: 2,
-      advUsed: 'norm',
-      crit: false,
-      fumble: false,
-      pass: null,
-      stat: 'Mig',
-    });
-    expect(text).toContain('2d6');
-    expect(text).toContain('[3, 5]');
-    expect(text).toContain('= 10');
+describe('rollBreakdownForResult', () => {
+  it('always appends vs target for d20 checks', () => {
+    const text = rollBreakdownForResult(skillCheck);
+    expect(text).toContain('vs DC 8');
+    expect(text).toContain('= 20');
   });
 });

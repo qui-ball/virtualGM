@@ -111,13 +111,20 @@ export function applyDebugGamePatch(
       });
 
     case 'enter_combat':
-      return syncGameStateFlags({ ...gs, in_combat: true });
+      return syncGameStateFlags({
+        ...gs,
+        in_combat: true,
+        initiative_order: [gs.character.name, 'Goblin 1', 'Goblin 2'],
+        current_turn_index: 0,
+      });
 
     case 'exit_combat':
       return syncGameStateFlags({
         ...gs,
         in_combat: false,
         boss_encounter: false,
+        initiative_order: [],
+        current_turn_index: 0,
       });
 
     case 'toggle_boss_encounter':

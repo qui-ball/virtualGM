@@ -14,7 +14,8 @@ from game.models import DICE_SIDES, GameState, create_player_character
 from api.campaigns import list_campaigns
 from api.enrichment import build_pending_action
 from api.level_up import apply_level_up
-from api.roll_result import build_roll_result_payload
+from api.combat_roll_guards import note_roll_result_resolution, roll_result_agent_suffix
+from api.roll_result import build_roll_result_payload, format_roll_result_for_agent
 from api.schemas import (
     BossDeathRequest,
     CampaignListResponse,
@@ -252,25 +253,9 @@ async def submit_turn(session_id: str, body: TurnRequest):
         append_roll_result(session, roll_payload)
         roll_result_event = roll_payload.model_dump(by_alias=True)
 
-        dice_count = args.get("dice_count", 1)
-        dice_type = args.get("dice_type", "d20")
-
-        if ar.individual_rolls:
-            rolls = ar.individual_rolls
-        else:
-            rolls = (
-                [ar.roll_result]
-                if dice_count == 1
-                else _distribute(ar.roll_result, dice_count, dice_type)
-            )
-
-        total = sum(rolls)
-        if dice_count == 1:
-            result_str = f"🎲 [{dice_count}{dice_type}] → {total}"
-            if dice_type == "d20" and total == 20:
-                result_str += " (NATURAL 20 - CRITICAL HIT!)"
-        else:
-            result_str = f"🎲 [{dice_count}{dice_type}] → {rolls} = {total}"
+        note_roll_result_resolution(session.game_state, pending, roll_payload)
+        result_str = format_roll_result_for_agent(pending, roll_payload)
+        result_str += roll_result_agent_suffix(session.game_state)
 
         logger.info(result_str)
         event_source = stream_deferred_response(session, result_str)

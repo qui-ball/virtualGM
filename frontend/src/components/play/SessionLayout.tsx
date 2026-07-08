@@ -12,8 +12,11 @@ import type { TranscriptEntry } from '@/lib/play/transcript';
 import type { LevelUpSelection } from '@/lib/play/levelUp';
 import type { CastTrayResult } from '@/lib/play/castFlow';
 import { usePullSheet } from '@/hooks/usePullSheet';
+import { useCombatMode } from '@/hooks/useCombatMode';
 import { buildSessionMainPullMeasure } from '@/lib/play/sessionPullLayout';
 import { BossDeathModal } from '@/components/play/BossDeathModal';
+import { CombatModeSplash } from '@/components/play/CombatModeSplash';
+import { CombatStrip } from '@/components/play/CombatStrip';
 import { CastTray } from '@/components/play/CastTray';
 import { CharHeader } from '@/components/play/CharHeader';
 import { Composer } from '@/components/play/Composer';
@@ -27,7 +30,7 @@ import { SessionMenu } from '@/components/play/SessionMenu';
 import { SheetBody } from '@/components/play/SheetBody';
 import { StoryStack } from '@/components/play/StoryStack';
 import { VitalStrip } from '@/components/play/VitalStrip';
-import type { CharacterState, GameStateSnapshot } from '@/types';
+import type { GameStateSnapshot } from '@/types';
 import { cn } from '@/lib/utils';
 
 type SessionLayoutProps = {
@@ -134,6 +137,8 @@ export function SessionLayout({
   const hideStory = sheetOpen;
   const sheetLocked = sessionBlocked;
   const characterState = gameState?.character ?? null;
+  const inCombat = gameState?.in_combat ?? false;
+  const { splashPhase, dismissSplash } = useCombatMode(inCombat);
 
   const primaryCastMod =
     character.stats.find((s) => s.key === 'wit')?.mod ??
@@ -213,6 +218,7 @@ export function SessionLayout({
           ref={appBarRef}
           context={sessionContext}
           bossMode={mustResolveBossDeath}
+          combatMode={inCombat && !mustResolveBossDeath}
           onMenuOpen={() => setMenuOpen(true)}
         />
 
@@ -236,6 +242,7 @@ export function SessionLayout({
             loading={loading}
             onShortRest={() => onPlusAction('shortrest')}
             onLongRest={() => onPlusAction('longrest')}
+            restsDisabled={inCombat}
           />
         </div>
 
@@ -250,6 +257,15 @@ export function SessionLayout({
           onPointerUp={sheetLocked ? undefined : onHandleUp}
           onKeyDown={sheetLocked ? undefined : onHandleKeyDown}
         />
+
+        {inCombat ? (
+          <CombatStrip
+            initiativeOrder={gameState?.initiative_order ?? []}
+            currentTurnIndex={gameState?.current_turn_index ?? 0}
+            character={characterState}
+            enemies={gameState?.enemies ?? {}}
+          />
+        ) : null}
 
         <StoryStack
           entries={transcript}
@@ -288,6 +304,7 @@ export function SessionLayout({
       <PlusMenu
         open={plusOpen && !sessionBlocked}
         character={character}
+        inCombat={inCombat}
         onAction={handlePlusAction}
         onClose={() => setPlusOpen(false)}
       />
@@ -390,6 +407,8 @@ export function SessionLayout({
           onRiskItAll={() => onBossDeath('risk')}
         />
       ) : null}
+
+      <CombatModeSplash phase={splashPhase} onDismiss={dismissSplash} />
     </div>
   );
 }

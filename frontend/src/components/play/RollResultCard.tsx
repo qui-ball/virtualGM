@@ -1,5 +1,6 @@
 import type { RollResultFields } from '@/lib/play/transcript';
 import {
+  isSkillCheckResult,
   rollBreakdownForResult,
   rollVerdictForResult,
 } from '@/lib/play/rollFormula';
@@ -11,9 +12,12 @@ type RollResultCardProps = {
 
 export function RollResultCard({ result }: RollResultCardProps) {
   const verdict = rollVerdictForResult(result);
-  const verdictClass = result.crit
+  const skillCheck = isSkillCheckResult(result);
+  const showCombatCrit = result.crit && !skillCheck;
+  const showCombatFumble = result.fumble && !skillCheck;
+  const verdictClass = showCombatCrit
     ? 'crit'
-    : result.fumble
+    : showCombatFumble
       ? 'fail'
       : result.pass === true
         ? 'pass'
@@ -21,12 +25,7 @@ export function RollResultCard({ result }: RollResultCardProps) {
           ? 'fail'
           : '';
 
-  let breakdown = rollBreakdownForResult(result);
-  if (result.vs != null) {
-    breakdown += ` · vs ${result.vs}`;
-  } else if (result.dc != null) {
-    breakdown += ` · vs DC ${result.dc}`;
-  }
+  const breakdown = rollBreakdownForResult(result);
 
   const summary = `${result.label}: ${result.total}${verdict ? `, ${verdict}` : ''}`;
   const showNatPills = result.diceType === 'd20' || result.diceType == null;
@@ -42,8 +41,8 @@ export function RollResultCard({ result }: RollResultCardProps) {
       <div
         className={cn(
           'play-result-card',
-          result.crit && 'play-result-card-crit',
-          result.fumble && 'play-result-card-fumble',
+          showCombatCrit && 'play-result-card-crit',
+          showCombatFumble && 'play-result-card-fumble',
         )}
       >
         <header className="flex items-center gap-1.5">
@@ -55,10 +54,10 @@ export function RollResultCard({ result }: RollResultCardProps) {
         </header>
         <div className="flex items-baseline gap-2.5">
           <span className="play-result-big">{result.total}</span>
-          {showNatPills && result.crit ? (
+          {showNatPills && result.nat === 20 ? (
             <span className="play-result-nat-pill">✦ NAT 20</span>
           ) : null}
-          {showNatPills && result.fumble ? (
+          {showNatPills && result.nat === 1 ? (
             <span
               className="play-result-nat-pill"
               style={{ background: 'var(--bad)' }}
@@ -72,7 +71,7 @@ export function RollResultCard({ result }: RollResultCardProps) {
         </p>
         {verdict ? (
           <p className={cn('play-result-verdict', verdictClass && `play-result-verdict-${verdictClass}`)}>
-            {result.crit ? '⚡ ' : result.fumble ? '✗ ' : result.pass === true ? '✓ ' : result.pass === false ? '✗ ' : ''}
+            {showCombatCrit ? '⚡ ' : showCombatFumble ? '✗ ' : result.pass === true ? '✓ ' : result.pass === false ? '✗ ' : ''}
             {verdict}
           </p>
         ) : null}

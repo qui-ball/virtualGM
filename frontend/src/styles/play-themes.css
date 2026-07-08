@@ -1937,6 +1937,238 @@ html[data-theme] {
   color: var(--ink);
 }
 
+/* --- Combat mode (feature 05) --- */
+
+/* Fixed battle-surface tokens — readable on every theme */
+:root {
+  --combat-ink: #1c1410;
+  --combat-paper: #f5f0e6;
+  --combat-red: #8b2020;
+  --combat-red-hot: #d44a4a;
+  --combat-red-glow: #ff6b6b;
+}
+
+.play-appbar-combat {
+  border-bottom: 3px solid var(--combat-red-hot);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--combat-red-hot) 32%, var(--panel-2, var(--bg-1))),
+    color-mix(in srgb, var(--combat-red-hot) 14%, var(--panel, var(--bg-0)))
+  );
+  box-shadow:
+    0 4px 18px color-mix(in srgb, var(--combat-red-hot) 30%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--combat-red-glow) 35%, transparent);
+}
+
+.play-appbar-combat .play-lbl {
+  color: color-mix(in srgb, var(--combat-red-glow) 75%, var(--accent));
+}
+
+.play-combat-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: none;
+  margin: 0;
+  padding: 24px;
+  cursor: pointer;
+  text-align: center;
+  width: 100vw;
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.play-combat-splash-enter {
+  background-color: #1a0505;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgb(180 40 40 / 45%), transparent 70%),
+    linear-gradient(165deg, #8b2020 0%, #4a1010 48%, #1a0505 100%);
+  color: #fff8f0;
+  animation: play-combat-splash-in 0.4s ease-out;
+}
+
+.play-combat-splash-exit {
+  background-color: #1a1515;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 50% 45%, rgb(80 70 70 / 35%), transparent 70%),
+    linear-gradient(165deg, #3a3030 0%, #221a1a 55%, #1a1515 100%);
+  color: #f0ebe3;
+  animation: play-combat-splash-in 0.35s ease-out;
+}
+
+.play-combat-splash-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.5rem, 12vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 4px 28px rgb(0 0 0 / 55%);
+}
+
+.play-combat-splash-title-exit {
+  font-size: clamp(1.75rem, 8vw, 2rem);
+  letter-spacing: 0.08em;
+}
+
+.play-combat-splash-sub {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+@keyframes play-combat-splash-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .play-combat-splash-enter,
+  .play-combat-splash-exit {
+    animation: none;
+  }
+}
+
+.play-combat-strip {
+  padding: 8px 12px 10px;
+  border-bottom: 2px solid var(--combat-red-hot);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--combat-red-hot) 22%, var(--panel-2, var(--bg-1))),
+    color-mix(in srgb, var(--combat-red-hot) 10%, var(--panel, var(--bg-0)))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--combat-red-glow) 20%, transparent);
+}
+
+.play-combat-mode-label {
+  margin: 0 0 6px;
+  color: var(--combat-red-glow);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.play-combat-strip-head .play-lbl {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.play-combat-turn-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: color-mix(in srgb, var(--combat-red-glow) 85%, var(--ink-2));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.play-initiative-hud {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  touch-action: pan-x;
+  cursor: grab;
+  padding-bottom: 2px;
+}
+
+.play-initiative-hud:active {
+  cursor: grabbing;
+}
+
+.play-initiative-chip {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--combat-ink);
+  background: var(--combat-paper);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--combat-ink);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 35%);
+}
+
+.play-initiative-chip-active {
+  border-color: var(--combat-red);
+  background: var(--combat-red);
+  color: #fff8f0;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--combat-red-hot) 55%, transparent),
+    0 2px 8px rgb(0 0 0 / 28%);
+}
+
+.play-initiative-chip-turn-marker {
+  font-size: 0.5rem;
+  opacity: 0.95;
+}
+
+.play-initiative-chip:focus-visible {
+  outline: 2px solid var(--combat-red-hot);
+  outline-offset: 2px;
+}
+
+.play-combat-inspect {
+  position: fixed;
+  z-index: 45;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--r-sm, 10px);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow: var(--glow), 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+.play-combat-inspect-name {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.play-combat-inspect-stats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.play-combat-inspect-empty {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.play-plus-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .play-boss-zero-overlay {
   position: absolute;
   inset: 0;

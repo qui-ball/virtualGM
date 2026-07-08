@@ -229,6 +229,52 @@
     width:32px;height:32px;border:1.5px solid var(--ink);background:var(--paper);border-radius:8px;
     display:grid;place-items:center;font-family:var(--hand);font-size:18px;font-weight:700;
   }
+  .app-bar-combat{
+    background:linear-gradient(180deg, #e8d4d4 0%, var(--paper-2) 100%);
+    border-bottom-color:#8b3a3a;
+  }
+  .combat-splash{
+    position:absolute;inset:0;z-index:30;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;
+  }
+  .combat-splash.enter{background:linear-gradient(165deg, #6b1a1a 0%, #3a0a0a 55%, #1a0505 100%);color:var(--paper);}
+  .combat-splash.exit{background:linear-gradient(165deg, #2a2020 0%, #1a1515 100%);color:var(--paper);}
+  .combat-splash .splash-title{font-family:var(--display);font-size:42px;line-height:1;letter-spacing:.12em;margin:0;}
+  .combat-splash .splash-sub{font-family:var(--mono);font-size:10px;opacity:.75;margin-top:10px;letter-spacing:.18em;text-transform:uppercase;}
+  .combat-strip{
+    flex:0 0 auto;
+    padding:8px 10px 10px;
+    background:linear-gradient(180deg, #f0e0e0 0%, var(--paper-2) 100%);
+    border-bottom:1.5px solid #8b3a3a;
+  }
+  .combat-strip .mode-label{
+    font-family:var(--mono);font-size:10px;font-weight:700;
+    color:#8b2020;letter-spacing:.2em;text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .combat-strip .strip-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    margin-bottom:6px;
+  }
+  .combat-strip .strip-head .lbl{font-family:var(--hand);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+  .combat-strip .strip-head .turn{font-family:var(--mono);font-size:10px;color:#8b2020;white-space:nowrap;}
+  .initiative-hud{
+    display:flex;gap:6px;
+    overflow-x:auto;scrollbar-width:thin;
+    touch-action:pan-x;cursor:grab;
+    -webkit-overflow-scrolling:touch;
+  }
+  .initiative-hud:active{cursor:grabbing;}
+  .initiative-hud .init-chip{
+    flex:0 0 auto;border:1.25px solid var(--ink);border-radius:99px;
+    padding:6px 12px;font-family:var(--mono);font-size:11px;white-space:nowrap;
+    min-height:36px;display:inline-flex;align-items:center;
+  }
+  .initiative-hud .init-chip.on{
+    background:#8b2020;color:var(--paper);border-color:#8b2020;
+  }
+  .initiative-hud .init-chip:focus{outline:2px solid #8b3a3a;outline-offset:2px;}
 
   .scroll{
     flex:1 1 auto;overflow:hidden;position:relative;
@@ -771,6 +817,7 @@
         <li>See whether the roll is Normal / Advantage / Disadvantage <b>as a system-set indicator</b> (player never picks)</li>
         <li>Glance at HP, mana, evasion, conditions in the vital strip</li>
         <li>Pull the stats row <b>down</b> to expand the Character Sheet <b>inline</b> (chat is pushed down, not overlaid). Two-phase reveal: phase 1 = character header above the stats row · phase 2 = ability scores + combat below it.</li>
+        <li>Recognize <b>combat mode</b> via brief fullscreen <b>COMBAT</b> splash on enter, persistent reddish app bar, and combat strip below the sheet pull handle — see <b>A4b-enter</b> / <b>A4b</b> / <b>A4d-exit</b></li>
       </ul>
     </div>
     <div>
@@ -796,7 +843,12 @@
         <li><b>Crit affordance</b>: shown on the result card when nat-20 lands — "max one set + roll one set + mods once"</li>
         <li><b>Mana cost picker</b> (casters): in-chat on Cast prompts — Minor 1 · Major 2 · Mythic 3 (greyed when tier locked)</li>
         <li><b>Boss-state banner</b>: when HP=0 in boss → "Blaze of Glory" / "Risk It All (d20, nat 20 = 5 HP)"</li>
-        <li><b>Rest buttons</b>: Short (HP=hit die+Mig, MP=d4+Wit, t−1) · Long (full, t−5) — surfaced in composer "+" menu or inside the embedded Sheet</li>
+        <li><b>Combat mode</b>: brief fullscreen <b>COMBAT</b> splash on enter · <b>COMBAT ENDED</b> on exit (A4b-enter / A4d-exit); persistent reddish app-bar tint during fight</li>
+        <li><b>Combat strip</b> (below pull handle, above story): <b>IN COMBAT</b> label · <b>Initiative order</b> section + <b>whose turn</b> indicator · tappable participant chips (A4b)</li>
+        <li><b>Chip tap</b>: inspect popover — HP / evasion / conditions (read-only); does not change turn</li>
+        <li><b>Combat markers</b>: transcript dividers on combat start / combat end</li>
+        <li><b>Post-combat level-up</b>: GM narration beat after fight, then blocking level-up dialog — see <b>A4c</b></li>
+        <li><b>Rest buttons</b>: Short (HP=hit die+Mig, MP=d4+Wit, t−1) · Long (full, t−5) — surfaced in composer "+" menu or inside the embedded Sheet — <b>disabled during combat</b></li>
       </ul>
     </div>
   </div>
@@ -1099,6 +1151,154 @@
       <p class="variant-note"><b>Cast prompt:</b> tier picker first (Minor / Major / Mythic) · locked tiers visible with reason · spell list filters to chosen tier · single Cast button rolls the spell d20.</p>
     </div>
 
+    <!-- A4b-enter · Combat enter splash -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A4b-enter · Combat splash</span><span class="tag">transition</span></div>
+      <div class="phone"><div class="screen" style="position:relative">
+        <div class="status-bar"><span>20:17</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar app-bar-combat" style="opacity:.35">
+          <div><div class="title">Salt &amp; Smoke</div><div class="sub">Ch.1 · Goblin ambush · t=46/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="flex:1;background:var(--paper-2);opacity:.25"></div>
+        <div class="combat-splash enter" role="status" aria-live="assertive">
+          <div class="splash-title">⚔ COMBAT</div>
+          <div class="splash-sub">tap to continue · ~1.2s</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Enter transition:</b> brief fullscreen splash when <code>in_combat</code> flips true. Auto-dismiss ~1.2s or tap to skip. Then persistent reddish app bar + combat strip (A4b). <b>Not</b> shown again for mid-fight reinforcements. <code>prefers-reduced-motion</code> → short fade or skip.</p>
+    </div>
+
+    <!-- A4b · Combat mode (steady state) -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A4b · Combat mode</span><span class="tag">in_combat</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>20:18</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar app-bar-combat">
+          <div><div class="title">Salt &amp; Smoke</div><div class="sub">Ch.1 · Goblin ambush · t=46/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">12/14</span><span class="k">HP</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">5/7</span><span class="k">MP</span></div>
+            <div class="chip" style="flex:1"><span class="v">11</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">+0</span><span class="k">Init</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 6px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.1em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="combat-strip">
+          <div class="mode-label">In combat</div>
+          <div class="strip-head">
+            <span class="lbl">Initiative order</span>
+            <span class="turn">Brennick's turn</span>
+          </div>
+          <div class="initiative-hud" role="list" aria-label="Initiative order, Brennick's turn">
+            <button type="button" class="init-chip on" role="listitem" aria-current="step">Brennick</button>
+            <button type="button" class="init-chip" role="listitem">Goblin 1</button>
+            <button type="button" class="init-chip" role="listitem">Goblin 2</button>
+            <button type="button" class="init-chip" role="listitem">Goblin 3</button>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px;flex:1">
+          <div class="scene-mark" style="border-color:#8b3a3a;color:#8b2020">⚔ Combat begins</div>
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">20:17</span></div>
+            <div class="body sm" style="margin-top:3px">Three goblins burst from the brush. Roll initiative!</div>
+          </div>
+          <div class="box dashed thin">
+            <div class="card-head"><div class="dice-glyph"></div><span class="lbl">System · initiative</span><span class="ts">20:18</span></div>
+            <div class="h sm" style="margin-top:4px">Initiative — d20 + Fin</div>
+            <div class="mono xs" style="color:var(--ink-3)">• NORMAL ROLL</div>
+            <button class="btn solid" style="margin-top:6px;width:100%">▶ Roll d20 + 2 Fin</button>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Steady combat:</b> reddish app bar (no IN COMBAT text in bar). Below pull handle: <b>IN COMBAT</b> label → <b>Initiative order</b> + <b>Brennick's turn</b> → chip row scrolls by <b>dragging finger/mouse across the names</b> (not only the scrollbar). <b>Tap chip</b> (no drag) → inspect popover. Active chip filled red. Rests & OOC disabled in "+" menu.</p>
+    </div>
+
+    <!-- A4d-exit · Combat exit splash -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A4d-exit · Combat ended</span><span class="tag">transition</span></div>
+      <div class="phone"><div class="screen" style="position:relative">
+        <div class="status-bar"><span>20:39</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar" style="opacity:.35">
+          <div><div class="title">Salt &amp; Smoke</div><div class="sub">Ch.1 · Road east · t=44/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="flex:1;opacity:.2"></div>
+        <div class="combat-splash exit" role="status" aria-live="assertive">
+          <div class="splash-title" style="font-size:28px;letter-spacing:.08em">COMBAT ENDED</div>
+          <div class="splash-sub">tap to continue · ~1.0s</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>Exit transition:</b> brief splash when <code>in_combat</code> flips false. Combat strip hidden after dismiss. Exploration app bar returns. If level-up pending, GM beat (A4c) then blocking dialog.</p>
+    </div>
+
+    <!-- A4c · Post-combat level-up beat -->
+    <div class="variant">
+      <div class="variant-head"><span class="name">A4c · After combat · level-up</span><span class="tag">exploration</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status-bar"><span>20:41</span><span>RPG</span><span>●●●</span></div>
+        <div class="app-bar">
+          <div><div class="title">Salt &amp; Smoke</div><div class="sub">Ch.1 · Road east · t=44/50</div></div>
+          <div class="btn-ico" aria-label="Settings">≡</div>
+        </div>
+        <div style="background:var(--paper-2);border-bottom:1.5px solid var(--ink)">
+          <div style="display:flex;gap:4px;padding:6px 8px 4px">
+            <div class="chip" style="flex:1"><span class="v">14/16</span><span class="k">HP</span></div>
+            <div class="chip solid" style="flex:1"><span class="v">4/7</span><span class="k">MP</span></div>
+            <div class="chip" style="flex:1"><span class="v">11</span><span class="k">Eva</span></div>
+            <div class="chip" style="flex:1"><span class="v">—</span><span class="k">Cond</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px 0 4px">
+            <div style="width:44px;height:4px;border-radius:99px;background:var(--ink-3);"></div>
+            <div class="mono xs" style="color:var(--ink-3);letter-spacing:.14em">▼ pull for sheet</div>
+          </div>
+        </div>
+        <div class="scroll" style="gap:8px">
+          <div class="scene-mark">Combat ended</div>
+          <div class="box thin">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">20:40</span></div>
+            <div class="body sm" style="margin-top:3px">The last goblin flees into the trees. You catch your breath among the fallen leaves.</div>
+          </div>
+          <div class="box thin tinted">
+            <div class="card-head"><div class="avat solid"><span>G</span></div><span class="lbl">GM</span><span class="ts">20:41</span></div>
+            <div class="body sm" style="margin-top:3px">The experience of the fight settles into your bones — a new strength waits to be claimed.</div>
+          </div>
+          <div class="pill tint" style="text-align:center;width:100%">XP 102 / 100 ✓ · level-up ready</div>
+        </div>
+        <!-- level-up overlay (same as Sheet D) -->
+        <div style="position:absolute;inset:0;background:rgba(26,26,26,.35);display:flex;align-items:center;justify-content:center;padding:12px">
+          <div style="width:100%;max-width:320px;border:2px solid var(--ink);border-radius:14px;background:var(--paper);padding:12px 14px">
+            <div class="lbl" style="color:var(--ink-3)">Level-up · pick one</div>
+            <div class="h md" style="margin-top:4px">Lv 2 → 3</div>
+            <div class="mono xs" style="color:var(--ink-3)">XP 102 / 250 threshold for Lv 4 after this pick</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+              <button class="btn solid lg" style="width:100%;text-align:left">+ HP (fixed 6+Mig)</button>
+              <button class="btn lg" style="width:100%;text-align:left">+1 Evasion</button>
+              <button class="btn lg" style="width:100%;text-align:left">Class ability · Second Wind</button>
+            </div>
+            <div class="lbl" style="text-align:center;margin-top:8px">level-ups happen outside battle</div>
+          </div>
+        </div>
+        <div class="composer" style="opacity:.45;pointer-events:none">
+          <div class="btn-ico" aria-label="More">+</div>
+          <div class="field">say or do something…</div>
+          <div class="pri" aria-label="Send">▶</div>
+        </div>
+      </div></div>
+      <p class="variant-note"><b>After combat:</b> app bar returns to exploration chrome. GM narrates the level-up beat <i>before</i> the blocking dialog opens. XP may have accrued during the fight; the dialog only appears once <code>in_combat</code> is false.</p>
+    </div>
+
     <!-- A5 · Boss HP=0 overlay -->
     <div class="variant">
       <div class="variant-head"><span class="name">A5 · Boss · HP 0</span><span class="tag">decisive</span></div>
@@ -1348,12 +1548,15 @@
 ┌──────────────────────────────┐
 │ ▒ status bar                ▒│
 ├──────────────────────────────┤
-│ APP BAR                      │  fixed
+│ APP BAR (reddish tint in combat)│
 │ Hollow Pact   Ch3·t=37  [≡] │
 ├──────────────────────────────┤
-│ VITAL STRIP                  │  fixed
-│ [HP 28/34][Eva14][Init+1][!] │
-│ ──── ▬▬▬▬ ────   ▼ pull     │  grab handle → embedded Sheet
+│ VITAL STRIP + ▼ pull handle  │
+├──────────────────────────────┤
+│ COMBAT STRIP (in_combat only)│
+│ IN COMBAT                    │
+│ Initiative order · X's turn  │
+│ [You•][Gob1][Gob2] → drag scroll│
 ├──────────────────────────────┤
 │ STORY STACK            ▲ scroll
 │ ┌─GM────────────────────────┐│
@@ -1407,6 +1610,11 @@ release.
         <li>Roll result lost in the scroll — sticky "last roll" toast for ~3s after a roll resolves.</li>
         <li>Casting a spell at a tier the caster hasn't unlocked silently fails — the in-chat Cast prompt must lock with explainer.</li>
         <li>Boss-battle 0-HP state same as normal — must trigger a distinct overlay (Blaze of Glory · Risk It All).</li>
+        <li>Combat mode invisible — enter/exit splashes (A4b-enter / A4d-exit) + combat strip below pull handle with IN COMBAT label, initiative section, turn indicator (A4b).</li>
+        <li>IN COMBAT text in app bar — must live in combat strip only, not app-bar subtitle.</li>
+        <li>Initiative chips with no tap affordance — must open inspect popover; must not advance turn on tap.</li>
+        <li>Level-up dialog during combat — XP may accrue mid-fight but blocking level-up MUST wait until combat ends + GM beat (A4c).</li>
+        <li>Rest / OOC in "+" menu during combat — must be disabled with reason, not silently fail.</li>
       </ul>
     </div>
     <div class="col-card">
@@ -1418,6 +1626,8 @@ release.
         <li>In-chat roll button is a single primary action; the Adv/Norm/Dis indicator next to it is a <code>role="status"</code> badge, not an interactive control. Adv/Dis state and reason are announced when the prompt appears.</li>
         <li>Composer Send button is a real button with aria-label "Send action"; long-press surfaces secondary verbs.</li>
         <li>Conditions are listed as text in the chip ("Prone"), not symbol-only.</li>
+        <li>Initiative HUD: below pull handle; section label "Initiative order" + turn indicator; <b>drag finger/mouse on chip row</b> to scroll horizontally (not scrollbar-only); tap without drag → inspect popover.</li>
+        <li>Combat splashes: ~1.2s enter / ~1.0s exit; tap dismiss; <code>prefers-reduced-motion</code> shortens or skips; no splash on mid-fight reinforcements.</li>
         <li>Keyboard-ish: Esc closes overlays/tray, returns focus to the trigger; ↑/↓ moves between transcript cards.</li>
         <li>Dense UI contrast: chip ink 1.5px stroke on paper ≥ 7:1; mono labels ≥ 4.5:1 at 12px+.</li>
       </ul>
@@ -1775,7 +1985,10 @@ SESSION
 - Pull-down sheet: dragging the VitalStrip handle (44pt-wide bar + "▼ pull" label) downward expands the Character Sheet as an overlay over chat. Chat dims (~22% opacity) but stays in place underneath. Composer remains visible at the bottom. Reverse gesture (drag the handle up) dismisses; partial pulls spring back. The handle also acts as a button (tap to open / close) for keyboard / switch-control users — aria-label "Open character sheet".
 - Conditions: Poisoned · Stunned · Frightened · Restrained · Prone — with effect + removal text. Active conditions surface in VitalStrip; full list lives inside the pulled-down Sheet.
 - Boss state at HP=0: full-screen modal with two actions: Blaze of Glory (auto-crit single action then die) · Risk It All (d20; nat-20 → 5 HP and continue, else die). Non-boss HP=0 → autorecover full HP/MP, deduct loot (TBD).
-- Rest controls live inside the pulled-down Sheet (Rest section/tab): Short (HP = hitDie + Mig, MP = d4 + Wit, t -1) · Long (full HP/MP, t -5).
+- Combat mode: brief fullscreen COMBAT splash on enter (A4b-enter) + COMBAT ENDED on exit (A4d-exit); persistent reddish app-bar tint during fight. Combat strip below pull handle (above story): IN COMBAT label · "Initiative order" section + "{name}'s turn" · chip row scrolls via <b>finger/mouse drag on names</b> (not scrollbar-only); tap chip → inspect popover. No second splash for mid-fight reinforcements.
+- XP may accrue during combat; blocking Level-up dialog ONLY after in_combat false. GM narration beat before dialog (A4c). award_xp must NOT auto-increment level server-side.
+- Rest controls (Short/Long) and OOC note disabled/hidden in "+" menu and sheet during combat.
+- Rest controls live inside the pulled-down Sheet (Rest section/tab): Short (HP = hitDie + Mig, MP = d4 + Wit, t -1) · Long (full HP/MP, t -5) — exploration only.
 
 SHEET (embedded in Session — two-phase reveal)
 - Drag the stats row down to expand. Phase 1 (~0..90px): the stats row translates down following the finger, revealing a Character Header row above it (name, class, level, XP bar). Phase 2 (~90..470px): char header and stats stay anchored; below the stats row the body reveals top-down (ability scores → vitals panel → segmented tabs → combat / abilities / spells / inventory panels).

@@ -83,7 +83,7 @@ export function RollPromptCard({
     >
       {showStubBanner && prompt.stubEnriched ? (
         <p className="play-roll-stub-banner" role="note">
-          Dev: roll fields inferred from purpose text
+          Dev: GM did not send a DC or target — roll card may be incomplete
         </p>
       ) : null}
       <header className="play-roll-card-head">

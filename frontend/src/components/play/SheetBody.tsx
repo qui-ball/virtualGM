@@ -23,6 +23,7 @@ type SheetBodyProps = {
   loading?: boolean;
   onShortRest?: () => void;
   onLongRest?: () => void;
+  restsDisabled?: boolean;
   className?: string;
 };
 
@@ -43,6 +44,7 @@ export function SheetBody({
   loading = false,
   onShortRest,
   onLongRest,
+  restsDisabled = false,
   className,
 }: SheetBodyProps) {
   const sheet = useMemo(
@@ -128,7 +130,7 @@ export function SheetBody({
         <SheetRestSection
           onShortRest={() => onShortRest?.()}
           onLongRest={() => onLongRest?.()}
-          disabled={loading}
+          disabled={restsDisabled || loading}
         />
       </div>
     </div>

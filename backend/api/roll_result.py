@@ -42,6 +42,7 @@ def build_roll_result_payload(
             pass_=rolled["pass"],
             vs=vs,
             dc=pending.dc,
+            vs_label=pending.vs_label,
         )
 
     rolled = resolve_dice_from_rolls(
@@ -69,3 +70,43 @@ def build_roll_result_payload(
         vs=None,
         dc=None,
     )
+
+
+def format_roll_result_for_agent(
+    pending: PendingAction,
+    payload: RollResultPayload,
+) -> str:
+    """Authoritative roll summary for the GM — includes modifier, target, and outcome."""
+    label = pending.purpose or pending.action_type
+    dice_type = pending.dice_type
+    dice_count = pending.dice_count
+
+    if dice_type == "d20" and dice_count == 1:
+        stat = pending.stat or ""
+        mod_part = (
+            f" + {payload.modifier} ({stat})"
+            if payload.modifier and stat
+            else (f" + {payload.modifier}" if payload.modifier else "")
+        )
+        line = f"🎲 {label}: nat {payload.nat}{mod_part} = {payload.total}"
+
+        if payload.dc is not None:
+            outcome = "SUCCESS" if payload.pass_ else "FAILURE"
+            line += f" vs DC {payload.dc} → {outcome}"
+        elif payload.vs is not None:
+            outcome = "HIT" if payload.pass_ else "MISS"
+            line += f" vs {payload.vs} → {outcome}"
+
+        if payload.crit:
+            line += " (NATURAL 20 — CRITICAL!)"
+        elif payload.fumble:
+            line += " (NATURAL 1 — FUMBLE!)"
+
+        return line
+
+    rolls = payload.rolls or [payload.die_a]
+    mod = payload.modifier
+    mod_suffix = f" + {mod} = {payload.total}" if mod else f" = {payload.total}"
+    if dice_count == 1:
+        return f"🎲 [{dice_count}{dice_type}] → {rolls[0]}{mod_suffix}"
+    return f"🎲 [{dice_count}{dice_type}] → {rolls}{mod_suffix}"

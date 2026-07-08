@@ -7,17 +7,22 @@ type SessionAppBarProps = {
   context: SessionContextView;
   onMenuOpen: () => void;
   bossMode?: boolean;
+  combatMode?: boolean;
   className?: string;
 };
 
 export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
-  function SessionAppBar({ context, onMenuOpen, bossMode = false, className }, ref) {
+  function SessionAppBar(
+    { context, onMenuOpen, bossMode = false, combatMode = false, className },
+    ref,
+  ) {
     return (
       <header
         ref={ref}
         className={cn(
           'play-appbar shrink-0',
           bossMode && 'play-appbar-boss',
+          !bossMode && combatMode && 'play-appbar-combat',
           className,
         )}
         aria-label="Session"
