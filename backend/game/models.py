@@ -177,8 +177,7 @@ class GameState:
 
         # Campaign context management
         self.campaign_dir: str | None = None  # Path to campaign directory
-        self.loaded_sections: dict[str, str] = {}  # section_path -> content
-        self.max_loaded_sections: int = 3
+        self.loaded_sections: dict[str, str] = {}  # section_path -> content (phased, additive)
 
         # Transcript compaction: running "story so far" summary, injected into
         # instructions once the transcript is compacted. None until first compaction.

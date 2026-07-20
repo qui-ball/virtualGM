@@ -81,20 +81,15 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
 
 @gm_agent.tool
 def load_campaign_section(ctx: RunContext[GameState], section: str) -> str:
-    """Load a campaign section into context. See the campaign index for available section paths.
+    """Load a campaign section into context as the story reaches it. Sections stay
+    loaded for the rest of the session (phased loading). See the campaign index for
+    available section paths.
 
     Args:
         section: Section path from the campaign index (e.g., "Part1_Goblin_Arrows/Goblin_Ambush")
     """
     if section in ctx.deps.loaded_sections:
         return f"Section '{section}' is already loaded."
-
-    if len(ctx.deps.loaded_sections) >= ctx.deps.max_loaded_sections:
-        loaded = list(ctx.deps.loaded_sections.keys())
-        raise ModelRetry(
-            f"Cannot load — already at capacity ({ctx.deps.max_loaded_sections} sections loaded): {loaded}. "
-            f"Use unload_campaign_section to free a slot first."
-        )
 
     if ctx.deps.campaign_dir is None:
         raise ModelRetry("No campaign directory configured.")
@@ -110,24 +105,6 @@ def load_campaign_section(ctx: RunContext[GameState], section: str) -> str:
 
     logger.info(f"📖 Loaded campaign section: {section}")
     return f"Loaded '{section}' into context."
-
-
-@gm_agent.tool
-def unload_campaign_section(ctx: RunContext[GameState], section: str) -> str:
-    """Remove a campaign section from context to free a slot.
-
-    Args:
-        section: Section path to unload
-    """
-    if section not in ctx.deps.loaded_sections:
-        loaded = list(ctx.deps.loaded_sections.keys())
-        raise ModelRetry(
-            f"Section '{section}' is not loaded. Currently loaded: {loaded}"
-        )
-
-    del ctx.deps.loaded_sections[section]
-    logger.info(f"📖 Unloaded campaign section: {section}")
-    return f"Unloaded '{section}' from context."
 
 
 @gm_agent.tool_plain
