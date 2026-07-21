@@ -60,6 +60,19 @@ def test_should_compact_at_threshold():
     assert compaction.should_compact(250000) is False
 
 
+def test_context_input_tokens_ignores_earlier_requests():
+    # KTD1: a turn with a tool round-trip has multiple responses. We want the
+    # last response's count (true context size), not the sum (which over-counts).
+    msgs = [
+        _turn_req(),
+        _tool_call_resp(input_tokens=200000),
+        _tool_return_req(),
+        _resp(305000),
+    ]
+    # Summing would give 505000; the final request's size is 305000.
+    assert compaction.context_input_tokens(_result(msgs)) == 305000
+
+
 def test_context_input_tokens_none_without_usage():
     # No usage-bearing response -> None -> safe no-op.
     msgs = [_turn_req()]

@@ -101,6 +101,38 @@ def test_recursive_passes_prior_summary(monkeypatch):
     assert session.game_state.story_summary == "RECAP v2"
 
 
+def test_empty_summary_skips_compaction(monkeypatch):
+    # A blank summary must not age out the prefix with nothing to replace it.
+    async def empty_summarize(prior, prefix):
+        return "   "
+
+    monkeypatch.setattr("agent.summarizer.summarize", empty_summarize)
+    msgs = _big_history(305_000)
+    session = _session(list(msgs))
+
+    did = asyncio.run(compaction.maybe_compact(session, _result(msgs)))
+
+    assert did is False
+    assert session.message_history == msgs
+    assert session.game_state.story_summary is None
+
+
+def test_summarizer_failure_skips_compaction(monkeypatch):
+    # A summarizer outage must not raise or trim — history carries forward intact.
+    async def boom(prior, prefix):
+        raise RuntimeError("summarizer down")
+
+    monkeypatch.setattr("agent.summarizer.summarize", boom)
+    msgs = _big_history(305_000)
+    session = _session(list(msgs))
+
+    did = asyncio.run(compaction.maybe_compact(session, _result(msgs)))
+
+    assert did is False
+    assert session.message_history == msgs
+    assert session.game_state.story_summary is None
+
+
 def test_deferred_roll_is_never_compacted(monkeypatch):
     # R3/AE2: a turn paused awaiting a player roll is not settled — no compaction,
     # even above threshold.

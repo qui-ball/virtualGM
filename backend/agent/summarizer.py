@@ -39,6 +39,8 @@ def resolve_summary_preset(name: str | None) -> str:
 
 _SUMMARY_PRESET = resolve_summary_preset(os.getenv("SUMMARY_MODEL_PRESET"))
 _SUMMARY_MODEL_NAME, _SUMMARY_PROVIDER = MODEL_PRESETS[_SUMMARY_PRESET]
+# Mirror the GM agent: apply OpenRouter provider routing for the chosen preset.
+_summary_model_settings = build_model_settings(_SUMMARY_PROVIDER)
 
 summarizer_agent = Agent(
     f"openrouter:{_SUMMARY_MODEL_NAME}",
@@ -93,5 +95,5 @@ async def summarize(prior_summary: str | None, prefix_messages) -> str:
         f"{transcript}\n\n"
         "Produce the single updated running summary."
     )
-    result = await summarizer_agent.run(prompt)
+    result = await summarizer_agent.run(prompt, model_settings=_summary_model_settings)
     return result.output

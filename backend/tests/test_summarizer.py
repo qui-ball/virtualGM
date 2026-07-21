@@ -90,6 +90,22 @@ def _sample_messages():
     ]
 
 
+def test_render_transcript_keeps_ask_player_roll():
+    msgs = [
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name="ask_player_roll",
+                    content="You rolled 17 vs DC 12 — success",
+                    tool_call_id="c9",
+                )
+            ]
+        )
+    ]
+    out = summarizer.render_transcript(msgs)
+    assert "You rolled 17 vs DC 12" in out
+
+
 def test_render_transcript_keeps_narrative_drops_plumbing():
     out = summarizer.render_transcript(_sample_messages())
     assert "Player: I enter the cave" in out

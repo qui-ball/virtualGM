@@ -5,6 +5,7 @@ folded into a running "story so far" summary (kept on GameState) and dropped fro
 the raw transcript, leaving only the summary plus a recent raw window.
 """
 
+import asyncio
 import os
 
 from loguru import logger
@@ -18,6 +19,10 @@ COMPACT_THRESHOLD = int(os.getenv("COMPACT_THRESHOLD", "300000"))
 
 # Tokens of most-recent transcript kept raw after a compaction.
 RECENT_WINDOW_TOKENS = int(os.getenv("RECENT_WINDOW_TOKENS", "100000"))
+
+# Cap on the summarizer call so a stalled model can't hold the session lock (and
+# the SSE stream) open indefinitely; a timeout is treated as a compaction skip.
+SUMMARY_TIMEOUT = int(os.getenv("SUMMARY_TIMEOUT", "120"))
 
 
 def context_input_tokens(result) -> int | None:
@@ -121,9 +126,28 @@ async def maybe_compact(session, result) -> bool:
     # Lazy import avoids constructing the summarizer agent until compaction runs.
     from agent.summarizer import summarize
 
-    session.game_state.story_summary = await summarize(
-        session.game_state.story_summary, prefix
-    )
+    # Post-response background work: a summarizer failure or timeout must never
+    # break the turn (its result is already delivered to the player) or leave the
+    # transcript half-compacted. On any failure, skip and retry next turn — the
+    # untrimmed history simply carries forward.
+    try:
+        new_summary = await asyncio.wait_for(
+            summarize(session.game_state.story_summary, prefix),
+            timeout=SUMMARY_TIMEOUT,
+        )
+    except Exception as e:
+        logger.warning(f"Transcript compaction skipped — summarizer failed: {e}")
+        return False
+
+    if not new_summary or not new_summary.strip():
+        # An empty summary would age out the prefix with nothing to replace it,
+        # losing narrative continuity — keep the raw history and retry next turn.
+        logger.warning(
+            "Transcript compaction skipped — summarizer returned empty output."
+        )
+        return False
+
+    session.game_state.story_summary = new_summary
     session.message_history = suffix
     logger.info(
         f"🧵 Compacted transcript: {len(prefix)} messages summarized, "
