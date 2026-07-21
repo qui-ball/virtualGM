@@ -1,5 +1,6 @@
 """In-memory session store for API mode."""
 
+import asyncio
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -26,6 +27,9 @@ class Session:
     pending_deferred: PendingDeferred | None = None
     transcript: list[TranscriptEntry] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    # Serializes turn execution + post-response compaction so a next-turn request
+    # can't read or overwrite message_history mid-compaction.
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 class SessionStore:

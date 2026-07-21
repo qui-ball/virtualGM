@@ -7,6 +7,8 @@ the raw transcript, leaving only the summary plus a recent raw window.
 
 import os
 
+from loguru import logger
+from pydantic_ai import DeferredToolRequests
 from pydantic_ai.messages import ModelRequest, ModelResponse, UserPromptPart
 
 # Compaction fires when the last turn's context reaches this many input tokens.
@@ -94,3 +96,37 @@ def split_history(messages, recent_window_tokens: int = RECENT_WINDOW_TOKENS):
         else:
             break
     return messages[:chosen], messages[chosen:]
+
+
+async def maybe_compact(session, result) -> bool:
+    """Compact a completed turn's transcript when it has crossed the threshold.
+
+    Summarizes the aged-out prefix into ``session.game_state.story_summary`` and
+    trims ``session.message_history`` to the recent window. Returns True when it
+    compacted. Self-guards the deferred-roll case so a paused turn is never
+    compacted mid-roll (R3); callers may invoke it after every settled turn.
+    """
+    # A turn awaiting a player roll is not settled — never compact between the
+    # roll request and its result.
+    if isinstance(result.output, DeferredToolRequests):
+        return False
+
+    if not should_compact(context_input_tokens(result)):
+        return False
+
+    prefix, suffix = split_history(session.message_history)
+    if not prefix:
+        return False
+
+    # Lazy import avoids constructing the summarizer agent until compaction runs.
+    from agent.summarizer import summarize
+
+    session.game_state.story_summary = await summarize(
+        session.game_state.story_summary, prefix
+    )
+    session.message_history = suffix
+    logger.info(
+        f"🧵 Compacted transcript: {len(prefix)} messages summarized, "
+        f"{len(suffix)} kept raw."
+    )
+    return True
