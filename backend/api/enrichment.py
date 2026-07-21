@@ -60,6 +60,30 @@ def _parse_adv(value: str | None) -> str:
     return "norm"
 
 
+def _is_attack_vs_roll(args: dict[str, Any], purpose: str, character: CharacterState | None) -> bool:
+    vs_label = args.get("vs_label")
+    if vs_label and re.search(r"eva|evasion", str(vs_label), re.I):
+        return True
+    return bool(character and re.search(r"attack|hit|vs", purpose, re.I))
+
+
+def _resolve_dc(
+    args: dict[str, Any],
+    *,
+    is_d20_roll: bool,
+    is_attack_roll: bool,
+    solo_mode: bool,
+) -> int | None:
+    """DC comes from the GM tool call; solo mode lowers it server-side only."""
+    raw = args.get("dc")
+    if raw is None:
+        return None
+    dc = int(raw)
+    if is_d20_roll and solo_mode and not is_attack_roll:
+        dc = max(1, dc - 2)
+    return dc
+
+
 def build_pending_action(
     tool_name: str,
     tool_call_id: str,
@@ -78,10 +102,14 @@ def build_pending_action(
     dice_count = int(args.get("dice_count", 1))
     is_d20_roll = dice_type == "d20" and dice_count == 1
     purpose = str(args.get("purpose", ""))
+    is_attack_roll = _is_attack_vs_roll(args, purpose, character)
 
-    dc = args.get("dc")
-    if dc is None and is_d20_roll:
-        dc = 13
+    dc = _resolve_dc(
+        args,
+        is_d20_roll=is_d20_roll,
+        is_attack_roll=is_attack_roll,
+        solo_mode=game_state.solo_mode,
+    )
 
     vs_label = args.get("vs_label")
     if vs_label is None and is_d20_roll and character and re.search(

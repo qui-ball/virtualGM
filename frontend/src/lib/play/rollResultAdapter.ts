@@ -32,5 +32,6 @@ export function rollResultPayloadToFields(
     pass: payload.pass ?? null,
     vs: payload.vs ?? undefined,
     dc: payload.dc ?? undefined,
+    vsLabel: payload.vs_label ?? undefined,
   };
 }

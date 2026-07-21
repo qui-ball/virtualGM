@@ -1,6 +1,7 @@
 """Core turn execution — streams SSE events as the agent runs."""
 
 import asyncio
+import uuid
 from collections.abc import AsyncGenerator
 
 from loguru import logger
@@ -8,10 +9,60 @@ from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 from agent.runner import run_agent_iter
 from api.enrichment import build_pending_action
-from api.schemas import PendingAction
+from api.narration_sanitize import extract_leaked_ask_player_roll
 from api.snapshot import snapshot_dict
 from api.transcript_log import append_roll_prompt
 from game.session import PendingDeferred, Session
+
+
+def _try_recover_leaked_roll(
+    session: Session,
+    result,
+    queue: asyncio.Queue,
+) -> bool:
+    """Some models embed ask_player_roll markup inside narrate() instead of calling the tool."""
+    gs = session.game_state
+    leaked = gs._leaked_roll_args
+    if leaked is None:
+        for narration in gs.narrations:
+            _, args = extract_leaked_ask_player_roll(narration)
+            if args is not None:
+                leaked = args
+                break
+    if leaked is None:
+        return False
+
+    tool_call_id = f"leaked-{uuid.uuid4().hex[:12]}"
+    calls_info = [
+        {
+            "tool_call_id": tool_call_id,
+            "tool_name": "ask_player_roll",
+            "args": leaked,
+        }
+    ]
+    session.pending_deferred = PendingDeferred(
+        messages_snapshot=result.all_messages(),
+        deferred_calls=calls_info,
+    )
+    pending = build_pending_action(
+        "ask_player_roll",
+        tool_call_id,
+        leaked,
+        session.game_state,
+    )
+    append_roll_prompt(session, pending)
+    session.message_history = result.all_messages()
+    gs._leaked_roll_args = None
+    queue.put_nowait(
+        (
+            "pending_action",
+            {
+                "pending_action": pending.model_dump(),
+                "game_state": snapshot_dict(session),
+            },
+        )
+    )
+    return True
 
 
 def _handle_result(session: Session, result, queue: asyncio.Queue):
@@ -51,6 +102,8 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
             )
         )
     else:
+        if _try_recover_leaked_roll(session, result, queue):
+            return
         internal_notes = result.output if isinstance(result.output, str) else None
         session.message_history = result.all_messages()
         session.pending_deferred = None
@@ -72,7 +125,9 @@ async def stream_turn(
     queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
     gs = session.game_state
     gs.narrations.clear()
+    gs._leaked_roll_args = None
     gs._event_queue = queue
+    gs._session = session
 
     async def run():
         try:
@@ -92,6 +147,7 @@ async def stream_turn(
             queue.put_nowait(("error", {"message": str(e)}))
         finally:
             gs._event_queue = None
+            gs._session = None
             queue.put_nowait(None)
 
     task = asyncio.create_task(run())
@@ -115,6 +171,7 @@ async def stream_deferred_response(
     queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
     gs = session.game_state
     gs.narrations.clear()
+    gs._leaked_roll_args = None
     gs._event_queue = queue
 
     deferred_results = DeferredToolResults()
@@ -139,6 +196,7 @@ async def stream_deferred_response(
             queue.put_nowait(("error", {"message": str(e)}))
         finally:
             gs._event_queue = None
+            gs._session = None
             queue.put_nowait(None)
 
     task = asyncio.create_task(run())

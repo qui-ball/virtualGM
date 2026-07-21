@@ -41,6 +41,7 @@ export type RollResultFields = {
   pass: boolean | null;
   vs?: number;
   dc?: number;
+  vsLabel?: string;
   freeRoll?: boolean;
 };
 
@@ -65,7 +66,9 @@ export type TranscriptEntry =
     }
   | { kind: 'roll_result'; id: string; result: RollResultFields; timestamp: number }
   | { kind: 'rest'; id: string; text: string; timestamp: number }
-  | { kind: 'item'; id: string; text: string; timestamp: number };
+  | { kind: 'item'; id: string; text: string; timestamp: number }
+  | { kind: 'combat_start'; id: string; text: string; timestamp: number }
+  | { kind: 'combat_end'; id: string; text: string; timestamp: number };
 
 export function createEntryId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

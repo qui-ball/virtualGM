@@ -4,6 +4,7 @@ import {
   parseSceneMarker,
   type TranscriptEntry,
 } from '@/lib/play/transcript';
+import { sanitizeNarrationText } from '@/lib/play/narrationSanitize';
 import type { ChatMessage, CharacterState, PendingAction } from '@/types';
 
 export function chatMessageToTranscriptEntry(
@@ -14,11 +15,13 @@ export function chatMessageToTranscriptEntry(
   if (scene) {
     return { kind: 'scene', id, text: scene, timestamp: msg.timestamp };
   }
+  const content =
+    msg.role === 'gm' ? sanitizeNarrationText(msg.content) : msg.content;
   return {
     kind: 'message',
     id,
     role: msg.role,
-    content: msg.content,
+    content,
     timestamp: msg.timestamp,
     error: msg.role === 'system' && msg.content.startsWith('Error:'),
   };

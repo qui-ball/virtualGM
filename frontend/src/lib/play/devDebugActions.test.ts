@@ -33,6 +33,25 @@ describe('applyDebugGamePatch', () => {
     const next = applyDebugGamePatch(baseState(), 'demo_conditions');
     expect(next?.character?.conditions).toEqual(['poisoned', 'stunned']);
   });
+
+  it('enter_combat sets initiative sample for HUD', () => {
+    const next = applyDebugGamePatch(baseState(), 'enter_combat');
+    expect(next?.in_combat).toBe(true);
+    expect(next?.initiative_order).toEqual([
+      DEMO_CHARACTER.name,
+      'Goblin 1',
+      'Goblin 2',
+    ]);
+    expect(next?.current_turn_index).toBe(0);
+  });
+
+  it('exit_combat clears initiative', () => {
+    const inCombat = applyDebugGamePatch(baseState(), 'enter_combat');
+    const next = applyDebugGamePatch(inCombat!, 'exit_combat');
+    expect(next?.in_combat).toBe(false);
+    expect(next?.initiative_order).toEqual([]);
+    expect(next?.current_turn_index).toBe(0);
+  });
 });
 
 describe('syncGameStateFlags', () => {

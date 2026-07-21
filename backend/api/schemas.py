@@ -87,6 +87,7 @@ class RollResultPayload(BaseModel):
     pass_: bool | None = Field(default=None, alias="pass")
     vs: int | None = None
     dc: int | None = None
+    vs_label: str | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -104,6 +105,8 @@ class GameStateSnapshot(BaseModel):
     campaign_title: str = "Lost Mine of Phandelver"
     pending_level_up: bool = False
     solo_mode: bool = True
+    initiative_order: list[str] = Field(default_factory=list)
+    current_turn_index: int = 0
 
 
 class TurnResponse(BaseModel):
@@ -137,12 +140,16 @@ class TranscriptEntry(BaseModel):
         "roll_result",
         "rest",
         "item",
+        "combat_start",
+        "combat_end",
     ]
     id: str
     timestamp: float
     role: str | None = None
     content: str | None = None
     text: str | None = None
+    reason: str | None = None
+    initiative_order: list[str] | None = None
     pending_action: PendingAction | None = None
     roll_result: RollResultPayload | None = None
 

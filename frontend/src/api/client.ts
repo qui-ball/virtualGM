@@ -96,6 +96,16 @@ export type TurnEvent =
       roll_result: RollResultPayload;
     }
   | {
+      type: 'combat_start';
+      initiative_order: string[];
+      game_state: GameStateSnapshot;
+    }
+  | {
+      type: 'combat_end';
+      reason?: string;
+      game_state: GameStateSnapshot;
+    }
+  | {
       type: 'complete';
       game_state: GameStateSnapshot;
       internal_notes: string | null;

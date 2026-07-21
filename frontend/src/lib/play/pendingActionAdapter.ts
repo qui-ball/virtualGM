@@ -4,13 +4,6 @@ import type { AdvType, RollPromptFields } from '@/lib/play/transcript';
 import { createEntryId } from '@/lib/play/transcript';
 import type { CharacterState, PendingAction } from '@/types';
 
-const STAT_HINTS: { pattern: RegExp; key: StatKey }[] = [
-  { pattern: /\bmight\b|\bmig\b/i, key: 'might' },
-  { pattern: /\bfinesse\b|\bfin\b/i, key: 'finesse' },
-  { pattern: /\bwit\b/i, key: 'wit' },
-  { pattern: /\bpresence\b|\bpre\b/i, key: 'presence' },
-];
-
 const SHORT_TO_STAT: Record<string, StatKey> = {
   mig: 'might',
   fin: 'finesse',
@@ -24,28 +17,6 @@ function normalizeStatKey(value: string): StatKey | undefined {
   return SHORT_TO_STAT[lower];
 }
 
-function inferStat(
-  action: PendingAction,
-  character: CharacterState | null,
-): StatKey | undefined {
-  if (action.stat) {
-    const key = normalizeStatKey(action.stat);
-    if (key) return key;
-  }
-  const haystack = `${action.purpose} ${action.action_type}`;
-  for (const { pattern, key } of STAT_HINTS) {
-    if (pattern.test(haystack)) {
-      return key;
-    }
-  }
-  if (character) {
-    if (/attack|weapon|strike|hit/i.test(haystack)) return 'might';
-    if (/save|resist/i.test(haystack)) return 'presence';
-    if (/check|trick|arcane|spell/i.test(haystack)) return 'wit';
-  }
-  return undefined;
-}
-
 function isStatKey(value: string): value is StatKey {
   return ['might', 'finesse', 'wit', 'presence'].includes(value);
 }
@@ -57,31 +28,28 @@ function parseAdvType(value: string | undefined): AdvType {
   return 'norm';
 }
 
-function hasApiEnrichment(action: PendingAction): boolean {
-  return (
-    action.modifier != null ||
-    action.stat != null ||
-    action.dc != null ||
-    action.vs_label != null ||
-    action.adv_type != null
-  );
+/** True when the server did not send fields the GM should provide for a d20 check. */
+function isIncompleteGmRoll(action: PendingAction): boolean {
+  const isD20Check =
+    action.dice_type === 'd20' && action.dice_count === 1;
+  if (!isD20Check) return false;
+  return action.dc == null && action.vs_label == null;
 }
 
+/**
+ * Map server `PendingAction` → roll card fields.
+ * The backend/GM is the source of truth — no DC, stat, or die inference here.
+ */
 export function pendingActionToRollPrompt(
   action: PendingAction,
-  character: CharacterState | null,
+  _character: CharacterState | null,
   promptId: string = createEntryId(),
 ): RollPromptFields {
   const diceCount = action.dice_count;
   const diceType = action.dice_type;
   const isD20 = isD20Roll(diceType);
-  const statKey = inferStat(action, character);
-  const statShort = statKey ? statToShort(statKey) : undefined;
-  const modifier =
-    action.modifier ??
-    (statKey && character ? character.stats[statKey] : 0);
-  const dc = isD20 ? (action.dc ?? 13) : action.dc;
-  const stubEnriched = !hasApiEnrichment(action);
+  const statKey = action.stat ? normalizeStatKey(action.stat) : undefined;
+  const statShort = statKey ? statToShort(statKey) : action.stat;
 
   return {
     id: promptId,
@@ -90,19 +58,25 @@ export function pendingActionToRollPrompt(
     diceType,
     source: `${diceCount}${diceType}${action.action_type !== action.purpose ? ` · ${action.action_type}` : ''}`,
     stat: statShort,
-    modifier,
-    dc,
-    vs: dc,
-    vsLabel:
-      action.vs_label ??
-      (isD20 && dc != null ? `DC ${dc}` : undefined),
+    modifier: action.modifier ?? 0,
+    dc: action.dc,
+    vs: action.dc,
+    vsLabel: action.vs_label,
     advType: isD20 ? parseAdvType(action.adv_type) : 'norm',
     advReason: isD20 ? action.adv_reason : undefined,
-    footer:
-      action.footer ??
-      (isD20 && diceCount === 1 ? 'crit on nat-20' : undefined),
+    footer: action.footer,
     successText: action.success_text,
     failText: action.fail_text,
-    stubEnriched,
+    stubEnriched: isIncompleteGmRoll(action),
   };
+}
+
+/** Target number for pass/fail on a d20 roll — server-provided only. */
+export function rollTargetFromPendingAction(
+  action: PendingAction,
+): number | null {
+  if (action.dice_type !== 'd20' || action.dice_count !== 1) {
+    return null;
+  }
+  return action.dc ?? null;
 }

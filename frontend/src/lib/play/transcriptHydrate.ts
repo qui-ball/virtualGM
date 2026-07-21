@@ -74,6 +74,26 @@ export function hydrateTranscript(
           out.push({ kind: 'item', id: row.id, text: row.text, timestamp: ts });
         }
         break;
+      case 'combat_start':
+        if (row.text) {
+          out.push({
+            kind: 'combat_start',
+            id: row.id,
+            text: row.text,
+            timestamp: ts,
+          });
+        }
+        break;
+      case 'combat_end':
+        if (row.text) {
+          out.push({
+            kind: 'combat_end',
+            id: row.id,
+            text: row.text,
+            timestamp: ts,
+          });
+        }
+        break;
       default:
         break;
     }

@@ -158,6 +158,7 @@ class GameState:
         self.campaign_title: str = "Lost Mine of Phandelver"
         self.chapter: int = 1
         self.scene_label: str = "Road to Phandalin"
+        self.scene_label_before_combat: str | None = None
         self.time_current: int = 12
         self.time_max: int = 50
         self.time_counter: int | None = None  # legacy alias
@@ -168,6 +169,7 @@ class GameState:
         self.is_boss_battle: bool = False
         self.initiative_order: list[str] = []  # Names in initiative order
         self.current_turn_index: int = 0
+        self.awaiting_damage_roll: bool = False
 
         # Solo / party scaling (POC default: solo-friendly encounters)
         self.solo_mode: bool = True
@@ -180,9 +182,13 @@ class GameState:
 
         # Narration collection for API mode
         self.narrations: list[str] = []
+        self._leaked_roll_args: dict | None = None
 
         # SSE event queue — set by turn_engine during streaming
         self._event_queue: asyncio.Queue | None = None
+
+        # Session back-reference — set by turn_engine during streaming (transcript append)
+        self._session: object | None = None
 
 
 class EndGameMasterTurn(BaseModel):

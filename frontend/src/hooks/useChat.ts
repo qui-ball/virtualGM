@@ -27,7 +27,7 @@ import {
   type LevelUpSelection,
 } from '@/lib/play/levelUp';
 import { rollDiceToResultFields } from '@/lib/play/rollResultFields';
-import { pendingActionToRollPrompt } from '@/lib/play/pendingActionAdapter';
+import { pendingActionToRollPrompt, rollTargetFromPendingAction } from '@/lib/play/pendingActionAdapter';
 import {
   createEntryId,
   markRollPromptRolled,
@@ -48,7 +48,8 @@ import {
 } from '@/lib/play/bossDeath';
 import { rollResultPayloadToFields } from '@/lib/play/rollResultAdapter';
 import { findActiveRollPrompt } from '@/lib/play/transcript';
-import { rollDice } from '@/lib/play/roll';
+import { rollDice, rollD20 } from '@/lib/play/roll';
+import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
 import {
   bootstrapPlaySession,
   type PlaySessionStartOptions,
@@ -163,6 +164,26 @@ export function useChat() {
               timestamp: Date.now(),
             });
             break;
+          case 'combat_start':
+            setGameState(syncGameStateFlags(event.game_state));
+            appendEntry({
+              kind: 'combat_start',
+              id: createEntryId(),
+              text: '⚔ Combat begins',
+              timestamp: Date.now(),
+            });
+            break;
+          case 'combat_end':
+            setGameState(syncGameStateFlags(event.game_state));
+            appendEntry({
+              kind: 'combat_end',
+              id: createEntryId(),
+              text: event.reason
+                ? `Combat ended · ${event.reason}`
+                : 'Combat ended',
+              timestamp: Date.now(),
+            });
+            break;
           case 'roll_result': {
             const fields = rollResultPayloadToFields(
               event.roll_result,
@@ -207,6 +228,9 @@ export function useChat() {
             pendingPromptIdRef.current = null;
             const nextState = syncGameStateFlags(event.game_state);
             setGameState(nextState);
+            setTranscript((prev) =>
+              recoverLeakedRollPrompts(prev, nextState.character),
+            );
             if (sessionIdRef.current) {
               persistSession(sessionIdRef.current, nextState);
             }
@@ -327,8 +351,7 @@ export function useChat() {
       );
       setRolling(true);
       try {
-        const isD20 = pendingAction.dice_type === 'd20';
-        const vs = isD20 ? (prompt.vs ?? prompt.dc ?? null) : null;
+        const vs = rollTargetFromPendingAction(pendingAction);
         const r = rollDice({
           diceCount: pendingAction.dice_count,
           diceType: pendingAction.dice_type,

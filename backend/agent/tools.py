@@ -14,11 +14,21 @@ from game.models import (
     DiceType,
     EnemyState,
     GameState,
+    is_pending_level_up,
 )
 
 # Import agent to register tools on it.
 # This module is imported at the bottom of agent/definition.py, so `agent` is already created.
 from agent.definition import gm_agent
+from api.narration_sanitize import extract_leaked_ask_player_roll
+from game.combat_lifecycle import (
+    add_to_initiative,
+    emit_combat_start,
+    finish_combat,
+    maybe_end_combat_when_encounter_cleared,
+    remove_from_initiative,
+    start_combat_state,
+)
 
 
 # ANSI color codes for terminal output (used by narrate for CLI)
@@ -48,6 +58,18 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
         text: Description, dialogue, or outcome for the current moment.
     """
     # Collect narration for API consumers
+    cleaned, leaked = extract_leaked_ask_player_roll(text)
+    if leaked is not None:
+        ctx.deps._leaked_roll_args = leaked
+    if not cleaned:
+        return "Narration omitted (roll prompt only)."
+    text = cleaned
+    if ctx.deps.awaiting_damage_roll:
+        raise ModelRetry(
+            "Attack HIT — the player must roll damage first. Call ask_player_roll() "
+            "for weapon damage (d4–d12), then apply_damage(), BEFORE narrate(). "
+            "Do not describe wounds, defeat, or death yet."
+        )
     ctx.deps.narrations.append(text)
     # Push to SSE stream if active
     if ctx.deps._event_queue is not None:
@@ -204,7 +226,7 @@ def ask_player_roll(
         purpose: Brief description of what the roll is for (e.g., "attack roll", "damage", "Wit check")
         stat: Stat key or short label (might/Mig, finesse/Fin, wit, presence/Pre)
         modifier: Modifier to add (defaults from character stat when omitted)
-        dc: Difficulty / target number
+        dc: Required for d20 skill checks and saves — difficulty target (easy 8, moderate 12, hard 15). Solo mode lowers this by 2 server-side.
         vs_label: Display label (e.g. "vs Eva 14")
         adv_type: norm, adv, or dis
         adv_reason: Why advantage/disadvantage applies
@@ -268,19 +290,16 @@ def create_enemy(
         is_boss=is_boss,
     )
     ctx.deps.enemies[enemy_id] = enemy
-    ctx.deps.in_combat = True
 
     if is_boss:
         ctx.deps.is_boss_battle = True
 
-    _notify_state_changed(
-        ctx.deps,
-        *(
-            ["enemies", "boss_encounter", "in_combat"]
-            if is_boss
-            else ["enemies", "in_combat"]
-        ),
-    )
+    fields = ["enemies"]
+    if is_boss:
+        fields.append("boss_encounter")
+    if ctx.deps.in_combat and add_to_initiative(ctx.deps, enemy_id):
+        fields.extend(["initiative_order", "current_turn_index"])
+    _notify_state_changed(ctx.deps, *fields)
 
     boss_note = " 👑 BOSS — boss battle STARTED" if is_boss else ""
     logger.info(
@@ -302,14 +321,64 @@ def remove_enemy(ctx: RunContext[GameState], enemy_id: str) -> str:
         )
 
     del ctx.deps.enemies[enemy_id]
+    ended = maybe_end_combat_when_encounter_cleared(ctx.deps)
     fields = ["enemies"]
-    if not ctx.deps.enemies:
-        # Encounter cleared — combat is over.
-        ctx.deps.in_combat = False
-        fields.append("in_combat")
+    if ctx.deps.in_combat and remove_from_initiative(ctx.deps, enemy_id):
+        fields.extend(["initiative_order", "current_turn_index"])
+    if ended:
+        fields.extend(["in_combat", "initiative_order", "current_turn_index"])
     _notify_state_changed(ctx.deps, *fields)
     logger.info(f"Removed enemy '{enemy_id}'")
     return f"Removed '{enemy_id}'"
+
+
+@gm_agent.tool
+def start_combat(ctx: RunContext[GameState], initiative_order: list[str]) -> str:
+    """Begin combat and set initiative order (call immediately before initiative rolls).
+
+    Args:
+        initiative_order: Combatant display names in initiative order (e.g. ["Aldric", "Goblin 1"])
+    """
+    if ctx.deps.in_combat:
+        raise ModelRetry(
+            "Combat is already active. Reinforcements use create_enemy() only — "
+            "do not call start_combat again until this encounter ends."
+        )
+    if not initiative_order:
+        raise ModelRetry("initiative_order must include at least one combatant.")
+
+    start_combat_state(ctx.deps, initiative_order)
+    emit_combat_start(ctx.deps, initiative_order)
+    _notify_state_changed(
+        ctx.deps, "in_combat", "initiative_order", "current_turn_index"
+    )
+
+    order_str = " → ".join(initiative_order)
+    logger.info(f"⚔️ Combat started. Initiative: {order_str}")
+    return f"Combat started. Initiative order: {order_str}"
+
+
+@gm_agent.tool
+def end_combat(ctx: RunContext[GameState], reason: str = "") -> str:
+    """End combat (victory, flee, or narrative resolution).
+
+    Args:
+        reason: Optional short reason (e.g. "fled", "surrendered")
+    """
+    if not ctx.deps.in_combat:
+        return "Combat was not active."
+
+    finish_combat(ctx.deps, reason=reason.strip())
+    _notify_state_changed(
+        ctx.deps,
+        "in_combat",
+        "initiative_order",
+        "current_turn_index",
+        "scene_label",
+    )
+    suffix = f" ({reason})" if reason.strip() else ""
+    logger.info(f"⚔️ Combat ended{suffix}")
+    return f"Combat ended{suffix}"
 
 
 @gm_agent.tool
@@ -332,6 +401,7 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
 
         result = f"PC took {amount} damage: {old_hp} → {new_hp}/{ctx.deps.pc.hp_max} HP"
 
+        combat_ended = False
         if new_hp == 0:
             if ctx.deps.is_boss_battle:
                 result += " (DEFEATED in boss battle - player must choose: Blaze of Glory or Risk It All)"
@@ -341,8 +411,15 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
                     " aftermath per ruleset section 9.2 and remove the remaining enemies"
                     " to end the encounter.)"
                 )
+                if ctx.deps.in_combat and finish_combat(ctx.deps, reason="pc defeated"):
+                    combat_ended = True
 
-        _notify_state_changed(ctx.deps, "hp")
+        fields = ["hp"]
+        if combat_ended:
+            fields.extend(
+                ["in_combat", "initiative_order", "current_turn_index", "scene_label"]
+            )
+        _notify_state_changed(ctx.deps, *fields)
         logger.info(f"💔 {result}")
         return result
 
@@ -357,14 +434,22 @@ def apply_damage(ctx: RunContext[GameState], target: str, amount: int) -> str:
         )
 
         boss_ended = False
+        initiative_changed = False
         if new_hp == 0:
             result += " (DEFEATED)"
             if enemy.is_boss and ctx.deps.is_boss_battle:
                 ctx.deps.is_boss_battle = False
                 boss_ended = True
                 result += " 👑 BOSS DEFEATED — boss battle ENDED"
+            if ctx.deps.in_combat and remove_from_initiative(ctx.deps, target):
+                initiative_changed = True
 
-        _notify_state_changed(ctx.deps, *(["enemies", "boss_encounter"] if boss_ended else ["enemies"]))
+        fields = ["enemies"]
+        if boss_ended:
+            fields.append("boss_encounter")
+        if initiative_changed:
+            fields.extend(["initiative_order", "current_turn_index"])
+        _notify_state_changed(ctx.deps, *fields)
         logger.info(f"⚔️ {result}")
         return result
 
@@ -564,8 +649,6 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
         raise ModelRetry("No player character initialized.")
     if amount <= 0:
         raise ModelRetry("XP amount must be positive.")
-    if ctx.deps.in_combat:
-        raise ModelRetry("Cannot award XP during combat. Award XP after combat ends.")
 
     pc = ctx.deps.pc
     old_xp = pc.xp
@@ -574,23 +657,13 @@ def award_xp(ctx: RunContext[GameState], amount: int, reason: str) -> str:
     result = f"Awarded {amount} XP for '{reason}': {old_xp} → {pc.xp} XP"
     logger.info(f"⭐ {result}")
 
-    # Check for level-up
-    leveled = False
-    if pc.level < 10:
-        next_threshold = XP_THRESHOLDS.get(pc.level + 1)
-        if next_threshold and pc.xp >= next_threshold:
-            old_level = pc.level
-            pc.level += 1
-            leveled = True
-            result += (
-                f"\n🎉 LEVEL UP! {old_level} → {pc.level}! "
-                f"The player must choose one: HP increase, +1 Evasion, or a class ability."
-            )
-            logger.info(f"🎉 Level up! {old_level} → {pc.level}")
+    if is_pending_level_up(pc.xp, pc.level):
+        result += (
+            "\nThe player has enough XP to level up — they will choose "
+            "HP increase, +1 Evasion, or a class ability when combat allows."
+        )
 
-    _notify_state_changed(
-        ctx.deps, *(["xp", "level", "pending_level_up"] if leveled else ["xp"])
-    )
+    _notify_state_changed(ctx.deps, "xp", "pending_level_up")
     return result
 
 

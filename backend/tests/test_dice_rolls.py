@@ -63,3 +63,68 @@ def test_build_pending_action_skips_dc_for_damage():
     assert pending.dc is None
     assert pending.vs_label is None
     assert pending.footer is None
+
+
+def test_build_pending_action_omits_dc_when_gm_does_not_pass():
+    gs = GameState()
+    gs.pc = create_player_character()
+    gs.solo_mode = True
+    pending = build_pending_action(
+        "ask_player_roll",
+        "tool-3",
+        {
+            "dice_count": 1,
+            "dice_type": "d20",
+            "purpose": "Wit check",
+            "stat": "wit",
+        },
+        gs,
+    )
+    assert pending.dc is None
+    assert pending.vs_label is None
+
+
+def test_build_pending_action_solo_mode_lowers_explicit_dc():
+    gs = GameState()
+    gs.pc = create_player_character()
+    gs.solo_mode = True
+    pending = build_pending_action(
+        "ask_player_roll",
+        "tool-4",
+        {
+            "dice_count": 1,
+            "dice_type": "d20",
+            "purpose": "Wit check",
+            "dc": 10,
+        },
+        gs,
+    )
+    assert pending.dc == 8
+
+
+def test_format_roll_result_for_agent_includes_outcome():
+    from api.roll_result import format_roll_result_for_agent
+
+    gs = GameState()
+    gs.pc = create_player_character()
+    gs.solo_mode = True
+    pending = build_pending_action(
+        "ask_player_roll",
+        "tool-5",
+        {
+            "dice_count": 1,
+            "dice_type": "d20",
+            "purpose": "Wit check",
+            "stat": "wit",
+            "dc": 10,
+        },
+        gs,
+    )
+    payload = build_roll_result_payload(
+        pending,
+        ActionResponse(roll_result=9, individual_rolls=[9]),
+    )
+    assert payload.pass_ is True
+    text = format_roll_result_for_agent(pending, payload)
+    assert "vs DC 8" in text
+    assert "SUCCESS" in text

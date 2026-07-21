@@ -14,6 +14,7 @@ import {
 } from '@/lib/play/transcriptBuild';
 import { createEntryId, type TranscriptEntry } from '@/lib/play/transcript';
 import { hydrateTranscript } from '@/lib/play/transcriptHydrate';
+import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
 import type { GameStateSnapshot } from '@/types';
 
 export type PlaySessionStartOptions = {
@@ -37,9 +38,11 @@ export async function loadPlayTranscript(
 ): Promise<TranscriptEntry[]> {
   try {
     const history = await getSessionMessages(sessionId);
-    return hydrateTranscript(
-      history.transcript,
-      fallbackState?.character ?? null,
+    return recoverLeakedRollPrompts(
+      hydrateTranscript(
+        history.transcript,
+        fallbackState?.character ?? null,
+      ),
     );
   } catch {
     const ctx = toSessionContext(fallbackState);

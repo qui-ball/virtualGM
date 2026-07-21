@@ -87,3 +87,35 @@ def append_item(session: Session, text: str) -> TranscriptEntry:
     )
     session.transcript.append(entry)
     return entry
+
+
+def append_combat_start(
+    session: Session,
+    *,
+    initiative_order: list[str],
+) -> TranscriptEntry:
+    entry = TranscriptEntry(
+        kind="combat_start",
+        id=_entry_id(),
+        timestamp=time.time(),
+        text="Combat begins",
+        initiative_order=list(initiative_order),
+    )
+    session.transcript.append(entry)
+    return entry
+
+
+def append_combat_end(
+    session: Session,
+    *,
+    reason: str | None = None,
+) -> TranscriptEntry:
+    entry = TranscriptEntry(
+        kind="combat_end",
+        id=_entry_id(),
+        timestamp=time.time(),
+        text="Combat ended" if not reason else f"Combat ended · {reason}",
+        reason=reason,
+    )
+    session.transcript.append(entry)
+    return entry
