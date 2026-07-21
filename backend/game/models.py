@@ -178,6 +178,10 @@ class GameState:
         self.loaded_sections: dict[str, str] = {}  # section_path -> content
         self.max_loaded_sections: int = 3
 
+        # Transcript compaction: running "story so far" summary, injected into
+        # instructions once the transcript is compacted. None until first compaction.
+        self.story_summary: str | None = None
+
         # Narration collection for API mode
         self.narrations: list[str] = []
 
