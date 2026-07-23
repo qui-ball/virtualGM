@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useRef } from 'react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { cn } from '@/lib/utils';
@@ -18,9 +19,9 @@ export function BossDeathModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, open);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       className="play-boss-zero-overlay"
       role="dialog"
@@ -62,6 +63,7 @@ export function BossDeathModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -12,6 +12,25 @@ export function combatSplashOnTransition(
   return inCombat ? 'enter' : 'exit';
 }
 
+/** Pure splash state step — mirrors `useCombatMode` edge detection (testable WS-7.1). */
+export function advanceCombatSplashState(
+  prevInCombat: boolean | null,
+  inCombat: boolean,
+  splashPhase: CombatSplashPhase,
+): { prevInCombat: boolean; splashPhase: CombatSplashPhase } {
+  if (prevInCombat === null) {
+    return { prevInCombat: inCombat, splashPhase };
+  }
+  if (prevInCombat === inCombat) {
+    return { prevInCombat, splashPhase };
+  }
+  const transition = combatSplashOnTransition(prevInCombat, inCombat);
+  return {
+    prevInCombat: inCombat,
+    splashPhase: transition ?? splashPhase,
+  };
+}
+
 const ENTER_MS = 3000;
 const EXIT_MS = 3000;
 const REDUCED_MS = 800;
