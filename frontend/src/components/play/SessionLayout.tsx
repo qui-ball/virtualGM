@@ -13,6 +13,11 @@ import type { LevelUpSelection } from '@/lib/play/levelUp';
 import type { CastTrayResult } from '@/lib/play/castFlow';
 import { usePullSheet } from '@/hooks/usePullSheet';
 import { useCombatMode } from '@/hooks/useCombatMode';
+import {
+  combatSplashInCombatInput,
+  combatStripVisible,
+  shouldShowLevelUpDialog,
+} from '@/lib/play/combatUiGating';
 import { buildSessionMainPullMeasure } from '@/lib/play/sessionPullLayout';
 import { BossDeathModal } from '@/components/play/BossDeathModal';
 import { CombatModeSplash } from '@/components/play/CombatModeSplash';
@@ -138,7 +143,16 @@ export function SessionLayout({
   const sheetLocked = sessionBlocked;
   const characterState = gameState?.character ?? null;
   const inCombat = gameState?.in_combat ?? false;
-  const { splashPhase, dismissSplash } = useCombatMode(inCombat);
+  const splashInCombat = combatSplashInCombatInput(
+    inCombat,
+    mustResolveBossDeath,
+  );
+  const { splashPhase, dismissSplash } = useCombatMode(splashInCombat);
+  const showCombatStrip = combatStripVisible(inCombat);
+  const showLevelUpDialog = shouldShowLevelUpDialog(
+    mustResolveLevelUp,
+    splashPhase,
+  );
 
   const primaryCastMod =
     character.stats.find((s) => s.key === 'wit')?.mod ??
@@ -258,7 +272,7 @@ export function SessionLayout({
           onKeyDown={sheetLocked ? undefined : onHandleKeyDown}
         />
 
-        {inCombat ? (
+        {showCombatStrip ? (
           <CombatStrip
             initiativeOrder={gameState?.initiative_order ?? []}
             currentTurnIndex={gameState?.current_turn_index ?? 0}
@@ -389,7 +403,7 @@ export function SessionLayout({
         />
       ) : null}
 
-      {mustResolveLevelUp && characterState ? (
+      {showLevelUpDialog && characterState ? (
         <LevelUpDialog
           open
           character={character}

@@ -72,4 +72,33 @@ describe('sessionCache', () => {
     expect(getSessionCache('ribcage-coast')?.sessionId).toBe('b');
     expect(getSessionCache('_default')).toBeNull();
   });
+
+  it('persists combat strip fields for session resume (WS-7.3)', () => {
+    storeSessionCache('lost-mine', {
+      sessionId: 'combat-sess',
+      gameState: {
+        character: null,
+        enemies: {
+          g1: {
+            name: 'Goblin 1',
+            hp: 4,
+            hp_max: 5,
+            evasion: 12,
+            attack_modifier: 0,
+            damage: '1d6',
+            conditions: [],
+          },
+        },
+        countdowns: {},
+        in_combat: true,
+        initiative_order: ['Aldric', 'Goblin 1'],
+        current_turn_index: 1,
+      },
+    });
+
+    const cached = getSessionCache('lost-mine');
+    expect(cached?.gameState.in_combat).toBe(true);
+    expect(cached?.gameState.initiative_order).toEqual(['Aldric', 'Goblin 1']);
+    expect(cached?.gameState.current_turn_index).toBe(1);
+  });
 });

@@ -1946,6 +1946,8 @@ html[data-theme] {
   --combat-red: #8b2020;
   --combat-red-hot: #d44a4a;
   --combat-red-glow: #ff6b6b;
+  --z-combat-splash: 9990;
+  --z-boss-death: 10000;
 }
 
 .play-appbar-combat {
@@ -1967,7 +1969,7 @@ html[data-theme] {
 .play-combat-splash {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-combat-splash, 9990);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2170,9 +2172,9 @@ html[data-theme] {
 }
 
 .play-boss-zero-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-boss-death, 10000);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;

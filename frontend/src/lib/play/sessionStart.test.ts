@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, getSessionMessages } from '@/api/client';
+import { createSession, getSessionMessages, getSessionState } from '@/api/client';
 import {
   bootstrapPlaySession,
   loadPlayTranscript,
@@ -14,6 +14,7 @@ import type { GameStateSnapshot } from '@/types';
 vi.mock('@/api/client', () => ({
   createSession: vi.fn(),
   getSessionMessages: vi.fn(),
+  getSessionState: vi.fn(),
 }));
 
 function createSessionStorageMock(): Storage {
@@ -112,6 +113,9 @@ describe('sessionStart', () => {
         sessionId: 'cached-sess',
         gameState: GAME_STATE,
       });
+      vi.mocked(getSessionState).mockResolvedValue({
+        game_state: GAME_STATE,
+      });
       vi.mocked(getSessionMessages).mockResolvedValue({
         messages: [],
         transcript: [],
@@ -125,11 +129,52 @@ describe('sessionStart', () => {
       expect(createSession).not.toHaveBeenCalled();
     });
 
+    it('restores combat strip state from live session on cache resume (WS-7.3)', async () => {
+      const combatState: GameStateSnapshot = {
+        ...GAME_STATE,
+        in_combat: true,
+        initiative_order: ['Aldric of Corlinn Hill', 'Goblin 1'],
+        current_turn_index: 1,
+        enemies: {
+          g1: {
+            name: 'Goblin 1',
+            hp: 2,
+            hp_max: 5,
+            evasion: 12,
+            attack_modifier: 0,
+            damage: '1d6',
+            conditions: [],
+          },
+        },
+      };
+      storeSessionCache('lost-mine', {
+        sessionId: 'cached-sess',
+        gameState: { ...GAME_STATE, in_combat: false },
+      });
+      vi.mocked(getSessionState).mockResolvedValue({
+        game_state: combatState,
+      });
+      vi.mocked(getSessionMessages).mockResolvedValue({
+        messages: [],
+        transcript: [],
+      });
+
+      const result = await bootstrapPlaySession({ campaignId: 'lost-mine' });
+
+      expect(result.gameState?.in_combat).toBe(true);
+      expect(result.gameState?.initiative_order).toEqual([
+        'Aldric of Corlinn Hill',
+        'Goblin 1',
+      ]);
+      expect(result.gameState?.current_turn_index).toBe(1);
+    });
+
     it('creates a new session when cache is stale', async () => {
       storeSessionCache('lost-mine', {
         sessionId: 'stale-sess',
         gameState: GAME_STATE,
       });
+      vi.mocked(getSessionState).mockRejectedValue(new Error('404'));
       vi.mocked(getSessionMessages)
         .mockRejectedValueOnce(new Error('404'))
         .mockResolvedValueOnce({ messages: [], transcript: [] });

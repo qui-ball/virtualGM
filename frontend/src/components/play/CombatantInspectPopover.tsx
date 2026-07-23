@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  isPlayerCombatant,
-  matchEnemyByInitiativeName,
-} from '@/lib/play/initiativeHud';
+import { buildCombatantInspectView } from '@/lib/play/combatantInspect';
 import type { CharacterState, EnemyState } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -30,8 +27,7 @@ export function CombatantInspectPopover({
     width: number;
   } | null>(null);
 
-  const isPc = isPlayerCombatant(displayName, character);
-  const enemy = matchEnemyByInitiativeName(enemies, displayName);
+  const inspect = buildCombatantInspectView(displayName, character, enemies);
 
   useEffect(() => {
     if (!open || !anchorRef.current) {
@@ -89,34 +85,11 @@ export function CombatantInspectPopover({
       }}
     >
       <p className="play-combat-inspect-name">{displayName}</p>
-      {isPc && character ? (
+      {inspect.kind === 'pc' || inspect.kind === 'enemy' ? (
         <ul className="play-combat-inspect-stats">
-          <li>
-            HP {character.hp}/{character.hp_max}
-          </li>
-          <li>Evasion {character.evasion}</li>
-          {character.mana != null && character.mana_max != null ? (
-            <li>
-              MP {character.mana}/{character.mana_max}
-            </li>
-          ) : null}
-          <li>
-            Conditions{' '}
-            {character.conditions.length > 0
-              ? character.conditions.join(', ')
-              : '—'}
-          </li>
-        </ul>
-      ) : enemy ? (
-        <ul className="play-combat-inspect-stats">
-          <li>
-            HP {enemy.hp}/{enemy.hp_max}
-          </li>
-          <li>Evasion {enemy.evasion}</li>
-          <li>
-            Conditions{' '}
-            {enemy.conditions.length > 0 ? enemy.conditions.join(', ') : '—'}
-          </li>
+          {inspect.lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
       ) : (
         <p className="play-combat-inspect-empty">Stats not available</p>
