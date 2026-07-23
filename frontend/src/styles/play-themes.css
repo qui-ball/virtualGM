@@ -6,7 +6,20 @@
 
 html[data-theme] {
   background-color: var(--bg-0);
+  background-image: var(--bg-art, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--ink);
+}
+
+/* Body inherits theme tokens; paint the same art so Tailwind `bg-background` does not hide it. */
+html[data-theme] body {
+  background-color: var(--bg-0);
+  background-image: var(--bg-art, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 [data-theme='storm'],
@@ -49,6 +62,7 @@ html[data-theme] {
   --bg-0: #05080f;
   --bg-1: #0a0f1f;
   --bg-2: #0e1730;
+  --bg-art: url('../assets/ui/storm/bg-void.png');
   --panel: #0c1428;
   --panel-2: #111c3a;
   --panel-edge: #1d2a52;
@@ -272,9 +286,9 @@ html[data-theme] {
     );
 }
 
-/* Play route surfaces: subtle RPG background texture */
+/* Play route surfaces: let theme --bg-art show through; keep soft accent wash */
 .play-surface {
-  background-color: var(--background);
+  background-color: transparent;
   background-image: var(--tex-noise);
   color: var(--foreground);
 }
