@@ -12,11 +12,17 @@ from pydantic_ai.messages import (
     PartStartEvent,
     ThinkingPart,
     ThinkingPartDelta,
+    ToolCallPart,
+    ToolCallPartDelta,
 )
 
 import agent.definition as agent_mod
 from agent.definition import gm_agent
+from agent.narration_stream import NarrationStream
 from game.models import GameState
+
+# The only tool whose arguments are read for display. Everything else streams past untouched.
+NARRATE_TOOL = "narrate"
 
 # Callbacks receive the same (event_type, payload) shape the SSE queue carries, so the API
 # layer can forward them straight through and the CLI can print them.
@@ -35,11 +41,21 @@ class AgentEventStream:
     `is_first_call_tools_node` workaround go: a replayed call-tools node emits only
     `HandleResponseEvent`s — never part events — so the deferred-resume duplication that flag
     guarded against cannot occur.
+
+    Narration is read the same way, from `narrate()`'s in-flight arguments, and emitted as
+    cumulative `narration_delta` events. It is only ever *provisional*: the tool has not run
+    yet, so it may still be sanitized differently, dropped, or vetoed. `narrate()` itself
+    emits the settle (`narration`) or discard (`narration_discard`) that resolves it — see
+    KTD3.
     """
 
     def __init__(self, on_event: EventCallback | None = None) -> None:
         self._on_event = on_event
         self._thinking: dict[int, str] = {}
+        # Part index -> tool call id, for the narrate() calls in this run. Providers may leave
+        # tool_call_id off a delta, so the id captured at part start is the fallback.
+        self._narrate_calls: dict[int, str] = {}
+        self._narration = NarrationStream()
 
     async def __call__(
         self, ctx, stream: AsyncIterable[AgentStreamEvent]
@@ -54,18 +70,57 @@ class AgentEventStream:
 
     def handle_event(self, event: AgentStreamEvent) -> None:
         if isinstance(event, PartStartEvent):
-            if isinstance(event.part, ThinkingPart):
-                # A repeated start for an index fully replaces the previous part.
-                self._thinking[event.index] = event.part.content or ""
+            self._on_part_start(event)
         elif isinstance(event, PartDeltaEvent):
-            if isinstance(event.delta, ThinkingPartDelta) and event.delta.content_delta:
-                self._thinking[event.index] = (
-                    self._thinking.get(event.index, "") + event.delta.content_delta
-                )
+            self._on_part_delta(event)
         elif isinstance(event, PartEndEvent):
             content = self._thinking.pop(event.index, None)
             if content:
                 self.emit("thinking", {"text": content})
+
+    def _on_part_start(self, event: PartStartEvent) -> None:
+        # A repeated start for an index fully replaces the previous part, so clear both maps.
+        self._thinking.pop(event.index, None)
+        self._narrate_calls.pop(event.index, None)
+
+        part = event.part
+        if isinstance(part, ThinkingPart):
+            self._thinking[event.index] = part.content or ""
+        elif isinstance(part, ToolCallPart) and part.tool_name == NARRATE_TOOL:
+            self._narrate_calls[event.index] = part.tool_call_id
+            # A tool call whose name arrived late is emitted as a start event carrying every
+            # argument fragment seen so far — feed them or the opening text is lost.
+            self._reveal(part.tool_call_id, part.args)
+
+    def _on_part_delta(self, event: PartDeltaEvent) -> None:
+        delta = event.delta
+        if isinstance(delta, ThinkingPartDelta):
+            if delta.content_delta:
+                self._thinking[event.index] = (
+                    self._thinking.get(event.index, "") + delta.content_delta
+                )
+        elif isinstance(delta, ToolCallPartDelta):
+            tool_call_id = self._narrate_calls.get(event.index)
+            if tool_call_id is None:
+                return  # Not narrate() — no other tool's arguments are read for display.
+            self._reveal(tool_call_id, delta.args_delta)
+
+    def _reveal(self, tool_call_id: str, args_delta) -> None:
+        text = self._narration.feed(tool_call_id, args_delta)
+        if text is not None:
+            self.emit("narration_delta", {"tool_call_id": tool_call_id, "text": text})
+
+    def discard_open_narrations(self) -> None:
+        """Drop every provisional bubble this attempt opened.
+
+        Used when a whole run is retried: the failed attempt's half-written text must not be
+        left standing. Clients treat a discard for an already-settled call as a no-op, so
+        this is safe to fire broadly.
+        """
+        for tool_call_id in self._narration.open_ids():
+            self.emit("narration_discard", {"tool_call_id": tool_call_id})
+        self._narration.close_all()
+        self._narrate_calls.clear()
 
     def emit(self, event_type: str, payload: dict) -> None:
         if self._on_event is not None:
@@ -100,6 +155,8 @@ async def run_agent_iter(
         try:
             return await gm_agent.run(**run_kwargs, event_stream_handler=events)
         except Exception as e:
+            # Whatever happens next, this attempt's provisional text must not stay on screen.
+            events.discard_open_narrations()
             error_str = str(e)
             is_transient = (
                 "validation error" in error_str.lower()
