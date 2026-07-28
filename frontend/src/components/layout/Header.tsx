@@ -33,7 +33,7 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
   const { user, isLoading: authLoading, signOut } = useAuth();
 
   return (
-    <header className="sticky top-0 z-40 flex min-h-[56px] items-center justify-between gap-3 border-b border-border bg-background px-4 md:px-6">
+    <header className="sticky top-0 z-40 flex min-h-[56px] items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-sm md:px-6">
       <div className="flex min-h-[44px] min-w-[44px] items-center">
         <span className="text-lg font-semibold text-foreground">{title}</span>
       </div>

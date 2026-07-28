@@ -20,14 +20,14 @@ export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
       <header
         ref={ref}
         className={cn(
-          'play-appbar shrink-0',
+          'play-appbar play-appbar-session shrink-0',
           bossMode && 'play-appbar-boss',
           !bossMode && combatMode && 'play-appbar-combat',
           className,
         )}
         aria-label="Session"
       >
-        <div className="min-w-0 flex-1">
+        <div className="play-appbar-center min-w-0">
           <p className="play-lbl text-[var(--accent)]">
             {context.campaignTitle} · Ch {context.chapter}
           </p>
@@ -39,7 +39,7 @@ export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
         </div>
         <button
           type="button"
-          className="play-iconbtn min-h-[44px] min-w-[44px]"
+          className="play-iconbtn play-appbar-menu min-h-[44px] min-w-[44px]"
           aria-label="Open session menu"
           onClick={onMenuOpen}
         >
