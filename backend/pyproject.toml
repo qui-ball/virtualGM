@@ -15,3 +15,9 @@ dependencies = [
     "supabase>=2.28.3",
     "uvicorn[standard]>=0.34.0",
 ]
+
+[tool.pytest.ini_options]
+# Tests import backend modules by top-level package (`agent`, `api`, `game`). Without this,
+# only a whole-directory run works — `pytest tests/test_x.py` fails to import them.
+pythonpath = ["."]
+testpaths = ["tests"]
