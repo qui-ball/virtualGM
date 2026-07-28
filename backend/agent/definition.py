@@ -190,6 +190,18 @@ def add_campaign(ctx: RunContext[GameState]) -> str:
 
 
 @gm_agent.instructions
+def story_so_far(ctx: RunContext[GameState]) -> str:
+    """Inject the running transcript summary once compaction has produced one.
+
+    Empty until the first compaction, so early sessions are unaffected. Holds
+    narrative continuity only — mechanical state lives in <current_game_state>.
+    """
+    if not ctx.deps.story_summary:
+        return ""
+    return f"<story_so_far>\n{ctx.deps.story_summary}\n</story_so_far>"
+
+
+@gm_agent.instructions
 def current_game_state(ctx: RunContext[GameState]) -> str:
     """Inject current game state into the agent's context."""
     state_info = []

@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator
 from loguru import logger
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
+from agent.compaction import maybe_compact
 from agent.runner import run_agent_iter
 from api.enrichment import build_pending_action
 from api.narration_sanitize import extract_leaked_ask_player_roll
@@ -131,17 +132,22 @@ async def stream_turn(
 
     async def run():
         try:
-            def on_thinking(text: str):
-                logger.info(f"\033[90m💭 {text}\033[0m")
-                queue.put_nowait(("thinking", {"text": text}))
+            async with session.lock:
+                def on_thinking(text: str):
+                    logger.info(f"\033[90m💭 {text}\033[0m")
+                    queue.put_nowait(("thinking", {"text": text}))
 
-            result = await run_agent_iter(
-                deps=gs,
-                message_history=session.message_history,
-                user_prompt=player_message,
-                on_thinking=on_thinking,
-            )
-            _handle_result(session, result, queue)
+                result = await run_agent_iter(
+                    deps=gs,
+                    message_history=session.message_history,
+                    user_prompt=player_message,
+                    on_thinking=on_thinking,
+                )
+                _handle_result(session, result, queue)
+                # Compact under the lock — before any next-turn request can read
+                # the pre-compaction history. The complete event is already queued,
+                # so summarizer latency stays off the player-visible response.
+                await maybe_compact(session, result)
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))
@@ -180,17 +186,19 @@ async def stream_deferred_response(
 
     async def run():
         try:
-            def on_thinking(text: str):
-                logger.info(f"\033[90m💭 {text}\033[0m")
-                queue.put_nowait(("thinking", {"text": text}))
+            async with session.lock:
+                def on_thinking(text: str):
+                    logger.info(f"\033[90m💭 {text}\033[0m")
+                    queue.put_nowait(("thinking", {"text": text}))
 
-            result = await run_agent_iter(
-                deps=gs,
-                message_history=session.pending_deferred.messages_snapshot,
-                deferred_tool_results=deferred_results,
-                on_thinking=on_thinking,
-            )
-            _handle_result(session, result, queue)
+                result = await run_agent_iter(
+                    deps=gs,
+                    message_history=session.pending_deferred.messages_snapshot,
+                    deferred_tool_results=deferred_results,
+                    on_thinking=on_thinking,
+                )
+                _handle_result(session, result, queue)
+                await maybe_compact(session, result)
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))
