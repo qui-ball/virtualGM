@@ -66,17 +66,18 @@ async def run_chat():
             deferred_results = None
 
             while True:
-                def on_thinking(text: str):
-                    logger.info(
-                        f"{Colors.LIGHT_BLACK}💭 {text}{Colors.RESET}"
-                    )
+                def on_event(event_type: str, payload: dict):
+                    if event_type == "thinking":
+                        logger.info(
+                            f"{Colors.LIGHT_BLACK}💭 {payload.get('text', '')}{Colors.RESET}"
+                        )
 
                 result = await run_agent_iter(
                     deps=game_state,
                     message_history=message_history,
                     user_prompt=current_input,
                     deferred_tool_results=deferred_results,
-                    on_thinking=on_thinking,
+                    on_event=on_event,
                 )
 
                 # Check if we have deferred tool requests (player interaction needed)

@@ -1,15 +1,75 @@
-"""Shared agent iteration logic with retry and thinking extraction."""
+"""Shared agent execution: retry, plus translation of run events into app callbacks."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable
 
 from loguru import logger
-from pydantic_ai import Agent, DeferredToolResults
-from pydantic_ai.messages import ThinkingPart
+from pydantic_ai import DeferredToolResults
+from pydantic_ai.messages import (
+    AgentStreamEvent,
+    PartDeltaEvent,
+    PartEndEvent,
+    PartStartEvent,
+    ThinkingPart,
+    ThinkingPartDelta,
+)
 
 import agent.definition as agent_mod
 from agent.definition import gm_agent
 from game.models import GameState
+
+# Callbacks receive the same (event_type, payload) shape the SSE queue carries, so the API
+# layer can forward them straight through and the CLI can print them.
+EventCallback = Callable[[str, dict], None]
+
+
+class AgentEventStream:
+    """Translate pydantic-ai run events into (event_type, payload) callbacks.
+
+    One instance per agent run. pydantic-ai invokes the handler once per graph node, so state
+    that must survive across nodes lives on the instance rather than in a local.
+
+    Thinking is accumulated from `ThinkingPartDelta` and emitted whole at `PartEndEvent`,
+    preserving the one-callback-per-thinking-block contract the CLI and SSE consumers already
+    expect. Sourcing it from the model-request node is what let the old
+    `is_first_call_tools_node` workaround go: a replayed call-tools node emits only
+    `HandleResponseEvent`s — never part events — so the deferred-resume duplication that flag
+    guarded against cannot occur.
+    """
+
+    def __init__(self, on_event: EventCallback | None = None) -> None:
+        self._on_event = on_event
+        self._thinking: dict[int, str] = {}
+
+    async def __call__(
+        self, ctx, stream: AsyncIterable[AgentStreamEvent]
+    ) -> None:
+        """The `event_stream_handler` entry point pydantic-ai calls per node."""
+        await self.handle(stream)
+
+    async def handle(self, events: AsyncIterable[AgentStreamEvent]) -> None:
+        """Consume one node's event stream. Drivable with synthetic events in tests."""
+        async for event in events:
+            self.handle_event(event)
+
+    def handle_event(self, event: AgentStreamEvent) -> None:
+        if isinstance(event, PartStartEvent):
+            if isinstance(event.part, ThinkingPart):
+                # A repeated start for an index fully replaces the previous part.
+                self._thinking[event.index] = event.part.content or ""
+        elif isinstance(event, PartDeltaEvent):
+            if isinstance(event.delta, ThinkingPartDelta) and event.delta.content_delta:
+                self._thinking[event.index] = (
+                    self._thinking.get(event.index, "") + event.delta.content_delta
+                )
+        elif isinstance(event, PartEndEvent):
+            content = self._thinking.pop(event.index, None)
+            if content:
+                self.emit("thinking", {"text": content})
+
+    def emit(self, event_type: str, payload: dict) -> None:
+        if self._on_event is not None:
+            self._on_event(event_type, payload)
 
 
 async def run_agent_iter(
@@ -17,9 +77,9 @@ async def run_agent_iter(
     message_history: list,
     user_prompt: str | None = None,
     deferred_tool_results: DeferredToolResults | None = None,
-    on_thinking: Callable[[str], None] | None = None,
+    on_event: EventCallback | None = None,
 ):
-    """Run gm_agent.iter() with retry logic, returning the agent run result.
+    """Run the GM agent with retry, returning the agent run result.
 
     Callers inspect result.output for DeferredToolRequests vs str (internal notes).
     """
@@ -34,19 +94,11 @@ async def run_agent_iter(
         run_kwargs["user_prompt"] = user_prompt
 
     for attempt in range(agent_mod.MAX_RETRIES):
+        # A fresh handler per attempt: a retried run must not inherit half-accumulated
+        # state from the attempt that failed.
+        events = AgentEventStream(on_event=on_event)
         try:
-            is_first_call_tools_node = deferred_tool_results is not None
-            async with gm_agent.iter(**run_kwargs) as agent_run:
-                async for node in agent_run:
-                    if Agent.is_call_tools_node(node):
-                        if is_first_call_tools_node:
-                            is_first_call_tools_node = False
-                            continue
-                        for part in node.model_response.parts:
-                            if isinstance(part, ThinkingPart) and part.has_content():
-                                if on_thinking:
-                                    on_thinking(part.content)
-            return agent_run.result
+            return await gm_agent.run(**run_kwargs, event_stream_handler=events)
         except Exception as e:
             error_str = str(e)
             is_transient = (
