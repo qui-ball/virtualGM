@@ -199,23 +199,59 @@ def test_reused_part_index_does_not_leak_the_previous_call():
 # --------------------------------------------------------------------------- #
 # Retry discard (R7)
 # --------------------------------------------------------------------------- #
-def test_whole_run_retry_discards_the_open_tool_call_id():
+def test_terminal_failure_discards_open_text_without_retracting_settled():
+    """Giving up must not delete narration that really happened."""
     got, on_event = recorder()
     handler = AgentEventStream(on_event)
     drive(handler, tool_call_events(0, "narrate", "call-1", NARRATION)[:-1])  # still open
 
-    handler.discard_open_narrations()
+    handler.discard_narrations()
 
     assert ("narration_discard", {"tool_call_id": "call-1"}) in got
+
+
+def test_retry_retracts_settled_narration_too():
+    """A retry regenerates the turn, so its predecessor's settled text must go with it."""
+    got, on_event = recorder()
+    handler = AgentEventStream(on_event)
+    drive(handler, tool_call_events(0, "narrate", "call-1", NARRATION))
+
+    handler.discard_narrations(retract_settled=True)
+
+    assert ("narration_discard", {"tool_call_id": "call-1", "retract": True}) in got
 
 
 def test_discard_is_idempotent_and_empty_when_nothing_is_open():
     got, on_event = recorder()
     handler = AgentEventStream(on_event)
-    handler.discard_open_narrations()
-    handler.discard_open_narrations()
+    handler.discard_narrations()
+    handler.discard_narrations(retract_settled=True)
 
     assert got == []
+
+
+def test_replacing_an_unfinished_part_discards_the_narration_it_replaced():
+    """Nothing downstream will ever settle a narrate() call the model abandoned mid-part."""
+    got, on_event = recorder()
+    handler = AgentEventStream(on_event)
+    drive(handler, tool_call_events(0, "narrate", "call-a", "Alpha.")[:-1])  # no PartEndEvent
+    drive(handler, tool_call_events(0, "narrate", "call-b", "Beta."))
+
+    assert ("narration_discard", {"tool_call_id": "call-a"}) in got
+
+
+def test_a_completed_part_is_not_discarded_when_a_later_response_reuses_its_index():
+    """The common case: one response per tool call, every response starting again at index 0.
+
+    Once a part ends its tool owns the settle, so the handler must let go of the index —
+    otherwise the next response's first part retracts a narration that already settled.
+    """
+    got, on_event = recorder()
+    handler = AgentEventStream(on_event)
+    drive(handler, tool_call_events(0, "narrate", "call-a", "Alpha."))  # completes
+    drive(handler, tool_call_events(0, "set_scene", "call-b", "Tavern"))
+
+    assert [t for t, _ in got if t == "narration_discard"] == []
 
 
 def test_run_retry_emits_discard_before_the_next_attempt(monkeypatch):
@@ -241,8 +277,9 @@ def test_run_retry_emits_discard_before_the_next_attempt(monkeypatch):
         runner.run_agent_iter(deps=None, message_history=[], user_prompt="hi", on_event=on_event)
     )
 
-    assert ("narration_discard", {"tool_call_id": "call-1"}) in got
-    discard_at = got.index(("narration_discard", {"tool_call_id": "call-1"}))
+    retraction = ("narration_discard", {"tool_call_id": "call-1", "retract": True})
+    assert retraction in got
+    discard_at = got.index(retraction)
     second_attempt_at = next(
         i for i, (t, p) in enumerate(got)
         if t == "narration_delta" and p["tool_call_id"] == "call-2"

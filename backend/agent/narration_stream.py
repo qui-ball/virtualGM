@@ -69,9 +69,15 @@ def sanitize_partial(text: str) -> str:
 
 @dataclass
 class _CallState:
-    """Accumulated streaming state for one narrate() tool call."""
+    """Accumulated streaming state for one narrate() tool call.
+
+    A provider sends args either as JSON string fragments (appended) or as dicts (merged) —
+    `ToolCallPartDelta` defines both. The two are tracked separately because they compose
+    differently; concatenating serialized dicts would produce `{...}{...}`, which never parses.
+    """
 
     buffer: str = ""
+    dict_args: dict[str, Any] | None = None
     last_emitted: str | None = None
 
 
@@ -89,23 +95,27 @@ class NarrationStream:
     def feed(
         self, tool_call_id: str, args_delta: str | dict[str, Any] | None
     ) -> str | None:
-        """Append a fragment; return the new cumulative sanitized text, or None.
+        """Add a fragment; return the new cumulative sanitized text, or None.
 
-        None means "nothing new to paint" — the buffer does not parse yet, or the sanitized
-        result is unchanged from the last reveal. A dict `args_delta` (some providers send
-        the whole blob that way) is treated as a single complete payload.
+        None means "nothing new to paint" — the args do not parse yet, or the sanitized
+        result is unchanged from the last reveal.
+
+        String fragments append (they are pieces of one JSON blob); dict fragments merge, per
+        `ToolCallPartDelta`. Serializing dicts into the string buffer instead would leave it
+        permanently unparseable after the second one, silently ending the stream.
         """
         if not args_delta:
             return None
-        if isinstance(args_delta, dict):
-            fragment = json.dumps(args_delta)
-        else:
-            fragment = args_delta
 
         state = self._calls.setdefault(tool_call_id, _CallState())
-        state.buffer += fragment
+        if isinstance(args_delta, dict):
+            state.dict_args = {**(state.dict_args or {}), **args_delta}
+            value = state.dict_args.get("text")
+            raw = value if isinstance(value, str) else None
+        else:
+            state.buffer += args_delta
+            raw = partial_narration_text(state.buffer)
 
-        raw = partial_narration_text(state.buffer)
         if raw is None:
             return None
 

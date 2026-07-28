@@ -74,6 +74,10 @@ class AgentEventStream:
         elif isinstance(event, PartDeltaEvent):
             self._on_part_delta(event)
         elif isinstance(event, PartEndEvent):
+            # The part is complete, so the tool will run and own its settle/discard from here.
+            # Dropping the index mapping now is what keeps a later response that reuses the
+            # index from looking like an abandoned narration and retracting a settled one.
+            self._narrate_calls.pop(event.index, None)
             content = self._thinking.pop(event.index, None)
             if content:
                 self.emit("thinking", {"text": content})
@@ -81,7 +85,12 @@ class AgentEventStream:
     def _on_part_start(self, event: PartStartEvent) -> None:
         # A repeated start for an index fully replaces the previous part, so clear both maps.
         self._thinking.pop(event.index, None)
-        self._narrate_calls.pop(event.index, None)
+        replaced = self._narrate_calls.pop(event.index, None)
+        if replaced is not None:
+            # The replaced narration will never reach narrate(), so nothing else will ever
+            # settle or discard it — without this its provisional text stands forever.
+            self.emit("narration_discard", {"tool_call_id": replaced})
+            self._narration.close(replaced)
 
         part = event.part
         if isinstance(part, ThinkingPart):
@@ -110,15 +119,26 @@ class AgentEventStream:
         if text is not None:
             self.emit("narration_delta", {"tool_call_id": tool_call_id, "text": text})
 
-    def discard_open_narrations(self) -> None:
-        """Drop every provisional bubble this attempt opened.
+    def discard_narrations(self, *, retract_settled: bool = False) -> None:
+        """Pull back this attempt's narration.
 
-        Used when a whole run is retried: the failed attempt's half-written text must not be
-        left standing. Clients treat a discard for an already-settled call as a no-op, so
-        this is safe to fire broadly.
+        Two different situations need two different answers:
+
+        - **Terminal failure** (`retract_settled=False`): only half-written text goes. A
+          narration that already settled really happened — `narrate()` recorded it in
+          `gs.narrations` — so removing it would delete real content from the transcript.
+        - **Retry** (`retract_settled=True`): the whole attempt is about to be regenerated
+          from scratch, so anything it showed must go, settled or not. Otherwise the settled
+          bubble survives and the retry appends a second one — two GM messages for one action.
+
+        Clients ignore a plain discard for an already-settled call, which is what makes the
+        first case safe; `retract: True` is the explicit override for the second.
         """
         for tool_call_id in self._narration.open_ids():
-            self.emit("narration_discard", {"tool_call_id": tool_call_id})
+            payload = {"tool_call_id": tool_call_id}
+            if retract_settled:
+                payload["retract"] = True
+            self.emit("narration_discard", payload)
         self._narration.close_all()
         self._narrate_calls.clear()
 
@@ -155,14 +175,16 @@ async def run_agent_iter(
         try:
             return await gm_agent.run(**run_kwargs, event_stream_handler=events)
         except Exception as e:
-            # Whatever happens next, this attempt's provisional text must not stay on screen.
-            events.discard_open_narrations()
             error_str = str(e)
             is_transient = (
                 "validation error" in error_str.lower()
                 and ("input_value=None" in error_str or "'error'" in error_str)
             ) or "Server Error" in error_str
             if is_transient and attempt < agent_mod.MAX_RETRIES - 1:
+                # The next attempt regenerates the whole turn, so retract everything this
+                # one showed — including narration that already settled, which would
+                # otherwise stand alongside the retry's replacement.
+                events.discard_narrations(retract_settled=True)
                 delay = agent_mod.RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
                     f"Transient error (attempt {attempt + 1}/{agent_mod.MAX_RETRIES}), "
@@ -170,4 +192,7 @@ async def run_agent_iter(
                 )
                 await asyncio.sleep(delay)
                 continue
+            # Giving up: drop only half-written text. Narration that settled is real output
+            # and stays.
+            events.discard_narrations()
             raise

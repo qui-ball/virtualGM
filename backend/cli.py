@@ -15,6 +15,7 @@ from cli_render import (
     C,
     NarrationTracker,
     _c,
+    close_open_line,
     render_narration_delta,
     render_narration_discard,
     render_narration_settle,
@@ -47,6 +48,9 @@ async def run_chat():
 
     def on_event(event_type: str, payload: dict):
         if event_type == "thinking":
+            # Narration is written without a trailing newline, so close its row first or the
+            # thinking line lands mid-sentence.
+            close_open_line(narration)
             logger.info(_c(f"💭 {payload.get('text', '')}", C.DIM))
         elif event_type == "narration_delta":
             render_narration_delta(narration, payload)

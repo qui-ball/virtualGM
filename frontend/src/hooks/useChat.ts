@@ -173,7 +173,9 @@ export function useChat() {
             );
             break;
           case 'narration_discard':
-            setTranscript((prev) => discardNarration(prev, event.tool_call_id));
+            setTranscript((prev) =>
+              discardNarration(prev, event.tool_call_id, event.retract),
+            );
             break;
           case 'thinking':
             // Captured for the dev console only; never appended to the transcript.

@@ -86,7 +86,9 @@ export type TurnEvent =
   // until the matching `narration` (settle) or `narration_discard` arrives.
   | { type: 'narration_delta'; tool_call_id: string; text: string }
   | { type: 'narration'; text: string; tool_call_id?: string }
-  | { type: 'narration_discard'; tool_call_id: string }
+  // `retract` is set when a whole attempt is being regenerated, and means the entry must go
+  // even if it already settled. A plain discard only removes still-streaming text.
+  | { type: 'narration_discard'; tool_call_id: string; retract?: boolean }
   | { type: 'thinking'; text: string }
   | { type: 'scene'; text: string }
   | { type: 'state_changed'; fields: string[] }

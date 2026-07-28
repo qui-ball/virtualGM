@@ -5,10 +5,15 @@ repeat the text once per token — 80+ times on a typical turn, and invisible to
 fast stream. The suffix diffing is kept pure precisely so it can be asserted here.
 """
 
+import os
+
 import click
 
+import cli_render
 from cli_render import (
     NarrationTracker,
+    close_open_line,
+    discard_open_narrations,
     render_narration_delta,
     render_narration_discard,
     render_narration_settle,
@@ -140,6 +145,62 @@ def test_discard_retracts_a_streaming_narration_visibly(capsys):
 
     assert "narration discarded" in output
     assert tracker.is_open("call-1") is False
+
+
+def test_rows_occupied_counts_wrapped_and_newline_separated_rows(monkeypatch):
+    """Narration spans paragraphs and wraps; clearing one row leaves most of it readable.
+
+    The escape sequences themselves can't be asserted through capsys — click strips ANSI when
+    stdout isn't a tty — so the row arithmetic that drives them is tested directly.
+    """
+    monkeypatch.setattr(
+        cli_render.shutil, "get_terminal_size", lambda fallback=(80, 24): os.terminal_size((20, 24))
+    )
+
+    assert cli_render.rows_occupied("short") == 1
+    assert cli_render.rows_occupied("one\ntwo\nthree") == 3
+    # 45 chars across 20 columns wraps to 3 rows.
+    assert cli_render.rows_occupied("x" * 45) == 3
+    # A blank line still occupies a row.
+    assert cli_render.rows_occupied("a\n\nb") == 3
+    # The "📜 " prefix pushes the first row over the wrap boundary.
+    assert cli_render.rows_occupied("x" * 20) == 1
+    assert cli_render.rows_occupied("x" * 20, prefix_width=2) == 2
+
+
+def test_discard_notice_is_printed_for_a_multi_row_narration(capsys):
+    tracker = NarrationTracker()
+    render_narration_delta(tracker, delta("call-1", "one\ntwo\nthree"))
+    capsys.readouterr()
+
+    render_narration_discard(tracker, delta("call-1", ""))
+
+    assert "narration discarded" in strip_ansi(printed(capsys))
+    assert tracker.is_open("call-1") is False
+
+
+def test_close_open_line_only_breaks_when_a_narration_is_open(capsys):
+    tracker = NarrationTracker()
+    close_open_line(tracker)
+    assert printed(capsys) == "", "nothing open — must not emit a stray blank line"
+
+    render_narration_delta(tracker, delta("call-1", "Alpha"))
+    capsys.readouterr()
+    close_open_line(tracker)
+
+    assert printed(capsys) == "\n"
+
+
+def test_turn_end_sweep_retracts_narration_the_stream_never_resolved(capsys):
+    """A transport drop ends the stream with no backend discard."""
+    tracker = NarrationTracker()
+    render_narration_delta(tracker, delta("call-1", "Half a sen"))
+    capsys.readouterr()
+
+    discard_open_narrations(tracker)
+
+    assert "narration discarded" in strip_ansi(printed(capsys))
+    assert tracker.open_ids() == []
 
 
 def test_discard_for_an_unknown_or_settled_id_prints_nothing(capsys):

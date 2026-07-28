@@ -168,6 +168,48 @@ describe('discardNarration', () => {
     expect(discardNarration(settled, 'call-1')).toBe(settled);
   });
 
+  it('retracts an already-settled entry when the server is regenerating the turn', () => {
+    let entries = applyNarrationDelta([playerLine()], 'call-1', 'Alpha', 2);
+    entries = settleNarration(entries, 'call-1', 'Alpha one.', 3);
+
+    expect(discardNarration(entries, 'call-1', true)).toEqual([playerLine()]);
+  });
+
+  it('retract is still a no-op for an id the client never saw', () => {
+    const streamed = stream([], 'call-1', ['Alpha']);
+
+    expect(discardNarration(streamed, 'never-seen', true)).toBe(streamed);
+  });
+});
+
+describe('duplicate entry ids', () => {
+  it('a delta for an already-settled id updates in place instead of appending', () => {
+    let entries = applyNarrationDelta([], 'call-1', 'Alpha', 2);
+    entries = settleNarration(entries, 'call-1', 'Alpha one.', 3);
+    entries = applyNarrationDelta(entries, 'call-1', 'Reused', 4);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ content: 'Reused', streaming: true });
+  });
+
+  it('a repeated settle for one id does not append a second entry', () => {
+    let entries = applyNarrationDelta([], 'call-1', 'Alpha', 2);
+    entries = settleNarration(entries, 'call-1', 'Alpha one.', 3);
+    entries = settleNarration(entries, 'call-1', 'Alpha one.', 4);
+
+    expect(entries).toHaveLength(1);
+  });
+
+  it('never produces two entries sharing an id', () => {
+    let entries = applyNarrationDelta([], 'call-1', 'Alpha', 2);
+    entries = settleNarration(entries, 'call-1', 'Alpha one.', 3);
+    entries = applyNarrationDelta(entries, 'call-1', 'Again', 4);
+    entries = settleNarration(entries, 'call-1', 'Again settled.', 5);
+
+    const ids = entries.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it('leaves a concurrent narration streaming', () => {
     let entries = applyNarrationDelta([], 'call-a', 'Alpha', 2);
     entries = applyNarrationDelta(entries, 'call-b', 'Beta', 3);

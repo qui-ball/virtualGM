@@ -84,6 +84,23 @@ def test_dict_args_delta_produces_one_reveal():
     assert stream.feed("call-1", {"text": FULL}) == FULL
 
 
+def test_successive_dict_deltas_merge_rather_than_concatenate():
+    """ToolCallPartDelta merges dict args. Serializing them into the string buffer instead
+    would leave it permanently unparseable after the second one, silently ending the stream."""
+    stream = NarrationStream()
+
+    assert stream.feed("call-1", {"text": "The iron"}) == "The iron"
+    assert stream.feed("call-1", {"text": "The iron box is cold."}) == "The iron box is cold."
+    assert stream.feed("call-1", {"text": FULL}) == FULL
+
+
+def test_dict_delta_carrying_other_keys_keeps_text():
+    stream = NarrationStream()
+    stream.feed("call-1", {"other": 1})
+
+    assert stream.feed("call-1", {"text": "Ash."}) == "Ash."
+
+
 def test_consecutive_identical_parses_emit_one_reveal():
     stream = NarrationStream()
     assert stream.feed("call-1", '{"text":"Ash."') == "Ash."

@@ -37,7 +37,8 @@ from pydantic_ai.messages import (
     ToolCallPartDelta,
 )
 from pydantic_ai.models.openrouter import OpenRouterModelSettings
-from pydantic_core import from_json
+
+from agent.narration_stream import partial_narration_text
 
 dotenv.load_dotenv()
 
@@ -122,23 +123,11 @@ def build_settings(provider: str | None, allow_fallbacks: bool) -> OpenRouterMod
     )
 
 
-def partial_text(buf: str) -> str | None:
-    """Pull `text` out of a possibly-incomplete JSON args blob.
-
-    This is the exact operation the real implementation would perform on every delta, so if it
-    misbehaves here it will misbehave in production.
-    """
-    if not buf:
-        return None
-    try:
-        obj = from_json(buf, allow_partial="trailing-strings")
-    except ValueError:
-        return None
-    if isinstance(obj, dict):
-        value = obj.get("text")
-        if isinstance(value, str):
-            return value
-    return None
+# The probe measures the SAME parse the production streaming path performs, so it imports it
+# rather than restating it. A local copy would let the probe keep reporting STREAMABLE against
+# parsing behavior production no longer has — and this script's exit code is what gates a
+# MODEL_PRESETS change, so a silent drift here is a silently wrong gate.
+partial_text = partial_narration_text
 
 
 def reveal_timeline(trace: ToolTrace) -> list[tuple[float, str]]:
