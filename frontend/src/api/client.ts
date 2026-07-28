@@ -82,7 +82,11 @@ export function submitBossDeath(
 // -- SSE streaming for turns --
 
 export type TurnEvent =
-  | { type: 'narration'; text: string }
+  // Cumulative player-safe narration read off narrate()'s in-flight arguments. Provisional
+  // until the matching `narration` (settle) or `narration_discard` arrives.
+  | { type: 'narration_delta'; tool_call_id: string; text: string }
+  | { type: 'narration'; text: string; tool_call_id?: string }
+  | { type: 'narration_discard'; tool_call_id: string }
   | { type: 'thinking'; text: string }
   | { type: 'scene'; text: string }
   | { type: 'state_changed'; fields: string[] }

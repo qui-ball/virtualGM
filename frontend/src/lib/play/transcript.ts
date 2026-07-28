@@ -55,6 +55,8 @@ export type TranscriptEntry =
       timestamp: number;
       ooc?: boolean;
       error?: boolean;
+      /** Narration still arriving from the model; content is provisional until it settles. */
+      streaming?: boolean;
     }
   | {
       kind: 'roll_prompt';

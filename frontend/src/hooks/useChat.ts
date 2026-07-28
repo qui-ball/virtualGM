@@ -26,6 +26,12 @@ import {
   shouldBlockForLevelUp,
   type LevelUpSelection,
 } from '@/lib/play/levelUp';
+import {
+  applyNarrationDelta,
+  clearStreamingNarrations,
+  discardNarration,
+  settleNarration,
+} from '@/lib/play/narrationStream';
 import { rollDiceToResultFields } from '@/lib/play/rollResultFields';
 import { pendingActionToRollPrompt, rollTargetFromPendingAction } from '@/lib/play/pendingActionAdapter';
 import {
@@ -147,14 +153,18 @@ export function useChat() {
     try {
       for await (const event of streamTurn(sessionIdRef.current, body)) {
         switch (event.type) {
-          case 'narration':
-            appendEntry(
-              chatMessageToTranscriptEntry({
-                role: 'gm',
-                content: event.text,
-                timestamp: Date.now(),
-              }),
+          case 'narration_delta':
+            setTranscript((prev) =>
+              applyNarrationDelta(prev, event.tool_call_id, event.text),
             );
+            break;
+          case 'narration':
+            setTranscript((prev) =>
+              settleNarration(prev, event.tool_call_id, event.text),
+            );
+            break;
+          case 'narration_discard':
+            setTranscript((prev) => discardNarration(prev, event.tool_call_id));
             break;
           case 'scene':
             appendEntry({
@@ -237,6 +247,7 @@ export function useChat() {
             break;
           }
           case 'error':
+            setTranscript(clearStreamingNarrations);
             appendEntry(
               chatMessageToTranscriptEntry({
                 role: 'system',
@@ -259,6 +270,9 @@ export function useChat() {
         }),
       );
     } finally {
+      // A turn that ends without resolving its narrations — dropped connection, mid-turn
+      // crash — must not leave half a sentence standing. Settled bubbles are untouched.
+      setTranscript(clearStreamingNarrations);
       setLoading(false);
     }
   }, [appendEntry, persistSession, scheduleStateRefetch, clearStateRefetch]);

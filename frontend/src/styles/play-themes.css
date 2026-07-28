@@ -1750,8 +1750,37 @@ html[data-theme] .play-chip {
   border-color: color-mix(in srgb, var(--bad) 45%, var(--panel-edge));
 }
 
+.play-bubble-streaming {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--panel-edge));
+}
+
 .play-thinking {
   font-style: italic;
+}
+
+/* Narration still arriving from the model — the text is provisional until it settles. */
+.play-caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: play-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes play-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .play-caret {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 .play-roll-card {

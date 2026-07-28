@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { prefersReducedMotion } from '@/lib/a11y/motion';
 import type { TranscriptEntry } from '@/lib/play/transcript';
 import { formatTranscriptTime } from '@/lib/play/transcript';
+import { hasStreamingNarration } from '@/lib/play/narrationStream';
 import { RollPromptCard } from '@/components/play/RollPromptCard';
 import { RollResultCard } from '@/components/play/RollResultCard';
 import { SceneMarker } from '@/components/play/SceneMarker';
@@ -36,6 +37,10 @@ export function StoryStack({
   const visible = entries.filter(
     (e) => !(e.kind === 'message' && e.content === '__loading__'),
   );
+
+  // Once narration is flowing, the text itself is the progress indicator — a "GM is
+  // thinking…" line under a bubble that is actively filling reads as a stall.
+  const streaming = hasStreamingNarration(entries);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -143,7 +148,9 @@ export function StoryStack({
                   'play-bubble',
                   isGm ? 'play-bubble-gm' : 'play-bubble-you',
                   entry.ooc && 'opacity-90',
+                  entry.streaming && 'play-bubble-streaming',
                 )}
+                aria-busy={entry.streaming || undefined}
               >
                 <header className="play-bubble-head">
                   <span
@@ -167,6 +174,9 @@ export function StoryStack({
                 </header>
                 <p className="play-bubble-body whitespace-pre-wrap">
                   {entry.content}
+                  {entry.streaming ? (
+                    <span className="play-caret" aria-hidden />
+                  ) : null}
                 </p>
               </article>
             );
@@ -174,7 +184,7 @@ export function StoryStack({
         }
       })}
 
-      {loading ? (
+      {loading && !streaming ? (
         <p
           className="play-thinking px-1 text-sm text-[var(--ink-3)]"
           role="status"
