@@ -41,25 +41,10 @@ class Colors:
 def _notify_state_changed(gs: GameState, *fields: str) -> None:
     """Signal the client that game state changed mid-turn (ping-to-refetch).
 
-    Reuses the SSE event queue (same path as narrate/set_scene). The event carries
-    only a hint of which fields changed — the authoritative state is read back by the
-    client via GET /sessions/{id}/state. No-op outside an active stream (e.g. the
-    in-process CLI), where _event_queue is None.
+    The event carries only a hint of which fields changed — the authoritative state is read
+    back by the client via GET /sessions/{id}/state.
     """
-    if gs._event_queue is not None:
-        gs._event_queue.put_nowait(("state_changed", {"fields": list(fields)}))
-
-
-def _emit(gs: GameState, event_type: str, payload: dict) -> None:
-    """Send a tool-originated event to whichever consumer is listening.
-
-    The API path drains an SSE queue; the in-process CLI takes a direct callback because it
-    has no queue. Both may be unset (unit tests), in which case this is a no-op.
-    """
-    if gs._event_queue is not None:
-        gs._event_queue.put_nowait((event_type, payload))
-    if gs._on_tool_event is not None:
-        gs._on_tool_event(event_type, payload)
+    gs.emit("state_changed", {"fields": list(fields)})
 
 
 def _discard_narration(ctx: RunContext[GameState]) -> None:
@@ -69,7 +54,7 @@ def _discard_narration(ctx: RunContext[GameState]) -> None:
     every path out of narrate() that does NOT show the text has to say so explicitly —
     otherwise half a sentence is left standing on screen.
     """
-    _emit(ctx.deps, "narration_discard", {"tool_call_id": ctx.tool_call_id})
+    ctx.deps.emit("narration_discard", {"tool_call_id": ctx.tool_call_id})
 
 
 @gm_agent.tool
@@ -97,7 +82,7 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
     ctx.deps.narrations.append(text)
     # This is the settle signal: the tool_call_id ties it to the narration_delta frames the
     # client has been painting, so it can replace provisional text with the authoritative text.
-    _emit(ctx.deps, "narration", {"text": text, "tool_call_id": ctx.tool_call_id})
+    ctx.deps.emit("narration", {"text": text, "tool_call_id": ctx.tool_call_id})
     # Log for CLI consumers — but not when a direct sink is attached, since that consumer
     # already printed this text live off the delta stream and would otherwise see it twice.
     if ctx.deps._on_tool_event is None:
@@ -197,10 +182,7 @@ def set_scene(ctx: RunContext[GameState], scene_label: str) -> str:
         scene_label: Short scene name (e.g. "Tavern, dusk", "Combat — Goblin ambush")
     """
     ctx.deps.scene_label = scene_label
-    if ctx.deps._event_queue is not None:
-        ctx.deps._event_queue.put_nowait(
-            ("scene", {"text": f"Scene · {scene_label}"})
-        )
+    ctx.deps.emit("scene", {"text": f"Scene · {scene_label}"})
     _notify_state_changed(ctx.deps, "scene_label")
     return f"Scene set to {scene_label}"
 

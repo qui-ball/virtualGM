@@ -198,6 +198,17 @@ class GameState:
         # discard signals to resolve the text it printed live.
         self._on_tool_event = None
 
+    def emit(self, event_type: str, payload: dict) -> None:
+        """Send a mid-turn event to whichever consumer is listening.
+
+        The API path drains an SSE queue; the in-process CLI takes a direct callback because
+        it has no queue. Both may be unset (e.g. unit tests), in which case this is a no-op.
+        """
+        if self._event_queue is not None:
+            self._event_queue.put_nowait((event_type, payload))
+        if self._on_tool_event is not None:
+            self._on_tool_event(event_type, payload)
+
 
 class EndGameMasterTurn(BaseModel):
     """Signals the end of the GM's turn."""

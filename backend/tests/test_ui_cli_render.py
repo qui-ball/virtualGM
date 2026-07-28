@@ -7,7 +7,7 @@ fast stream. The suffix diffing is kept pure precisely so it can be asserted her
 
 import click
 
-from ui_cli import (
+from cli_render import (
     NarrationTracker,
     render_narration_delta,
     render_narration_discard,

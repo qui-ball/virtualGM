@@ -11,21 +11,14 @@ import agent as agent_mod
 from agent import gm_agent, run_agent_iter
 from agent.tools import handle_ask_player_roll
 from game.models import GameState, create_player_character
-from ui_cli import (
+from cli_render import (
+    C,
     NarrationTracker,
+    _c,
     render_narration_delta,
     render_narration_discard,
     render_narration_settle,
 )
-
-
-# ANSI color codes for terminal output
-class Colors:
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    RED = "\033[31m"
-    LIGHT_BLACK = "\033[90m"
-    RESET = "\033[0m"
 
 
 async def run_chat():
@@ -54,7 +47,7 @@ async def run_chat():
 
     def on_event(event_type: str, payload: dict):
         if event_type == "thinking":
-            logger.info(f"{Colors.LIGHT_BLACK}💭 {payload.get('text', '')}{Colors.RESET}")
+            logger.info(_c(f"💭 {payload.get('text', '')}", C.DIM))
         elif event_type == "narration_delta":
             render_narration_delta(narration, payload)
         elif event_type == "narration":
