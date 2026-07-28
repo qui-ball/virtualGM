@@ -193,6 +193,11 @@ class GameState:
         # Session back-reference — set by turn_engine during streaming (transcript append)
         self._session: object | None = None
 
+        # Direct (event_type, payload) sink for tool-originated events — set by the
+        # in-process CLI, which has no SSE queue but still needs narrate()'s settle and
+        # discard signals to resolve the text it printed live.
+        self._on_tool_event = None
+
 
 class EndGameMasterTurn(BaseModel):
     """Signals the end of the GM's turn."""

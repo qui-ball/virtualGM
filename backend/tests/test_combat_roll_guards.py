@@ -17,7 +17,9 @@ from game.models import EnemyState, GameState, create_player_character
 
 
 def _ctx(gs: GameState):
-    return SimpleNamespace(deps=gs)
+    # tool_call_id is always present on a real RunContext; narrate() uses it to correlate
+    # its settle/discard signal with the deltas the client streamed.
+    return SimpleNamespace(deps=gs, tool_call_id="t1")
 
 
 def _attack_pending() -> PendingAction:

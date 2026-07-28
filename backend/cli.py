@@ -11,6 +11,12 @@ import agent as agent_mod
 from agent import gm_agent, run_agent_iter
 from agent.tools import handle_ask_player_roll
 from game.models import GameState, create_player_character
+from ui_cli import (
+    NarrationTracker,
+    render_narration_delta,
+    render_narration_discard,
+    render_narration_settle,
+)
 
 
 # ANSI color codes for terminal output
@@ -43,6 +49,23 @@ async def run_chat():
         Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted"
     )
 
+    # Narration is printed live from the delta stream rather than logged once at the end.
+    narration = NarrationTracker()
+
+    def on_event(event_type: str, payload: dict):
+        if event_type == "thinking":
+            logger.info(f"{Colors.LIGHT_BLACK}💭 {payload.get('text', '')}{Colors.RESET}")
+        elif event_type == "narration_delta":
+            render_narration_delta(narration, payload)
+        elif event_type == "narration":
+            render_narration_settle(narration, payload)
+        elif event_type == "narration_discard":
+            render_narration_discard(narration, payload)
+
+    # narrate()'s settle/discard reach us through this sink; there is no SSE queue in-process.
+    # Attaching it also suppresses narrate()'s own log line, which would double-print the turn.
+    game_state._on_tool_event = on_event
+
     logger.info(
         f"Character loaded: {game_state.pc.name} (Level {game_state.pc.level} {game_state.pc.character_class})"
     )
@@ -66,12 +89,6 @@ async def run_chat():
             deferred_results = None
 
             while True:
-                def on_event(event_type: str, payload: dict):
-                    if event_type == "thinking":
-                        logger.info(
-                            f"{Colors.LIGHT_BLACK}💭 {payload.get('text', '')}{Colors.RESET}"
-                        )
-
                 result = await run_agent_iter(
                     deps=game_state,
                     message_history=message_history,

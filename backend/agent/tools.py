@@ -50,6 +50,18 @@ def _notify_state_changed(gs: GameState, *fields: str) -> None:
         gs._event_queue.put_nowait(("state_changed", {"fields": list(fields)}))
 
 
+def _emit(gs: GameState, event_type: str, payload: dict) -> None:
+    """Send a tool-originated event to whichever consumer is listening.
+
+    The API path drains an SSE queue; the in-process CLI takes a direct callback because it
+    has no queue. Both may be unset (unit tests), in which case this is a no-op.
+    """
+    if gs._event_queue is not None:
+        gs._event_queue.put_nowait((event_type, payload))
+    if gs._on_tool_event is not None:
+        gs._on_tool_event(event_type, payload)
+
+
 def _discard_narration(ctx: RunContext[GameState]) -> None:
     """Drop the provisional bubble this call has been streaming into.
 
@@ -57,10 +69,7 @@ def _discard_narration(ctx: RunContext[GameState]) -> None:
     every path out of narrate() that does NOT show the text has to say so explicitly —
     otherwise half a sentence is left standing on screen.
     """
-    if ctx.deps._event_queue is not None:
-        ctx.deps._event_queue.put_nowait(
-            ("narration_discard", {"tool_call_id": ctx.tool_call_id})
-        )
+    _emit(ctx.deps, "narration_discard", {"tool_call_id": ctx.tool_call_id})
 
 
 @gm_agent.tool
@@ -86,14 +95,13 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
             "Do not describe wounds, defeat, or death yet."
         )
     ctx.deps.narrations.append(text)
-    # Push to SSE stream if active. This is also the settle signal: the tool_call_id ties it
-    # to the narration_delta frames the client has been painting.
-    if ctx.deps._event_queue is not None:
-        ctx.deps._event_queue.put_nowait(
-            ("narration", {"text": text, "tool_call_id": ctx.tool_call_id})
-        )
-    # Also log for CLI consumers
-    logger.info(f"{Colors.GREEN}{text}{Colors.RESET}")
+    # This is the settle signal: the tool_call_id ties it to the narration_delta frames the
+    # client has been painting, so it can replace provisional text with the authoritative text.
+    _emit(ctx.deps, "narration", {"text": text, "tool_call_id": ctx.tool_call_id})
+    # Log for CLI consumers — but not when a direct sink is attached, since that consumer
+    # already printed this text live off the delta stream and would otherwise see it twice.
+    if ctx.deps._on_tool_event is None:
+        logger.info(f"{Colors.GREEN}{text}{Colors.RESET}")
     return f"Narration was shown to the player: {text[:50]}..."
 
 

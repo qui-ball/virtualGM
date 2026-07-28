@@ -112,6 +112,11 @@ class NarrationStream:
         text = sanitize_partial(raw)
         if text == state.last_emitted:
             return None
+        if not text and state.last_emitted is None:
+            # `{"text":"` parses long before any prose arrives, and a roll-prompt-only
+            # narration sanitizes to empty for its whole life. Staying quiet until there is
+            # something to show keeps clients from flashing an empty bubble open and shut.
+            return None
         state.last_emitted = text
         return text
 

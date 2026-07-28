@@ -66,7 +66,8 @@ def test_fragments_produce_strictly_growing_reveals_ending_at_full_text():
 def test_fragment_split_mid_key_yields_no_reveal_until_text_parses():
     stream = NarrationStream()
     assert stream.feed("call-1", '{"te') is None
-    assert stream.feed("call-1", 'xt":"') == ""
+    # `{"text":"` parses fine but carries no prose yet — nothing to paint.
+    assert stream.feed("call-1", 'xt":"') is None
     assert stream.feed("call-1", "Ash.") == "Ash."
 
 
@@ -137,12 +138,21 @@ def test_partial_open_tag_is_held_back_until_it_resolves():
     assert stream.feed("call-1", "ol_call>ask_player_roll") is None
 
 
-def test_narration_that_sanitizes_to_empty_reveals_empty_string_not_markup():
+def test_narration_that_sanitizes_to_empty_never_reveals_at_all():
+    """Covers AE4 — a roll-prompt-only narration must not flash an empty bubble open."""
     stream = NarrationStream()
     blob = json.dumps({"text": "<tool_call>ask_player_roll<arg_key>dice_type</arg_key>"})
-    reveals = drive(stream, "call-1", [blob])
 
-    assert all(reveal == "" for reveal in reveals)
+    assert drive(stream, "call-1", [blob]) == []
+
+
+def test_markup_appended_after_a_real_reveal_leaves_the_prose_standing():
+    """Stripping trailing markup must not retract text the player has already read."""
+    stream = NarrationStream()
+    assert stream.feed("call-1", '{"text":"The wind dies.') == "The wind dies."
+    # The tag is stripped, so the visible text is unchanged — and an unchanged text is
+    # not re-emitted.
+    assert stream.feed("call-1", "<tool_call>ask_player_roll<arg_key>dice_type") is None
 
 
 # --------------------------------------------------------------------------- #

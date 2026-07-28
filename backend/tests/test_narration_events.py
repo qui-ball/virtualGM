@@ -356,6 +356,69 @@ def test_resume_after_dice_roll_streams_narration_deltas(monkeypatch):
     assert types[-1] == "complete"
 
 
+def _stub_streaming_narrate(text: str, call_id: str = "call-1"):
+    """Stream `text` as narrate() deltas, then actually run the real narrate() tool.
+
+    Exercises the full chain the model would drive — handler -> queue -> SSE frames — with
+    the tool's own settle/discard decision, but without a live model.
+    """
+
+    async def fake(deps, message_history, user_prompt=None, deferred_tool_results=None, on_event=None):
+        await feed(AgentEventStream(on_event), tool_call_events(0, "narrate", call_id, text))
+        try:
+            narrate(ctx_for(deps, call_id), text)
+        except ModelRetry:
+            pass
+        return SimpleNamespace(all_messages=lambda: [], output="notes")
+
+    return fake
+
+
+def test_vetoed_narration_reaches_the_wire_as_deltas_then_a_discard(monkeypatch):
+    """Covers AE3 end to end: streamed text is retracted, never settled."""
+    monkeypatch.setattr(
+        turn_engine, "run_agent_iter", _stub_streaming_narrate("The goblin crumples and dies.")
+    )
+    session = Session(id="s3", game_state=GameState())
+    session.game_state.awaiting_damage_roll = True
+
+    events = asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I attack")))
+    types = [t for t, _ in events]
+
+    assert "narration_delta" in types
+    assert ("narration_discard", {"tool_call_id": "call-1"}) in events
+    assert "narration" not in types, "a vetoed narration must never settle"
+
+
+def test_roll_prompt_only_narration_opens_no_bubble_at_all(monkeypatch):
+    """Covers AE4: nothing is painted, so the discard has nothing to clean up."""
+    leaked = "<tool_call>ask_player_roll<arg_key>dice_type</arg_key><arg_value>d20"
+    monkeypatch.setattr(turn_engine, "run_agent_iter", _stub_streaming_narrate(leaked))
+    session = Session(id="s4", game_state=GameState())
+
+    events = asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I search")))
+    types = [t for t, _ in events]
+
+    assert "narration_delta" not in types, "empty narration must not flash a bubble"
+    assert ("narration_discard", {"tool_call_id": "call-1"}) in events
+    assert "narration" not in types
+
+
+def test_accepted_narration_reaches_the_wire_as_deltas_then_a_settle(monkeypatch):
+    """Covers AE1 end to end."""
+    monkeypatch.setattr(turn_engine, "run_agent_iter", _stub_streaming_narrate(NARRATION))
+    session = Session(id="s5", game_state=GameState())
+
+    events = asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I look")))
+
+    streamed = [p["text"] for t, p in events if t == "narration_delta"]
+    settles = [p for t, p in events if t == "narration"]
+
+    assert streamed and streamed[-1] == NARRATION
+    assert settles == [{"text": NARRATION, "tool_call_id": "call-1"}]
+    assert "narration_discard" not in [t for t, _ in events]
+
+
 def test_replayed_first_tool_call_batch_does_not_re_emit_narration():
     """Covers R3's second half.
 

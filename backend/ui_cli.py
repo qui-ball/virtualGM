@@ -66,6 +66,13 @@ def out(text=""):
     click.echo(text)
 
 
+def write(text):
+    """Print without a trailing newline, flushed — for text that arrives a token at a time."""
+    if text:
+        click.echo(text, nl=False)
+    sys.stdout.flush()
+
+
 def err(text):
     click.echo(_c(f"⚠ {text}", C.RED), err=True)
 
@@ -423,6 +430,86 @@ def render_roll_result(rr):
 
 
 # --------------------------------------------------------------------------- #
+# Narration streaming
+# --------------------------------------------------------------------------- #
+class NarrationTracker:
+    """Turn cumulative narration payloads into the slice that still needs printing.
+
+    narration_delta carries the whole narration so far, not the fragment that grew it — that
+    is what makes the events idempotent for the web client. A terminal is append-only, so
+    printing each payload whole would repeat the narration once per token (80+ times on a
+    typical turn). This tracks what has already been written, per tool call id, and hands back
+    only the new tail.
+
+    Pure by design: it never prints. That keeps the diffing directly testable, which matters
+    because reprinting is invisible to the eye on a fast stream.
+    """
+
+    def __init__(self):
+        self._printed: dict[str, str] = {}
+
+    def is_open(self, tool_call_id: str) -> bool:
+        """True once anything has been written for this narration and before it is closed."""
+        return tool_call_id in self._printed
+
+    def advance(self, tool_call_id: str, cumulative: str) -> str:
+        """Record `cumulative` as printed and return the text that was newly appended.
+
+        A payload that is not a forward extension of what is already on screen — the
+        sanitizer rewriting or shrinking the text mid-stream — yields "". A terminal cannot
+        unprint, so the safe move is to add nothing rather than emit a garbled or negative
+        slice; the settle reconciles against the authoritative text.
+        """
+        printed = self._printed.get(tool_call_id, "")
+        if not cumulative.startswith(printed):
+            self._printed.setdefault(tool_call_id, printed)
+            return ""
+        self._printed[tool_call_id] = cumulative
+        return cumulative[len(printed):]
+
+    def close(self, tool_call_id: str) -> None:
+        """Forget a narration once it has settled or been discarded."""
+        self._printed.pop(tool_call_id, None)
+
+
+# These three take a tracker rather than a Click context so cli.py — which streams the same
+# events in-process, without SSE — renders narration identically.
+def render_narration_delta(tracker, data):
+    """Paint the newly-arrived slice of an in-flight narration."""
+    tool_call_id = data.get("tool_call_id") or ""
+    opening = not tracker.is_open(tool_call_id)
+    suffix = tracker.advance(tool_call_id, data.get("text") or "")
+    if opening:
+        write(_c("📜 ", C.GREEN))
+    write(suffix)
+
+
+def render_narration_settle(tracker, data):
+    """Close out a narration against the authoritative text narrate() recorded."""
+    tool_call_id = data.get("tool_call_id") or ""
+    opening = not tracker.is_open(tool_call_id)
+    # A settle with no prior deltas — an atomic provider, or a consumer that missed the
+    # stream — prints the whole thing, exactly as before streaming existed.
+    suffix = tracker.advance(tool_call_id, data.get("text") or "")
+    if opening:
+        write(_c("📜 ", C.GREEN))
+    write(suffix)
+    tracker.close(tool_call_id)
+    out()
+
+
+def render_narration_discard(tracker, data):
+    """Pull back a provisional narration the tool then dropped or vetoed."""
+    tool_call_id = data.get("tool_call_id") or ""
+    if not tracker.is_open(tool_call_id):
+        return  # Already settled, or never streamed — nothing on screen to retract.
+    tracker.close(tool_call_id)
+    # Wipe the line in progress so the abandoned text isn't mistaken for real narration.
+    write("\r\033[2K")
+    out(_c("⌫ narration discarded (omitted or vetoed)", C.YELLOW))
+
+
+# --------------------------------------------------------------------------- #
 # SSE streaming + turn driver
 # --------------------------------------------------------------------------- #
 def stream_turn(ctx, sid, payload):
@@ -469,8 +556,12 @@ def render_event(ctx, event_type, data):
         return
     if event_type == "thinking":
         out(_c(f"💭 {data.get('text', '')}", C.DIM))
+    elif event_type == "narration_delta":
+        render_narration_delta(ctx.obj["narration"], data)
     elif event_type == "narration":
-        out(_c("📜 ", C.GREEN) + (data.get("text") or ""))
+        render_narration_settle(ctx.obj["narration"], data)
+    elif event_type == "narration_discard":
+        render_narration_discard(ctx.obj["narration"], data)
     elif event_type == "scene":
         out(_c(f"🎬 {data.get('text', '')}", C.BOLD + C.CYAN))
     elif event_type == "state_changed":
@@ -555,6 +646,9 @@ def cli(ctx, base_url, json_mode, seed):
     ctx.obj["base_url"] = base_url.rstrip("/")
     ctx.obj["json_mode"] = json_mode
     ctx.obj["rng"] = random.Random(seed)
+    # Shared across every turn this process runs, so a narration that spans an auto-roll
+    # round-trip keeps its printed-so-far state.
+    ctx.obj["narration"] = NarrationTracker()
     # One client per process so requests (and each auto-roll round-trip / REPL line)
     # reuse a keep-alive connection instead of reconnecting every time.
     client = make_client(ctx.obj["base_url"])
