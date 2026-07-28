@@ -63,6 +63,14 @@ html[data-theme] body {
   --bg-1: #0a0f1f;
   --bg-2: #0e1730;
   --bg-art: url('../assets/ui/storm/bg-void.png');
+  /* Chrome art tokens — other themes set the same names with their pack URLs */
+  --art-btn-icon: url('../assets/ui/storm/btn-icon-transparent.png');
+  --art-chip-stat: url('../assets/ui/storm/chip-stat-vertical.png');
+  --art-chip-stat-h: url('../assets/ui/storm/chip-stat-horizontal-transparent.png');
+  /* 9-slice: top right bottom left in source px, plus fill. Tune per asset. */
+  --art-chip-slice: 140 180 140 180 fill;
+  --art-chip-border: 14px;
+  --art-pull-grip: url('../assets/ui/storm/sheet-pull-grip-transparent.png');
   --panel: #0c1428;
   --panel-2: #111c3a;
   --panel-edge: #1d2a52;
@@ -291,6 +299,91 @@ html[data-theme] body {
   background-color: transparent;
   background-image: var(--tex-noise);
   color: var(--foreground);
+}
+
+/*
+ * Theme chrome art contract (shared by all packs).
+ *
+ * Opt in by setting theme tokens:
+ *   --art-btn-icon     square bezel; element stays fixed 44×44 (no stretch)
+ *   --art-chip-stat-h  horizontal chip frame via CSS border-image (9-slice)
+ *   --art-chip-slice   e.g. `140 180 140 180 fill` (T R B L source px + fill)
+ *   --art-chip-border  drawn border thickness in CSS px (keep chip height stable)
+ *   --art-pull-grip    sheet pull-handle ornament (contain; fixed aspect)
+ *
+ * Native CSS border-image = Scale9 / nine-slice. No library required.
+ * Corners stay fixed; only edges stretch. Prefer fixed chip height so side
+ * medallions are not vertically squashed when the window resizes.
+ * Raster play icons (bolt/menu/…) live in theme/icon-art.ts.
+ */
+html[data-theme] .play-iconbtn {
+  background-image: var(--art-btn-icon, none);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+  aspect-ratio: 1;
+}
+
+html[data-theme] .play-chip {
+  border-image-source: var(--art-chip-stat-h, none);
+  border-image-slice: var(--art-chip-slice, 0);
+  border-image-width: var(--art-chip-border, 0);
+  border-image-repeat: stretch;
+}
+
+[data-theme='storm'] .play-iconbtn {
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--ink);
+}
+
+[data-theme='storm'] .play-iconbtn:hover {
+  border-color: transparent;
+  filter: brightness(1.12);
+  box-shadow: var(--glow);
+}
+
+[data-theme='storm'] .play-chip {
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--art-chip-border);
+  border-radius: 0; /* ignored while border-image is active */
+  background-color: transparent;
+  background-image: none;
+  padding: 2px 4px;
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+[data-theme='storm'] .play-chip-hot,
+[data-theme='storm'] .play-chip-warn,
+[data-theme='storm'] .play-chip-bad {
+  box-shadow: none;
+  filter: brightness(1.06);
+}
+
+/* Pull grip: zoom past transparent padding so the bar fills the handle */
+[data-theme='storm'] .play-pull-grip {
+  width: min(220px, 70vw);
+  height: 28px;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: var(--art-pull-grip);
+  /* Source content ~2285×232 inside 2752×1536 → scale to fill the box */
+  background-size: 120.4% 662%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+[data-theme='storm'] .play-pull-handle-dragging .play-pull-grip {
+  background-color: transparent;
+  background-image: var(--art-pull-grip);
+  background-size: 120.4% 662%;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: brightness(1.2);
+  box-shadow: var(--glow);
 }
 
 /*
@@ -575,6 +668,31 @@ html[data-theme] body {
     color-mix(in srgb, var(--accent) 6%, transparent),
     transparent
   );
+}
+
+/* Session: campaign / scene / time centered; menu stays top-right */
+.play-appbar-session {
+  justify-content: center;
+  align-items: center;
+  min-height: 56px;
+  padding-top: 10px;
+  padding-bottom: 12px;
+}
+
+.play-appbar-session .play-appbar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: calc(100% - 56px);
+  padding-inline: 48px;
+}
+
+.play-appbar-session .play-appbar-menu {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
 }
 
 .play-appbar-title {
@@ -1643,7 +1761,11 @@ html[data-theme] body {
   padding: 12px;
   border: 1px dashed var(--panel-edge);
   border-radius: var(--r);
-  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--accent) 10%, var(--panel)) 92%,
+    transparent
+  );
 }
 
 .play-roll-stub-banner {
