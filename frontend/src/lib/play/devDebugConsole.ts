@@ -1,6 +1,7 @@
 import { isDev } from '@/config';
 
 export const DEBUG_CONSOLE_STORAGE_KEY = 'vgm-play-debug-console';
+export const DEBUG_THINKING_STORAGE_KEY = 'vgm-play-debug-thinking';
 
 export type DevDebugActionId =
   | 'level_up_pending'
@@ -25,13 +26,20 @@ export type DevDebugActionId =
   | 'high_level_mage'
   | 'open_cast_tray'
   | 'open_free_roll'
-  | 'open_conditions';
+  | 'open_conditions'
+  | 'toggle_thinking';
 
 export type DevDebugAction = {
   id: DevDebugActionId;
   label: string;
   hint: string;
-  category: 'WS-7 flows' | 'Combat & vitals' | 'Transcript' | 'UI panels' | 'Character';
+  category:
+    | 'WS-7 flows'
+    | 'Combat & vitals'
+    | 'Transcript'
+    | 'UI panels'
+    | 'Character'
+    | 'Diagnostics';
   /** Handled in useChat (game state / transcript). */
   scope: 'chat' | 'layout';
 };
@@ -198,6 +206,13 @@ export const DEV_DEBUG_ACTIONS: DevDebugAction[] = [
     category: 'UI panels',
     scope: 'layout',
   },
+  {
+    id: 'toggle_thinking',
+    label: 'GM thinking',
+    hint: "Show the model's reasoning for recent turns",
+    category: 'Diagnostics',
+    scope: 'chat',
+  },
 ];
 
 export function devDebugEnabled(): boolean {
@@ -220,6 +235,43 @@ export function writeDebugConsoleOpen(open: boolean): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Whether GM thinking is revealed in the debug console. Never true outside dev. */
+export function readDebugThinkingOn(): boolean {
+  if (!isDev) return false;
+  try {
+    return localStorage.getItem(DEBUG_THINKING_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeDebugThinkingOn(on: boolean): void {
+  if (!isDev) return;
+  try {
+    localStorage.setItem(DEBUG_THINKING_STORAGE_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+/** How many GM thinking blocks the dev console keeps. Bounded so a long session can't grow it forever. */
+export const THINKING_LOG_LIMIT = 50;
+
+/**
+ * Append a GM thinking block to the dev-only log, keeping the most recent entries.
+ *
+ * Thinking lives here and nowhere else — it is never turned into a transcript entry, so the
+ * player cannot see it even with the console open.
+ */
+export function appendThinking(
+  log: string[],
+  text: string,
+  limit: number = THINKING_LOG_LIMIT,
+): string[] {
+  if (!text.trim()) return log;
+  return [...log, text].slice(-limit);
 }
 
 export function xpForPendingLevelUp(level: number): number {

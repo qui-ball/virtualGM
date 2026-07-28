@@ -12,7 +12,12 @@ import {
   debugUnblockForPanels,
   syncGameStateFlags,
 } from '@/lib/play/devDebugActions';
-import { type DevDebugActionId } from '@/lib/play/devDebugConsole';
+import {
+  appendThinking,
+  type DevDebugActionId,
+  readDebugThinkingOn,
+  writeDebugThinkingOn,
+} from '@/lib/play/devDebugConsole';
 import {
   createDevDemoRollPromptEntry,
   DEV_DEMO_PENDING_ACTION,
@@ -80,6 +85,10 @@ export function useChat() {
   const [gameState, setGameState] = useState<GameStateSnapshot | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [levelUpError, setLevelUpError] = useState<string | null>(null);
+  // Dev-only. Thinking never enters the player transcript — it is a developer affordance
+  // behind the debug console, off by default.
+  const [thinking, setThinking] = useState<string[]>([]);
+  const [showThinking, setShowThinking] = useState(readDebugThinkingOn);
 
   const sessionIdRef = useRef<string | null>(null);
   const campaignIdRef = useRef<string | null>(null);
@@ -165,6 +174,12 @@ export function useChat() {
             break;
           case 'narration_discard':
             setTranscript((prev) => discardNarration(prev, event.tool_call_id));
+            break;
+          case 'thinking':
+            // Captured for the dev console only; never appended to the transcript.
+            if (isDev) {
+              setThinking((prev) => appendThinking(prev, event.text));
+            }
             break;
           case 'scene':
             appendEntry({
@@ -657,6 +672,14 @@ export function useChat() {
         return;
       }
 
+      if (actionId === 'toggle_thinking') {
+        setShowThinking((v) => {
+          writeDebugThinkingOn(!v);
+          return !v;
+        });
+        return;
+      }
+
       if (actionId === 'scene_marker') {
         appendEntry({
           kind: 'scene',
@@ -741,6 +764,8 @@ export function useChat() {
     sessionBlocked,
     runDebugAction,
     debugStatus,
+    thinking,
+    showThinking,
     patchGameState,
     /** @deprecated Use rollPrompt from in-chat card */
     respondToAction: submitRollResult,

@@ -11,6 +11,10 @@ type PlayDebugConsoleProps = {
   onClose: () => void;
   onAction: (id: DevDebugActionId) => void;
   status?: string;
+  /** GM reasoning captured this session, newest last. Dev-only. */
+  thinking?: string[];
+  /** Whether the thinking panel is revealed (toggled via the `toggle_thinking` action). */
+  showThinking?: boolean;
 };
 
 const CATEGORIES = [
@@ -19,6 +23,7 @@ const CATEGORIES = [
   'Character',
   'Transcript',
   'UI panels',
+  'Diagnostics',
 ] as const;
 
 export function PlayDebugConsole({
@@ -26,6 +31,8 @@ export function PlayDebugConsole({
   onClose,
   onAction,
   status,
+  thinking = [],
+  showThinking = false,
 }: PlayDebugConsoleProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -87,26 +94,54 @@ export function PlayDebugConsole({
               <section key={cat} className="play-debug-console-section">
                 <p className="play-debug-console-cat">{cat}</p>
                 <div className="play-debug-console-grid">
-                  {actions.map((action) => (
-                    <button
-                      key={action.id}
-                      type="button"
-                      className="play-debug-console-btn"
-                      title={action.hint}
-                      onClick={() => onAction(action.id)}
-                    >
-                      <span className="play-debug-console-btn-label">
-                        {action.label}
-                      </span>
-                      <span className="play-debug-console-btn-hint">
-                        {action.hint}
-                      </span>
-                    </button>
-                  ))}
+                  {actions.map((action) => {
+                    const isThinkingToggle = action.id === 'toggle_thinking';
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        className="play-debug-console-btn"
+                        title={action.hint}
+                        aria-pressed={
+                          isThinkingToggle ? showThinking : undefined
+                        }
+                        onClick={() => onAction(action.id)}
+                      >
+                        <span className="play-debug-console-btn-label">
+                          {action.label}
+                          {isThinkingToggle ? (showThinking ? ' · on' : ' · off') : ''}
+                        </span>
+                        <span className="play-debug-console-btn-hint">
+                          {action.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             );
           })}
+
+          {showThinking ? (
+            <section className="play-debug-console-section">
+              <p className="play-debug-console-cat">
+                GM thinking ({thinking.length})
+              </p>
+              {thinking.length === 0 ? (
+                <p className="play-debug-console-status">
+                  No thinking captured yet — send a message.
+                </p>
+              ) : (
+                <div className="play-debug-thinking">
+                  {thinking.map((text, i) => (
+                    <p key={i} className="play-debug-thinking-block">
+                      {text}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
         </div>
       ) : null}
     </div>

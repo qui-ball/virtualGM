@@ -2497,6 +2497,33 @@ html[data-theme] .play-chip {
   color: var(--ink-4);
 }
 
+/* Dev-only GM reasoning. Never rendered outside the debug console. */
+.play-debug-thinking {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 12%);
+}
+
+.play-debug-thinking-block {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  color: var(--ink-3);
+}
+
+.play-debug-thinking-block + .play-debug-thinking-block {
+  padding-top: 6px;
+  border-top: 1px dashed var(--panel-edge);
+}
+
 .play-debug-console-grid {
   display: grid;
   gap: 4px;

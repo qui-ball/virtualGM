@@ -38,6 +38,8 @@ export function SessionPage() {
     sessionBlocked,
     runDebugAction,
     debugStatus,
+    thinking,
+    showThinking,
   } = useChat();
 
   useEffect(() => {
@@ -99,6 +101,8 @@ export function SessionPage() {
           onCast={(cast) => void performCast(cast)}
           onRunDebugAction={runDebugAction}
           debugStatus={debugStatus}
+          thinking={thinking}
+          showThinking={showThinking}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center">
