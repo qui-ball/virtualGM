@@ -15,6 +15,7 @@ from api.campaigns import list_campaigns
 from api.enrichment import build_pending_action
 from api.level_up import apply_level_up
 from api.combat_roll_guards import note_roll_result_resolution, roll_result_agent_suffix
+from api.onboarding import router as onboarding_router
 from api.roll_result import build_roll_result_payload, format_roll_result_for_agent
 from api.schemas import (
     BossDeathRequest,
@@ -33,6 +34,10 @@ from api.transcript_log import (
     append_message,
     append_roll_result,
     append_scene,
+)
+from catalog.character_factory import (
+    apply_template_to_game_state,
+    resolve_template_slug,
 )
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
@@ -66,6 +71,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(onboarding_router)
+
+CAMPAIGNS_ROOT = Path(__file__).parent / "campaigns"
+
 
 @app.get("/health")
 def health():
@@ -80,16 +89,109 @@ def get_campaigns():
     return list_campaigns()
 
 
-DEFAULT_CAMPAIGN_DIR = (
-    Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted"
-)
+DEFAULT_CAMPAIGN_DIR = CAMPAIGNS_ROOT / "LostMineOfPhandelverAdapted"
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
 def create_session(body: CreateSessionRequest | None = None):
+    """Create a play session.
+
+    Legacy: empty body → Aldric + Lost Mine (no playthrough / solo registry).
+    Template slug: enforces solo conflict like ``POST /active-campaigns`` and
+    registers a playthrough so lobby save/continue works.
+    Prefer ``POST /active-campaigns`` for the full onboarding payload.
+    """
+    from catalog.playthrough_store import playthrough_store
+    from catalog.character_factory import character_from_prebuilt as clone_prebuilt
+
     gs = GameState()
+    if body is not None and body.campaign_template_slug:
+        try:
+            template = resolve_template_slug(body.campaign_template_slug)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        solo = True if body.solo_mode is None else body.solo_mode
+        if solo:
+            existing = playthrough_store.find_incomplete_solo(template["slug"])
+            if existing is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "solo_conflict",
+                        "existing_campaign_id": existing.id,
+                        "session_id": existing.session_id,
+                        "session_live": bool(
+                            existing.session_id and store.get(existing.session_id)
+                        ),
+                        "campaign_template_slug": existing.campaign_template_slug,
+                        "campaign_name": existing.campaign_name,
+                        "continue_path": (
+                            f"/active-campaigns/{existing.id}/continue"
+                        ),
+                        "hint": "Use POST /active-campaigns with replace_existing_solo "
+                        "or POST .../continue. Solo limit is per campaign template.",
+                    },
+                )
+
+        try:
+            apply_template_to_game_state(gs, template, CAMPAIGNS_ROOT)
+            if body.prebuilt_character_id:
+                gender = body.gender or "male"
+                pc, meta = clone_prebuilt(body.prebuilt_character_id, gender)
+                if meta.get("campaign_template_id") != template["id"]:
+                    raise ValueError(
+                        "Prebuilt does not belong to this campaign template"
+                    )
+                gs.pc = pc
+                stored_meta = meta
+            else:
+                gs.pc = create_player_character()
+                if body.character_name:
+                    gs.pc.name = body.character_name
+                stored_meta = {
+                    "gender": body.gender or "male",
+                    "race_id": "human",
+                    "campaign_template_id": template["id"],
+                    "cloned_from_prebuilt_id": None,
+                    "starting_package_id": None,
+                    "source": "legacy_session",
+                }
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        if body.recommended_players is not None:
+            gs.recommended_players = max(1, body.recommended_players)
+        gs.solo_mode = solo
+
+        session = store.create(game_state=gs)
+        append_scene(session, f"Scene · {gs.scene_label}")
+        append_message(
+            session,
+            role="system",
+            content=f"Session started. You are {gs.pc.name}.",
+        )
+        stored = playthrough_store.save_character(gs.pc, stored_meta)
+        playthrough_store.create_playthrough(
+            owner_key="default",
+            template=template,
+            character=stored,
+            solo_mode=solo,
+            session_id=session.id,
+            replace_existing_solo=False,
+        )
+        logger.info(f"Created session {session.id} for {gs.pc.name} (playthrough)")
+        return CreateSessionResponse(
+            session_id=session.id,
+            character_name=gs.pc.name,
+            game_state=game_state_snapshot(gs),
+        )
+
     gs.pc = create_player_character()
+    if body is not None and body.character_name:
+        gs.pc.name = body.character_name
     gs.campaign_dir = str(DEFAULT_CAMPAIGN_DIR)
+
     if body is not None:
         if body.solo_mode is not None:
             gs.solo_mode = body.solo_mode

@@ -150,7 +150,7 @@ export function LevelUpDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {submitError ? (
             <p
-              className="mb-3 rounded-md border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]"
+              className="mb-3 rounded-md border border-[var(--bad)]/40 bg-[var(--bad)]/10 px-3 py-2 text-sm text-[var(--bad)]"
               role="alert"
             >
               {submitError}

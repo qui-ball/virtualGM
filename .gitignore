@@ -11,6 +11,9 @@ local/
 .launch-frontend.pid
 .launch-frontend.log
 
+# Backend durable playthrough fallback (when Supabase unavailable)
+backend/data/
+
 # Editor — keep local only
 .vscode/
 

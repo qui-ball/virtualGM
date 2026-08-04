@@ -1,70 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import {
-  activeCampaign,
-  findLobbyCharacter,
-  findLobbyCharacterForCampaign,
-  getDefaultLobbyCharacterId,
-  LOBBY_CAMPAIGNS,
-  LOBBY_CHARACTERS,
-  otherCampaigns,
+  characterViewFromListItem,
+  monogramFromName,
+  playSearchParamsFromCampaign,
+  type CampaignListItem,
 } from '@/lib/play/campaignLobby';
-import { isPendingLevelUp } from '@/lib/play/xp';
 
-describe('campaign lobby fixtures', () => {
-  it('marks lost-mine with solo mode on', () => {
-    expect(activeCampaign().soloMode).toBe(true);
+const SAMPLE: CampaignListItem = {
+  id: 'pt-1',
+  title: 'Lost Mine of Phandelver',
+  chapter: 2,
+  timeCurrent: 20,
+  timeMax: 50,
+  characterName: 'Nyx Frost',
+  characterClass: 'mage',
+  classShort: 'Mage',
+  level: 2,
+  lastScene: 'Cragmaw',
+  active: true,
+  pendingLevelUp: false,
+  recommendedPlayers: 4,
+  levelMin: 1,
+  levelMax: 5,
+  avgLevel: 3,
+  soloMode: true,
+  campaignTemplateSlug: 'fantasy-lost-mine',
+  sessionId: 'sess-9',
+  xp: 120,
+  hp: 14,
+  hpMax: 16,
+  mana: 6,
+  manaMax: 7,
+  evasion: 11,
+  finesse: 0,
+};
+
+describe('campaignLobby helpers', () => {
+  it('monogramFromName uses first letter', () => {
+    expect(monogramFromName('Nyx Frost')).toBe('N');
+    expect(monogramFromName('  ')).toBe('?');
   });
 
-  it('has exactly one active campaign', () => {
-    const active = LOBBY_CAMPAIGNS.filter((c) => c.active);
-    expect(active).toHaveLength(1);
-    expect(activeCampaign().id).toBe('lost-mine');
+  it('characterViewFromListItem uses playthrough vitals only', () => {
+    const view = characterViewFromListItem(SAMPLE);
+    expect(view.name).toBe('Nyx Frost');
+    expect(view.classLabel).toBe('Mage');
+    expect(view.level).toBe(2);
+    expect(view.hp).toBe(14);
+    expect(view.hpMax).toBe(16);
+    expect(view.mana).toBe(6);
+    expect(view.showMana).toBe(true);
+    expect(view.xp).toBe(120);
+    expect(view.evasion).toBe(11);
   });
 
-  it('lists inactive campaigns separately', () => {
-    const others = otherCampaigns();
-    expect(others).toHaveLength(2);
-    expect(others.every((c) => !c.active)).toBe(true);
-  });
-
-  it('marks Ribcage Coast pending level-up', () => {
-    const ribcage = LOBBY_CAMPAIGNS.find((c) => c.id === 'ribcage-coast');
-    expect(ribcage?.pendingLevelUp).toBe(true);
-    const wren = findLobbyCharacter('wren');
-    expect(wren).toBeDefined();
-    expect(isPendingLevelUp(wren!.state.xp, wren!.state.level)).toBe(true);
-  });
-
-  it('defaults to Aldric as active lobby character', () => {
-    expect(getDefaultLobbyCharacterId()).toBe('aldric-of-corlinn-hill');
-    expect(LOBBY_CHARACTERS.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('matches lobby character from campaign summary by name', () => {
-    const match = findLobbyCharacterForCampaign({
-      characterName: 'Wren',
-      characterClass: 'bard',
-      level: 6,
-    });
-    expect(match.state.name).toBe('Wren');
-  });
-
-  it('falls back to class and level when name differs', () => {
-    const match = findLobbyCharacterForCampaign({
-      characterName: 'Unknown Hero',
-      characterClass: 'mage',
-      level: 4,
-    });
-    expect(match.state.name).toBe('Zaelan');
-    expect(match.state.level).toBe(4);
-  });
-
-  it('defaults to first lobby character when no match', () => {
-    const match = findLobbyCharacterForCampaign({
-      characterName: 'Nobody',
-      characterClass: 'ranger',
-      level: 99,
-    });
-    expect(match.id).toBe(getDefaultLobbyCharacterId());
+  it('playSearchParamsFromCampaign includes resume ids', () => {
+    const qs = playSearchParamsFromCampaign(SAMPLE);
+    const params = new URLSearchParams(qs);
+    expect(params.get('activeCampaignId')).toBe('pt-1');
+    expect(params.get('sessionId')).toBe('sess-9');
+    expect(params.get('characterName')).toBe('Nyx Frost');
+    expect(params.get('soloMode')).toBe('1');
   });
 });

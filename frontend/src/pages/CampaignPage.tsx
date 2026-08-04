@@ -1,46 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlayShell } from '@/components/play';
+import { CampaignLobby } from '@/components/play/campaign';
 import {
-  CampaignLobby,
-  CharacterSwitcherSheet,
-  NewCampaignModal,
-} from '@/components/play/campaign';
+  NewCampaignFlow,
+  playParamsFromStart,
+} from '@/components/play/campaign/newCampaign/NewCampaignFlow';
 import { fetchCampaignList } from '@/lib/play/campaignApi';
-import {
-  activeCampaign,
-  findLobbyCharacter,
-  findLobbyCharacterForCampaign,
-  getDefaultLobbyCharacterId,
-  LOBBY_CHARACTERS,
-  otherCampaigns,
-  type CampaignListItem,
-} from '@/lib/play/campaignLobby';
-import { soloModeToParam } from '@/lib/play/campaignMeta';
+import type { CampaignListItem } from '@/lib/play/campaignLobby';
 import { PLAY_ROUTES } from '@/lib/play/routes';
+import { clearSessionCache, storeSessionCache } from '@/lib/play/sessionCache';
+import { abandonActiveCampaign } from '@/api/client';
 import { ThemeSelect } from '@/theme';
 import { useIsTabletOrUp } from '@/hooks';
 
-/** Campaign lobby (/campaign) — WS-4 resume-first layout. */
+/** Campaign lobby (/campaign) — all playthrough instances equally (WS-5). */
 export function CampaignPage() {
   const navigate = useNavigate();
   const isTabletOrUp = useIsTabletOrUp();
-  const [characterId, setCharacterId] = useState(getDefaultLobbyCharacterId);
-  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
-  const [active, setActive] = useState<CampaignListItem | null>(null);
-  const [others, setOthers] = useState<CampaignListItem[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignListItem[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    void fetchCampaignList().then(({ active: a, others: o }) => {
-      setActive(a);
-      setOthers(o);
-      setCharacterId(findLobbyCharacterForCampaign(a).id);
+  const loadCampaigns = useCallback(() => {
+    setLoaded(false);
+    void fetchCampaignList().then(({ campaigns: list, error }) => {
+      setCampaigns(list);
+      setListError(error);
+      setLoaded(true);
     });
   }, []);
 
-  const characterOption =
-    findLobbyCharacter(characterId) ?? LOBBY_CHARACTERS[0];
+  const abandonCampaign = useCallback(
+    async (campaignId: string) => {
+      await abandonActiveCampaign(campaignId);
+      clearSessionCache(campaignId);
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
 
   return (
     <PlayShell>
@@ -50,33 +53,42 @@ export function CampaignPage() {
         </div>
       ) : null}
 
-      <CampaignLobby
-        character={characterOption.view}
-        monogram={characterOption.monogram}
-        activeCampaign={active ?? activeCampaign()}
-        otherCampaigns={others.length ? others : otherCampaigns()}
-        onSwitchCharacter={() => setSwitcherOpen(true)}
-        onNewCampaign={() => setNewCampaignOpen(true)}
-      />
+      {loaded ? (
+        <CampaignLobby
+          campaigns={campaigns}
+          error={listError}
+          onNewCampaign={() => setNewCampaignOpen(true)}
+          onRetry={loadCampaigns}
+          onAbandonCampaign={abandonCampaign}
+        />
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-6 text-sm text-[var(--ink-3)]">
+          Loading campaigns…
+        </div>
+      )}
 
-      <CharacterSwitcherSheet
-        open={switcherOpen}
-        characters={LOBBY_CHARACTERS}
-        activeId={characterId}
-        onSelect={setCharacterId}
-        onClose={() => setSwitcherOpen(false)}
-      />
-
-      <NewCampaignModal
+      <NewCampaignFlow
         open={newCampaignOpen}
         onClose={() => setNewCampaignOpen(false)}
-        onCreate={({ soloMode, campaignId, recommendedPlayers }) => {
+        onStarted={(result) => {
           setNewCampaignOpen(false);
-          const params = new URLSearchParams({
-            campaignId,
-            soloMode: soloModeToParam(soloMode),
-            recommendedPlayers: String(recommendedPlayers),
+          storeSessionCache(result.activeCampaignId, {
+            sessionId: result.sessionId,
           });
+          navigate(
+            `${PLAY_ROUTES.session}?${playParamsFromStart(result)}`,
+          );
+        }}
+        onContinueExisting={(activeCampaignId, sessionId) => {
+          setNewCampaignOpen(false);
+          if (sessionId) {
+            storeSessionCache(activeCampaignId, { sessionId });
+          }
+          const params = new URLSearchParams({
+            campaignId: activeCampaignId,
+            activeCampaignId,
+          });
+          if (sessionId) params.set('sessionId', sessionId);
           navigate(`${PLAY_ROUTES.session}?${params.toString()}`);
         }}
       />

@@ -49,7 +49,6 @@ const STORM_ICONS: IconPathSet = {
     />
   ),
   close: <path d="M6 6l12 12M18 6L6 18" {...stroke(1.7)} />,
-  swap: <path d="M7 4l-3 3 3 3M4 7h12M17 14l3 3-3 3M20 17H8" {...stroke(1.4)} />,
 };
 
 const NECROPOLIS_ICONS: IconPathSet = {
@@ -92,7 +91,6 @@ const NECROPOLIS_ICONS: IconPathSet = {
   menu: <path d="M4 8h16M4 12h12M4 16h16" {...stroke(1.7)} />,
   send: <path d="M4 6l16 6-16 6 4-6-4-6z" {...stroke(1.5)} />,
   close: <path d="M7 7l10 10M17 7L7 17" {...stroke(1.7)} />,
-  swap: <path d="M6 5l-2 2 2 2M4 7h10M18 15l2 2-2 2M20 17H10" {...stroke(1.5)} />,
 };
 
 const OBSIDIAN_ICONS: IconPathSet = {
@@ -135,7 +133,6 @@ const OBSIDIAN_ICONS: IconPathSet = {
     />
   ),
   close: <path d="M5 5l14 14M19 5L5 19" {...stroke(2)} />,
-  swap: <path d="M6 3l-4 4 4 4M2 7h14M18 17l4 4-4 4M22 21H8" {...stroke(2)} />,
 };
 
 const MITHRIL_ICONS: IconPathSet = {
@@ -168,7 +165,6 @@ const MITHRIL_ICONS: IconPathSet = {
   menu: <path d="M5 8h14M5 12h14M5 16h14" {...stroke(1.4)} />,
   send: <path d="M4 12l16-7-6 15-3-6-7-2z" {...stroke(1.2)} />,
   close: <path d="M7 7l10 10M17 7L7 17" {...stroke(1.4)} />,
-  swap: <path d="M7.5 5l-2.5 2.5 2.5 2.5M5 7.5h11M16.5 16.5l2.5 2.5-2.5 2.5M19 19H8" {...stroke(1.2)} />,
 };
 
 const GRIMOIRE_ICONS: IconPathSet = {
@@ -208,7 +204,6 @@ const GRIMOIRE_ICONS: IconPathSet = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6L6 18" {...stroke(1.6)} />,
-  swap: <path d="M7 4l-3 3 3 3M4 7h12M17 14l3 3-3 3M20 17H8" {...stroke(1.5)} />,
 };
 
 const ICON_SETS: Record<RpgThemeId, IconPathSet> = {

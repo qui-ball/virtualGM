@@ -59,17 +59,6 @@ export function SessionMenu({
           title="Coming soon"
         >
           <span className="play-menu-glyph" aria-hidden>
-            <PlayIcon name="swap" />
-          </span>
-          Switch character
-        </button>
-        <button
-          type="button"
-          className="play-menu-item min-h-[44px]"
-          disabled
-          title="Coming soon"
-        >
-          <span className="play-menu-glyph" aria-hidden>
             <PlayIcon name="scroll" />
           </span>
           Settings

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from game.models import CharacterState, ConditionName, DiceType, EnemyState, SpellDefinition
 
@@ -13,6 +13,152 @@ class CreateSessionRequest(BaseModel):
     character_name: str | None = None
     solo_mode: bool | None = None
     recommended_players: int | None = None
+    # Optional onboarding fields (prefer POST /active-campaigns for full start)
+    campaign_template_slug: str | None = None
+    prebuilt_character_id: str | None = None
+    gender: Literal["male", "female"] | None = None
+
+
+class CreateCharacterDraft(BaseModel):
+    campaign_template_id: str | None = None
+    name: str
+    gender: Literal["male", "female"]
+    class_id: Literal["warrior", "ranger", "mage", "bard"]
+    race_id: Literal["human", "elf", "half-orc", "dragonborn"]
+    stats: dict[str, int]
+    starting_package_id: str
+    spells_known: list[str] | None = None
+    hp: int | None = None
+    hp_max: int | None = None
+    evasion: int | None = None
+    mana: int | None = None
+    mana_max: int | None = None
+
+
+class CreateCharacterRequest(BaseModel):
+    source: Literal["prebuilt", "created"] = "created"
+    # prebuilt clone
+    prebuilt_character_id: str | None = None
+    gender: Literal["male", "female"] | None = None
+    # wizard
+    payload: CreateCharacterDraft | None = None
+
+
+class CreateCharacterResponse(BaseModel):
+    character_id: str
+    name: str
+    character_class: str
+    gender: str
+    race_id: str | None = None
+    level: int = 1
+    character: CharacterState
+
+
+class StartCharacterSelection(BaseModel):
+    source: Literal["prebuilt", "created", "inline"]
+    prebuilt_character_id: str | None = None
+    gender: Literal["male", "female"] | None = None
+    character_id: str | None = None
+    payload: CreateCharacterDraft | None = None
+
+
+class StartCampaignRequest(BaseModel):
+    campaign_template_slug: str
+    solo_mode: bool = True
+    replace_existing_solo: bool | None = None
+    character: StartCharacterSelection
+
+
+class StartCampaignResponse(BaseModel):
+    active_campaign_id: str
+    character_id: str
+    session_id: str
+    character_name: str
+    campaign_template_slug: str
+    game_state: "GameStateSnapshot"
+
+
+class SaveCampaignResponse(BaseModel):
+    active_campaign_id: str
+    session_id: str
+    chapter: int
+    time_current: int
+    last_scene: str
+
+
+class RaceSummary(BaseModel):
+    id: str
+    name: str
+
+
+class RacesResponse(BaseModel):
+    races: list[RaceSummary]
+
+
+class CampaignTemplateSummary(BaseModel):
+    id: str
+    slug: str
+    name: str
+    description: str | None = None
+    genre: str = "fantasy"
+    level_min: int = 1
+    level_max: int = 5
+    # DB column is integer; static catalog uses ranges like "4–6".
+    estimated_sessions: str | None = None
+    cover_image_url: str | None = None
+    content_path: str = ""
+    recommended_players: int = 4
+    avg_level: int | None = None
+
+    @field_validator("estimated_sessions", mode="before")
+    @classmethod
+    def _coerce_estimated_sessions(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        return str(value)
+
+
+class CampaignTemplatesResponse(BaseModel):
+    templates: list[CampaignTemplateSummary]
+
+
+class PrebuiltCharacterSummary(BaseModel):
+    id: str
+    class_id: str
+    name_male: str
+    name_female: str
+    level: int = 1
+    race_id: str | None = None
+    hook: str | None = None
+    default_package_id: str | None = None
+    starting_ability_id: str | None = None
+    portrait_placeholder_key: str  # male key (compat); prefer gender-specific fields
+    portrait_placeholder_key_male: str | None = None
+    portrait_placeholder_key_female: str | None = None
+    sort_order: int = 0
+
+
+class PrebuiltCharactersResponse(BaseModel):
+    prebuilts: list[PrebuiltCharacterSummary]
+
+
+class PackageSummary(BaseModel):
+    id: str
+    class_id: str
+    label: str
+    theme: str | None = None
+    playstyle: str | None = None
+    ability_id: str
+    inventory: list[str] = Field(default_factory=list)
+    equipped_weapon: str | None = None
+    equipped_armor: str | None = None
+    spells_known: list[str] = Field(default_factory=list)
+    gold: int = 10
+    sort_order: int = 0
+
+
+class PackagesResponse(BaseModel):
+    packages: list[PackageSummary]
 
 
 class ActionResponse(BaseModel):
@@ -176,6 +322,17 @@ class CampaignSummary(BaseModel):
     level_max: int = 5
     avg_level: int | None = None
     solo_mode: bool = False
+    campaign_template_slug: str | None = None
+    session_id: str | None = None
+    character_id: str | None = None
+    # Lobby vitals (from pc_snapshot) — drive ActiveCharacterCard without fixtures
+    xp: int = 0
+    hp: int = 1
+    hp_max: int = 1
+    mana: int | None = None
+    mana_max: int | None = None
+    evasion: int = 10
+    finesse: int = 0
 
 
 class CampaignListResponse(BaseModel):

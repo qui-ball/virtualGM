@@ -1,67 +1,18 @@
-"""Campaign list for lobby (G9)."""
+"""Playthrough-centric campaign lobby list."""
 
 from api.schemas import CampaignListResponse, CampaignSummary
-from game.models import create_player_character, is_pending_level_up
+from catalog.playthrough_store import playthrough_store
 
 
 def list_campaigns() -> CampaignListResponse:
-    pc = create_player_character()
-    zaelan_level = 4
-    zaelan_xp = 680
+    """Return the player's playthroughs (empty until POST /active-campaigns)."""
+    rows = playthrough_store.list_playthroughs()
+    if not rows:
+        return CampaignListResponse(campaigns=[])
 
-    return CampaignListResponse(
-        campaigns=[
-            CampaignSummary(
-                id="lost-mine",
-                name="Lost Mine of Phandelver",
-                chapter=1,
-                time_current=12,
-                time_max=50,
-                last_scene="Road to Phandalin",
-                character_name=pc.name,
-                character_class=pc.character_class,
-                level=pc.level,
-                pending_level_up=is_pending_level_up(pc.xp, pc.level),
-                active=True,
-                recommended_players=4,
-                level_min=1,
-                level_max=5,
-                avg_level=3,
-                solo_mode=True,
-            ),
-            CampaignSummary(
-                id="sunless-citadel",
-                name="The Sunless Citadel",
-                chapter=2,
-                time_current=28,
-                time_max=50,
-                last_scene="Grove of Ash",
-                character_name="Zaelan",
-                character_class="mage",
-                level=zaelan_level,
-                pending_level_up=is_pending_level_up(zaelan_xp, zaelan_level),
-                recommended_players=4,
-                level_min=1,
-                level_max=3,
-                avg_level=2,
-                solo_mode=False,
-            ),
-            CampaignSummary(
-                id="cragmaw-hideout",
-                name="Cragmaw Hideout",
-                chapter=1,
-                time_current=5,
-                time_max=50,
-                last_scene="Cave mouth",
-                character_name="Wren",
-                character_class="bard",
-                level=6,
-                pending_level_up=False,
-                recommended_players=4,
-                level_min=1,
-                level_max=3,
-                avg_level=2,
-                solo_mode=False,
-            ),
-        ]
-    )
+    # Most recently created is treated as active for lobby highlight
+    campaigns: list[CampaignSummary] = []
+    for i, pt in enumerate(rows):
+        summary = playthrough_store.to_campaign_summary(pt, active=(i == 0))
+        campaigns.append(CampaignSummary(**summary))
+    return CampaignListResponse(campaigns=campaigns)

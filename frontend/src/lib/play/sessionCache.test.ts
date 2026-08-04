@@ -39,27 +39,27 @@ describe('sessionCache', () => {
   });
 
   it('stores and retrieves session by campaign id', () => {
-    storeSessionCache('lost-mine', {
+    storeSessionCache('fantasy-lost-mine', {
       sessionId: 'abc123',
       gameState: { character: null, enemies: {}, countdowns: {}, in_combat: false },
     });
 
-    const entry = getSessionCache('lost-mine');
+    const entry = getSessionCache('fantasy-lost-mine');
     expect(entry?.sessionId).toBe('abc123');
     expect(entry?.gameState.in_combat).toBe(false);
   });
 
   it('clears a campaign bucket', () => {
-    storeSessionCache('lost-mine', {
+    storeSessionCache('fantasy-lost-mine', {
       sessionId: 'abc123',
       gameState: { character: null, enemies: {}, countdowns: {}, in_combat: false },
     });
-    clearSessionCache('lost-mine');
-    expect(getSessionCache('lost-mine')).toBeNull();
+    clearSessionCache('fantasy-lost-mine');
+    expect(getSessionCache('fantasy-lost-mine')).toBeNull();
   });
 
   it('isolates cache buckets per campaign id', () => {
-    storeSessionCache('lost-mine', {
+    storeSessionCache('fantasy-lost-mine', {
       sessionId: 'a',
       gameState: { character: null, enemies: {}, countdowns: {}, in_combat: false },
     });
@@ -68,13 +68,13 @@ describe('sessionCache', () => {
       gameState: { character: null, enemies: {}, countdowns: {}, in_combat: true },
     });
 
-    expect(getSessionCache('lost-mine')?.sessionId).toBe('a');
+    expect(getSessionCache('fantasy-lost-mine')?.sessionId).toBe('a');
     expect(getSessionCache('ribcage-coast')?.sessionId).toBe('b');
     expect(getSessionCache('_default')).toBeNull();
   });
 
   it('persists combat strip fields for session resume (WS-7.3)', () => {
-    storeSessionCache('lost-mine', {
+    storeSessionCache('fantasy-lost-mine', {
       sessionId: 'combat-sess',
       gameState: {
         character: null,
@@ -96,7 +96,7 @@ describe('sessionCache', () => {
       },
     });
 
-    const cached = getSessionCache('lost-mine');
+    const cached = getSessionCache('fantasy-lost-mine');
     expect(cached?.gameState.in_combat).toBe(true);
     expect(cached?.gameState.initiative_order).toEqual(['Aldric', 'Goblin 1']);
     expect(cached?.gameState.current_turn_index).toBe(1);

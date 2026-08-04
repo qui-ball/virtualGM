@@ -223,22 +223,30 @@ def is_pending_level_up(xp: int, level: int) -> bool:
 
 
 def create_player_character() -> CharacterState:
-    """Create a pre-generated warrior for Lost Mine of Phandelver.
-
-    Human Fighter — a noble heir from Corlinn Hill seeking to civilize Phandalin.
-    """
+    """Create the Lost Mine Wagon Guard prebuilt (Aldric) for legacy session starts."""
     return CharacterState(
         name="Aldric of Corlinn Hill",
         character_class="warrior",
         level=1,
         xp=0,
         stats=Stats(might=2, finesse=1, wit=0, presence=-1),
-        hp=12,  # 10 + 2 (Might)
+        hp=12,
         hp_max=12,
-        evasion=14,  # 10 + 1 (Finesse) + 3 (Chain Mail)
-        class_abilities=["weapon_focus"],  # WAR-S1: +1 to melee attack rolls
+        evasion=15,  # 10 + 1 finesse + 3 chain + 1 shield
+        class_abilities=["armored_defense"],  # WAR-S3
         gold=10,
-        inventory=["Longsword", "Handaxe", "Chain Mail", "Explorer's Pack"],
+        inventory=[
+            "Longsword",
+            "Shield",
+            "Handaxe",
+            "Rope",
+            "Crowbar",
+            "Explorer's Pack",
+            "Waterskin",
+            "Bedroll",
+            "Rations x3",
+            "Torch x2",
+        ],
         equipped_weapon="Longsword",
         equipped_armor="Chain Mail",
     )

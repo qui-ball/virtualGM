@@ -12,8 +12,7 @@ export type PlayIconName =
   | 'home'
   | 'menu'
   | 'send'
-  | 'close'
-  | 'swap';
+  | 'close';
 
 type PlayIconProps = SVGProps<SVGSVGElement> & {
   name: PlayIconName;

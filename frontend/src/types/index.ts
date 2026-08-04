@@ -141,6 +141,91 @@ export interface CreateSessionRequest {
   solo_mode?: boolean;
   /** Campaign design party size; solo mode scales enemies as 1/N of listed count. */
   recommended_players?: number;
+  campaign_template_slug?: string;
+  prebuilt_character_id?: string;
+  gender?: 'male' | 'female';
+}
+
+export interface CreateCharacterDraft {
+  campaign_template_id?: string;
+  name: string;
+  gender: 'male' | 'female';
+  class_id: 'warrior' | 'ranger' | 'mage' | 'bard';
+  race_id: 'human' | 'elf' | 'half-orc' | 'dragonborn';
+  stats: { might: number; finesse: number; wit: number; presence: number };
+  starting_package_id: string;
+  spells_known?: string[];
+}
+
+export type StartCharacterSelection =
+  | {
+      source: 'prebuilt';
+      prebuilt_character_id: string;
+      gender: 'male' | 'female';
+    }
+  | { source: 'created'; character_id: string }
+  | { source: 'inline'; payload: CreateCharacterDraft };
+
+export interface StartCampaignRequest {
+  campaign_template_slug: string;
+  solo_mode: boolean;
+  replace_existing_solo?: boolean;
+  character: StartCharacterSelection;
+}
+
+export interface StartCampaignResponse {
+  active_campaign_id: string;
+  character_id: string;
+  session_id: string;
+  character_name: string;
+  campaign_template_slug: string;
+  game_state: GameStateSnapshot;
+}
+
+export interface CampaignTemplateSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  genre: string;
+  level_min: number;
+  level_max: number;
+  estimated_sessions?: string | null;
+  cover_image_url?: string | null;
+  content_path: string;
+  recommended_players: number;
+  avg_level?: number | null;
+}
+
+export interface PrebuiltCharacterSummary {
+  id: string;
+  class_id: string;
+  name_male: string;
+  name_female: string;
+  level: number;
+  race_id?: string | null;
+  hook?: string | null;
+  default_package_id?: string | null;
+  starting_ability_id?: string | null;
+  portrait_placeholder_key: string;
+  portrait_placeholder_key_male?: string | null;
+  portrait_placeholder_key_female?: string | null;
+  sort_order: number;
+}
+
+export interface PackageSummary {
+  id: string;
+  class_id: string;
+  label: string;
+  theme?: string | null;
+  playstyle?: string | null;
+  ability_id: string;
+  inventory: string[];
+  equipped_weapon?: string | null;
+  equipped_armor?: string | null;
+  spells_known: string[];
+  gold: number;
+  sort_order: number;
 }
 
 export interface CreateSessionResponse {
@@ -199,6 +284,17 @@ export interface CampaignSummary {
   level_max?: number;
   avg_level?: number | null;
   solo_mode?: boolean;
+  campaign_template_slug?: string | null;
+  session_id?: string | null;
+  character_id?: string | null;
+  /** Lobby vitals from PC snapshot (WS-5). */
+  xp?: number;
+  hp?: number;
+  hp_max?: number;
+  mana?: number | null;
+  mana_max?: number | null;
+  evasion?: number;
+  finesse?: number;
 }
 
 export interface CampaignListResponse {

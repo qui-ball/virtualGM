@@ -1,6 +1,18 @@
-import { toCharacterView, type CharacterView } from '@/lib/play/characterView';
-import { isPendingLevelUp } from '@/lib/play/xp';
-import type { CharacterState } from '@/types';
+/**
+ * Campaign lobby types + playthrough → character view helpers (WS-5).
+ * Playthrough list comes from GET /campaigns via campaignApi — no fixtures.
+ */
+
+import {
+  formatClassLabel,
+  formatSignedModifier,
+  isCaster,
+  type StatKey,
+} from '@/lib/play/stats';
+import { statDisplayLabel } from '@/lib/play/statLabels';
+import { soloModeToParam } from '@/lib/play/campaignMeta';
+import type { CharacterView, StatEntryView } from '@/lib/play/characterView';
+import { isPendingLevelUp, xpToReachLevel } from '@/lib/play/xp';
 
 export type CampaignListItem = {
   id: string;
@@ -20,206 +32,95 @@ export type CampaignListItem = {
   levelMax: number;
   avgLevel?: number;
   soloMode: boolean;
+  campaignTemplateSlug?: string;
+  sessionId?: string;
+  characterId?: string;
+  /** Lobby vitals from GET /campaigns PC snapshot. */
+  xp: number;
+  hp: number;
+  hpMax: number;
+  mana: number | null;
+  manaMax: number | null;
+  evasion: number;
+  finesse: number;
 };
 
-export type LobbyCharacterOption = {
-  id: string;
-  state: CharacterState;
-  view: CharacterView;
-  monogram: string;
-};
+const STAT_KEYS: StatKey[] = ['might', 'finesse', 'wit', 'presence'];
 
-/** Active PC aligned with backend `create_player_character`. */
-const ALDRIC_STATE: CharacterState = {
-  name: 'Aldric of Corlinn Hill',
-  character_class: 'warrior',
-  level: 1,
-  xp: 0,
-  stats: { might: 2, finesse: 1, wit: 0, presence: -1 },
-  hp: 12,
-  hp_max: 12,
-  evasion: 14,
-  mana: null,
-  mana_max: null,
-  conditions: [],
-  class_abilities: ['weapon_focus'],
-  spells_known: [],
-  gold: 10,
-  inventory: ['Longsword', 'Handaxe', 'Chain Mail', "Explorer's Pack"],
-  equipped_weapon: 'Longsword',
-  equipped_armor: 'Chain Mail',
-};
+function emptyStatEntries(finesse: number): StatEntryView[] {
+  return STAT_KEYS.map((key) => {
+    const mod = key === 'finesse' ? finesse : 0;
+    const short = key.slice(0, 3).toUpperCase();
+    const label = statDisplayLabel(key);
+    return {
+      key,
+      short,
+      label,
+      mod,
+      signed: formatSignedModifier(mod),
+      ariaLabel: `${label} ${formatSignedModifier(mod)}`,
+    };
+  });
+}
 
-const ZAELAN_STATE: CharacterState = {
-  name: 'Zaelan',
-  character_class: 'mage',
-  level: 4,
-  xp: 680,
-  stats: { might: -1, finesse: 0, wit: 2, presence: 1 },
-  hp: 18,
-  hp_max: 22,
-  evasion: 12,
-  mana: 6,
-  mana_max: 9,
-  conditions: [],
-  class_abilities: ['stormborn', 'arcane_reservoir'],
-  spells_known: ['voltaic_lance', 'static_snare'],
-  gold: 24,
-  inventory: ['Healing draught', 'Spellbook'],
-  equipped_weapon: 'Storm Staff',
-  equipped_armor: 'Robe of Currents',
-};
-
-const WREN_STATE: CharacterState = {
-  name: 'Wren',
-  character_class: 'bard',
-  level: 6,
-  xp: 11_200,
-  stats: { might: 0, finesse: 1, wit: 1, presence: 2 },
-  hp: 22,
-  hp_max: 30,
-  evasion: 13,
-  mana: 5,
-  mana_max: 8,
-  conditions: [],
-  class_abilities: ['inspiring_presence'],
-  spells_known: ['glamour_step'],
-  gold: 18,
-  inventory: ['Lute', 'Healing draught'],
-  equipped_weapon: 'Rapier',
-  equipped_armor: 'Leather coat',
-};
-
-const IOLAN_STATE: CharacterState = {
-  name: 'Iolan',
-  character_class: 'mage',
-  level: 2,
-  xp: 120,
-  stats: { might: -1, finesse: 0, wit: 2, presence: 0 },
-  hp: 14,
-  hp_max: 16,
-  evasion: 11,
-  mana: 6,
-  mana_max: 7,
-  conditions: [],
-  class_abilities: [],
-  spells_known: ['ember_bolt'],
-  gold: 8,
-  inventory: ['Staff', 'Spellbook'],
-  equipped_weapon: 'Staff',
-  equipped_armor: 'Robe',
-};
-
-function monogram(name: string): string {
+export function monogramFromName(name: string): string {
   const t = name.trim();
   return t ? t.charAt(0).toUpperCase() : '?';
 }
 
-function toLobbyOption(state: CharacterState): LobbyCharacterOption {
+/**
+ * Build lobby CharacterView from a playthrough list item.
+ * Full sheet stats are not required for lobby cards.
+ */
+export function characterViewFromListItem(
+  campaign: CampaignListItem,
+): CharacterView {
+  const showMana = isCaster(campaign.characterClass);
+  const xpNext = xpToReachLevel(campaign.level + 1);
   return {
-    id: state.name.toLowerCase().replace(/\s+/g, '-'),
-    state,
-    view: toCharacterView(state),
-    monogram: monogram(state.name),
+    name: campaign.characterName,
+    classLabel: formatClassLabel(campaign.characterClass),
+    level: campaign.level,
+    xp: campaign.xp,
+    xpNext,
+    pendingLevelUp:
+      campaign.pendingLevelUp ??
+      isPendingLevelUp(campaign.xp, campaign.level),
+    stats: emptyStatEntries(campaign.finesse),
+    hp: campaign.hp,
+    hpMax: campaign.hpMax,
+    mana: campaign.mana,
+    manaMax: campaign.manaMax,
+    evasion: campaign.evasion,
+    initiativeMod: campaign.finesse,
+    showMana,
+    conditions: [],
+    gold: 0,
+    coins: [],
+    inventory: [],
+    classAbilities: [],
+    spellsKnown: [],
   };
 }
 
-export const LOBBY_CHARACTERS: LobbyCharacterOption[] = [
-  toLobbyOption(ALDRIC_STATE),
-  toLobbyOption(ZAELAN_STATE),
-  toLobbyOption(IOLAN_STATE),
-  toLobbyOption(WREN_STATE),
-];
-
-export const LOBBY_CAMPAIGNS: CampaignListItem[] = [
-  {
-    id: 'lost-mine',
-    title: 'Lost Mine of Phandelver',
-    chapter: 1,
-    timeCurrent: 12,
-    timeMax: 50,
-    characterName: 'Aldric of Corlinn Hill',
-    characterClass: 'warrior',
-    classShort: 'War',
-    level: 1,
-    lastScene: 'Road to Phandalin',
-    active: true,
-    recommendedPlayers: 4,
-    levelMin: 1,
-    levelMax: 5,
-    avgLevel: 3,
-    soloMode: true,
-  },
-  {
-    id: 'salt-smoke',
-    title: 'Salt & Smoke',
-    chapter: 1,
-    timeCurrent: 50,
-    timeMax: 50,
-    characterName: 'Iolan',
-    characterClass: 'mage',
-    classShort: 'Mage',
-    level: 2,
-    lastScene: 'Harbor at dawn',
-    recommendedPlayers: 3,
-    levelMin: 1,
-    levelMax: 4,
-    avgLevel: 2,
-    soloMode: false,
-  },
-  {
-    id: 'ribcage-coast',
-    title: 'Ribcage Coast',
-    chapter: 5,
-    timeCurrent: 12,
-    timeMax: 50,
-    characterName: 'Wren',
-    characterClass: 'bard',
-    classShort: 'Bard',
-    level: 6,
-    lastScene: 'Cliff path',
-    pendingLevelUp: isPendingLevelUp(WREN_STATE.xp, WREN_STATE.level),
-    recommendedPlayers: 4,
-    levelMin: 4,
-    levelMax: 7,
-    avgLevel: 5,
-    soloMode: false,
-  },
-];
-
-export function getDefaultLobbyCharacterId(): string {
-  return LOBBY_CHARACTERS[0].id;
-}
-
-export function findLobbyCharacter(
-  id: string,
-): LobbyCharacterOption | undefined {
-  return LOBBY_CHARACTERS.find((c) => c.id === id);
-}
-
-/** Match lobby fixture to campaign summary when API lacks full character payload. */
-export function findLobbyCharacterForCampaign(
-  campaign: Pick<CampaignListItem, 'characterName' | 'characterClass' | 'level'>,
-): LobbyCharacterOption {
-  const normalized = campaign.characterName.trim().toLowerCase();
-  const byName = LOBBY_CHARACTERS.find(
-    (c) => c.state.name.trim().toLowerCase() === normalized,
-  );
-  if (byName) return byName;
-
-  const byClass = LOBBY_CHARACTERS.find(
-    (c) =>
-      c.state.character_class.toLowerCase() ===
-        campaign.characterClass.toLowerCase() &&
-      c.state.level === campaign.level,
-  );
-  return byClass ?? LOBBY_CHARACTERS[0];
-}
-
-export function activeCampaign(): CampaignListItem {
-  return LOBBY_CAMPAIGNS.find((c) => c.active) ?? LOBBY_CAMPAIGNS[0];
-}
-
-export function otherCampaigns(): CampaignListItem[] {
-  return LOBBY_CAMPAIGNS.filter((c) => !c.active);
+/** Search params for /play resume from a lobby playthrough. */
+export function playSearchParamsFromCampaign(
+  campaign: CampaignListItem,
+): string {
+  const params = new URLSearchParams({
+    campaignId: campaign.id,
+    activeCampaignId: campaign.id,
+    soloMode: soloModeToParam(campaign.soloMode),
+    recommendedPlayers: String(campaign.recommendedPlayers),
+  });
+  if (campaign.characterName) {
+    params.set('characterName', campaign.characterName);
+  }
+  if (campaign.campaignTemplateSlug) {
+    params.set('templateSlug', campaign.campaignTemplateSlug);
+  }
+  if (campaign.sessionId) {
+    params.set('sessionId', campaign.sessionId);
+  }
+  return params.toString();
 }

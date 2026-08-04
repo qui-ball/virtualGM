@@ -6,14 +6,19 @@ import { apiBaseUrl } from '@/config';
 import type {
   BossDeathRequest,
   CampaignListResponse,
+  CampaignTemplateSummary,
   CreateSessionRequest,
   CreateSessionResponse,
   GameStateSnapshot,
   HealthResponse,
   LevelUpRequest,
   MessagesResponse,
+  PackageSummary,
   PendingAction,
+  PrebuiltCharacterSummary,
   RollResultPayload,
+  StartCampaignRequest,
+  StartCampaignResponse,
   TurnRequest,
 } from '@/types';
 
@@ -44,6 +49,75 @@ export function createSession(
 
 export function getCampaigns(): Promise<CampaignListResponse> {
   return request<CampaignListResponse>('/campaigns');
+}
+
+export function getCampaignTemplates(): Promise<{
+  templates: CampaignTemplateSummary[];
+}> {
+  return request('/campaign-templates');
+}
+
+export function getPrebuiltCharacters(slug: string): Promise<{
+  prebuilts: PrebuiltCharacterSummary[];
+}> {
+  return request(
+    `/campaign-templates/${encodeURIComponent(slug)}/prebuilt-characters`,
+  );
+}
+
+export function getStartingPackages(
+  slug: string,
+  classId?: string,
+): Promise<{ packages: PackageSummary[] }> {
+  const q = classId ? `?class_id=${encodeURIComponent(classId)}` : '';
+  return request(
+    `/campaign-templates/${encodeURIComponent(slug)}/starting-packages${q}`,
+  );
+}
+
+export function getRaces(): Promise<{ races: { id: string; name: string }[] }> {
+  return request('/races');
+}
+
+export function startActiveCampaign(
+  body: StartCampaignRequest,
+): Promise<StartCampaignResponse> {
+  return request<StartCampaignResponse>('/active-campaigns', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function continueActiveCampaign(
+  activeCampaignId: string,
+): Promise<StartCampaignResponse> {
+  return request<StartCampaignResponse>(
+    `/active-campaigns/${encodeURIComponent(activeCampaignId)}/continue`,
+    { method: 'POST' },
+  );
+}
+
+export function saveActiveCampaign(activeCampaignId: string): Promise<{
+  active_campaign_id: string;
+  session_id: string;
+  chapter: number;
+  time_current: number;
+  last_scene: string;
+}> {
+  return request(
+    `/active-campaigns/${encodeURIComponent(activeCampaignId)}/save`,
+    { method: 'POST' },
+  );
+}
+
+/** Permanently remove a playthrough from the lobby. */
+export function abandonActiveCampaign(
+  activeCampaignId: string,
+): Promise<{ ok: boolean; active_campaign_id: string }> {
+  return request(
+    `/active-campaigns/${encodeURIComponent(activeCampaignId)}`,
+    { method: 'DELETE' },
+  );
 }
 
 export function getSessionMessages(
