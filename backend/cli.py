@@ -11,15 +11,15 @@ import agent as agent_mod
 from agent import gm_agent, run_agent_iter
 from agent.tools import handle_ask_player_roll
 from game.models import GameState, create_player_character
-
-
-# ANSI color codes for terminal output
-class Colors:
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    RED = "\033[31m"
-    LIGHT_BLACK = "\033[90m"
-    RESET = "\033[0m"
+from cli_render import (
+    C,
+    NarrationTracker,
+    _c,
+    close_open_line,
+    render_narration_delta,
+    render_narration_discard,
+    render_narration_settle,
+)
 
 
 async def run_chat():
@@ -42,6 +42,26 @@ async def run_chat():
     game_state.campaign_dir = str(
         Path(__file__).parent / "campaigns" / "LostMineOfPhandelverAdapted"
     )
+
+    # Narration is printed live from the delta stream rather than logged once at the end.
+    narration = NarrationTracker()
+
+    def on_event(event_type: str, payload: dict):
+        if event_type == "thinking":
+            # Narration is written without a trailing newline, so close its row first or the
+            # thinking line lands mid-sentence.
+            close_open_line(narration)
+            logger.info(_c(f"💭 {payload.get('text', '')}", C.DIM))
+        elif event_type == "narration_delta":
+            render_narration_delta(narration, payload)
+        elif event_type == "narration":
+            render_narration_settle(narration, payload)
+        elif event_type == "narration_discard":
+            render_narration_discard(narration, payload)
+
+    # narrate()'s settle/discard reach us through this sink; there is no SSE queue in-process.
+    # Attaching it also suppresses narrate()'s own log line, which would double-print the turn.
+    game_state._on_tool_event = on_event
 
     logger.info(
         f"Character loaded: {game_state.pc.name} (Level {game_state.pc.level} {game_state.pc.character_class})"
@@ -66,17 +86,12 @@ async def run_chat():
             deferred_results = None
 
             while True:
-                def on_thinking(text: str):
-                    logger.info(
-                        f"{Colors.LIGHT_BLACK}💭 {text}{Colors.RESET}"
-                    )
-
                 result = await run_agent_iter(
                     deps=game_state,
                     message_history=message_history,
                     user_prompt=current_input,
                     deferred_tool_results=deferred_results,
-                    on_thinking=on_thinking,
+                    on_event=on_event,
                 )
 
                 # Check if we have deferred tool requests (player interaction needed)

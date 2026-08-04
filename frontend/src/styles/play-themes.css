@@ -1750,8 +1750,37 @@ html[data-theme] .play-chip {
   border-color: color-mix(in srgb, var(--bad) 45%, var(--panel-edge));
 }
 
+.play-bubble-streaming {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--panel-edge));
+}
+
 .play-thinking {
   font-style: italic;
+}
+
+/* Narration still arriving from the model — the text is provisional until it settles. */
+.play-caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: play-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes play-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .play-caret {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 .play-roll-card {
@@ -2466,6 +2495,33 @@ html[data-theme] .play-chip {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-4);
+}
+
+/* Dev-only GM reasoning. Never rendered outside the debug console. */
+.play-debug-thinking {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 12%);
+}
+
+.play-debug-thinking-block {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  color: var(--ink-3);
+}
+
+.play-debug-thinking-block + .play-debug-thinking-block {
+  padding-top: 6px;
+  border-top: 1px dashed var(--panel-edge);
 }
 
 .play-debug-console-grid {

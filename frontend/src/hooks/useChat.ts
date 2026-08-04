@@ -12,7 +12,12 @@ import {
   debugUnblockForPanels,
   syncGameStateFlags,
 } from '@/lib/play/devDebugActions';
-import { type DevDebugActionId } from '@/lib/play/devDebugConsole';
+import {
+  appendThinking,
+  type DevDebugActionId,
+  readDebugThinkingOn,
+  writeDebugThinkingOn,
+} from '@/lib/play/devDebugConsole';
 import {
   createDevDemoRollPromptEntry,
   DEV_DEMO_PENDING_ACTION,
@@ -26,6 +31,12 @@ import {
   shouldBlockForLevelUp,
   type LevelUpSelection,
 } from '@/lib/play/levelUp';
+import {
+  applyNarrationDelta,
+  clearStreamingNarrations,
+  discardNarration,
+  settleNarration,
+} from '@/lib/play/narrationStream';
 import { rollDiceToResultFields } from '@/lib/play/rollResultFields';
 import { pendingActionToRollPrompt, rollTargetFromPendingAction } from '@/lib/play/pendingActionAdapter';
 import {
@@ -74,6 +85,10 @@ export function useChat() {
   const [gameState, setGameState] = useState<GameStateSnapshot | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [levelUpError, setLevelUpError] = useState<string | null>(null);
+  // Dev-only. Thinking never enters the player transcript — it is a developer affordance
+  // behind the debug console, off by default.
+  const [thinking, setThinking] = useState<string[]>([]);
+  const [showThinking, setShowThinking] = useState(readDebugThinkingOn);
 
   const sessionIdRef = useRef<string | null>(null);
   const campaignIdRef = useRef<string | null>(null);
@@ -147,14 +162,26 @@ export function useChat() {
     try {
       for await (const event of streamTurn(sessionIdRef.current, body)) {
         switch (event.type) {
-          case 'narration':
-            appendEntry(
-              chatMessageToTranscriptEntry({
-                role: 'gm',
-                content: event.text,
-                timestamp: Date.now(),
-              }),
+          case 'narration_delta':
+            setTranscript((prev) =>
+              applyNarrationDelta(prev, event.tool_call_id, event.text),
             );
+            break;
+          case 'narration':
+            setTranscript((prev) =>
+              settleNarration(prev, event.tool_call_id, event.text),
+            );
+            break;
+          case 'narration_discard':
+            setTranscript((prev) =>
+              discardNarration(prev, event.tool_call_id, event.retract),
+            );
+            break;
+          case 'thinking':
+            // Captured for the dev console only; never appended to the transcript.
+            if (isDev) {
+              setThinking((prev) => appendThinking(prev, event.text));
+            }
             break;
           case 'scene':
             appendEntry({
@@ -237,6 +264,7 @@ export function useChat() {
             break;
           }
           case 'error':
+            setTranscript(clearStreamingNarrations);
             appendEntry(
               chatMessageToTranscriptEntry({
                 role: 'system',
@@ -259,6 +287,9 @@ export function useChat() {
         }),
       );
     } finally {
+      // A turn that ends without resolving its narrations — dropped connection, mid-turn
+      // crash — must not leave half a sentence standing. Settled bubbles are untouched.
+      setTranscript(clearStreamingNarrations);
       setLoading(false);
     }
   }, [appendEntry, persistSession, scheduleStateRefetch, clearStateRefetch]);
@@ -643,6 +674,14 @@ export function useChat() {
         return;
       }
 
+      if (actionId === 'toggle_thinking') {
+        setShowThinking((v) => {
+          writeDebugThinkingOn(!v);
+          return !v;
+        });
+        return;
+      }
+
       if (actionId === 'scene_marker') {
         appendEntry({
           kind: 'scene',
@@ -727,6 +766,8 @@ export function useChat() {
     sessionBlocked,
     runDebugAction,
     debugStatus,
+    thinking,
+    showThinking,
     patchGameState,
     /** @deprecated Use rollPrompt from in-chat card */
     respondToAction: submitRollResult,

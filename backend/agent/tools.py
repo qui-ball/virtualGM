@@ -41,13 +41,20 @@ class Colors:
 def _notify_state_changed(gs: GameState, *fields: str) -> None:
     """Signal the client that game state changed mid-turn (ping-to-refetch).
 
-    Reuses the SSE event queue (same path as narrate/set_scene). The event carries
-    only a hint of which fields changed — the authoritative state is read back by the
-    client via GET /sessions/{id}/state. No-op outside an active stream (e.g. the
-    in-process CLI), where _event_queue is None.
+    The event carries only a hint of which fields changed — the authoritative state is read
+    back by the client via GET /sessions/{id}/state.
     """
-    if gs._event_queue is not None:
-        gs._event_queue.put_nowait(("state_changed", {"fields": list(fields)}))
+    gs.emit("state_changed", {"fields": list(fields)})
+
+
+def _discard_narration(ctx: RunContext[GameState]) -> None:
+    """Drop the provisional bubble this call has been streaming into.
+
+    The client painted text from these arguments while the model was still writing them, so
+    every path out of narrate() that does NOT show the text has to say so explicitly —
+    otherwise half a sentence is left standing on screen.
+    """
+    ctx.deps.emit("narration_discard", {"tool_call_id": ctx.tool_call_id})
 
 
 @gm_agent.tool
@@ -62,20 +69,24 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
     if leaked is not None:
         ctx.deps._leaked_roll_args = leaked
     if not cleaned:
+        _discard_narration(ctx)
         return "Narration omitted (roll prompt only)."
     text = cleaned
     if ctx.deps.awaiting_damage_roll:
+        _discard_narration(ctx)
         raise ModelRetry(
             "Attack HIT — the player must roll damage first. Call ask_player_roll() "
             "for weapon damage (d4–d12), then apply_damage(), BEFORE narrate(). "
             "Do not describe wounds, defeat, or death yet."
         )
     ctx.deps.narrations.append(text)
-    # Push to SSE stream if active
-    if ctx.deps._event_queue is not None:
-        ctx.deps._event_queue.put_nowait(("narration", {"text": text}))
-    # Also log for CLI consumers
-    logger.info(f"{Colors.GREEN}{text}{Colors.RESET}")
+    # This is the settle signal: the tool_call_id ties it to the narration_delta frames the
+    # client has been painting, so it can replace provisional text with the authoritative text.
+    ctx.deps.emit("narration", {"text": text, "tool_call_id": ctx.tool_call_id})
+    # Log for CLI consumers — but not when a direct sink is attached, since that consumer
+    # already printed this text live off the delta stream and would otherwise see it twice.
+    if ctx.deps._on_tool_event is None:
+        logger.info(f"{Colors.GREEN}{text}{Colors.RESET}")
     return f"Narration was shown to the player: {text[:50]}..."
 
 
@@ -171,10 +182,7 @@ def set_scene(ctx: RunContext[GameState], scene_label: str) -> str:
         scene_label: Short scene name (e.g. "Tavern, dusk", "Combat — Goblin ambush")
     """
     ctx.deps.scene_label = scene_label
-    if ctx.deps._event_queue is not None:
-        ctx.deps._event_queue.put_nowait(
-            ("scene", {"text": f"Scene · {scene_label}"})
-        )
+    ctx.deps.emit("scene", {"text": f"Scene · {scene_label}"})
     _notify_state_changed(ctx.deps, "scene_label")
     return f"Scene set to {scene_label}"
 

@@ -16,6 +16,21 @@ from api.transcript_log import append_roll_prompt
 from game.session import PendingDeferred, Session
 
 
+def _queue_run_event(queue: asyncio.Queue):
+    """Forward run events (thinking, narration deltas) onto the session's SSE queue.
+
+    The callback carries the same (event_type, payload) shape the queue does, so most events
+    pass straight through; thinking is additionally mirrored to the server log, as before.
+    """
+
+    def on_event(event_type: str, payload: dict) -> None:
+        if event_type == "thinking":
+            logger.info(f"\033[90m💭 {payload.get('text', '')}\033[0m")
+        queue.put_nowait((event_type, payload))
+
+    return on_event
+
+
 def _try_recover_leaked_roll(
     session: Session,
     result,
@@ -133,15 +148,11 @@ async def stream_turn(
     async def run():
         try:
             async with session.lock:
-                def on_thinking(text: str):
-                    logger.info(f"\033[90m💭 {text}\033[0m")
-                    queue.put_nowait(("thinking", {"text": text}))
-
                 result = await run_agent_iter(
                     deps=gs,
                     message_history=session.message_history,
                     user_prompt=player_message,
-                    on_thinking=on_thinking,
+                    on_event=_queue_run_event(queue),
                 )
                 _handle_result(session, result, queue)
                 # Compact under the lock — before any next-turn request can read
@@ -187,15 +198,11 @@ async def stream_deferred_response(
     async def run():
         try:
             async with session.lock:
-                def on_thinking(text: str):
-                    logger.info(f"\033[90m💭 {text}\033[0m")
-                    queue.put_nowait(("thinking", {"text": text}))
-
                 result = await run_agent_iter(
                     deps=gs,
                     message_history=session.pending_deferred.messages_snapshot,
                     deferred_tool_results=deferred_results,
-                    on_thinking=on_thinking,
+                    on_event=_queue_run_event(queue),
                 )
                 _handle_result(session, result, queue)
                 await maybe_compact(session, result)

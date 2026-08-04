@@ -37,6 +37,18 @@ from pathlib import Path
 import click
 import httpx
 
+from cli_render import (
+    C,
+    NarrationTracker,
+    _c,
+    close_open_line,
+    discard_open_narrations,
+    out,
+    render_narration_delta,
+    render_narration_discard,
+    render_narration_settle,
+)
+
 DEFAULT_BASE_URL = "http://localhost:8000"
 STATE_DIR = Path(__file__).parent / ".ui_cli_state"
 _UNSET = object()
@@ -47,25 +59,6 @@ MAX_AUTO_ROLLS = 50
 # --------------------------------------------------------------------------- #
 # Rendering helpers
 # --------------------------------------------------------------------------- #
-class C:
-    RESET = "\033[0m"
-    DIM = "\033[90m"
-    BOLD = "\033[1m"
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    RED = "\033[31m"
-    CYAN = "\033[36m"
-    MAGENTA = "\033[35m"
-
-
-def _c(text, color):
-    return f"{color}{text}{C.RESET}"
-
-
-def out(text=""):
-    click.echo(text)
-
-
 def err(text):
     click.echo(_c(f"⚠ {text}", C.RED), err=True)
 
@@ -463,14 +456,26 @@ def _parse_data(data_buf):
         return {"raw": raw}
 
 
+NARRATION_EVENTS = frozenset({"narration_delta", "narration", "narration_discard"})
+
+
 def render_event(ctx, event_type, data):
     if ctx.obj["json_mode"]:
         out(json.dumps({"event": event_type, **data}))
         return
+    tracker = ctx.obj["narration"]
+    if event_type not in NARRATION_EVENTS:
+        # Narration is printed without a trailing newline so the next token continues it;
+        # anything else must start on its own row rather than mid-sentence.
+        close_open_line(tracker)
     if event_type == "thinking":
         out(_c(f"💭 {data.get('text', '')}", C.DIM))
+    elif event_type == "narration_delta":
+        render_narration_delta(tracker, data)
     elif event_type == "narration":
-        out(_c("📜 ", C.GREEN) + (data.get("text") or ""))
+        render_narration_settle(tracker, data)
+    elif event_type == "narration_discard":
+        render_narration_discard(tracker, data)
     elif event_type == "scene":
         out(_c(f"🎬 {data.get('text', '')}", C.BOLD + C.CYAN))
     elif event_type == "state_changed":
@@ -515,6 +520,10 @@ def run_turn(ctx, sid, payload, *, auto=True, pause_hint=True):
                 save_state(sid, game_state=data.get("game_state"), pending_action=None)
             elif event_type == "error":
                 saw_error = True
+        # A transport-level drop ends the stream without the backend ever emitting a
+        # discard, so retract anything still open rather than leaving a half sentence.
+        if not ctx.obj["json_mode"]:
+            discard_open_narrations(ctx.obj["narration"])
         if saw_error:
             return True
         if pending is not None:
@@ -555,6 +564,9 @@ def cli(ctx, base_url, json_mode, seed):
     ctx.obj["base_url"] = base_url.rstrip("/")
     ctx.obj["json_mode"] = json_mode
     ctx.obj["rng"] = random.Random(seed)
+    # Shared across every turn this process runs, so a narration that spans an auto-roll
+    # round-trip keeps its printed-so-far state.
+    ctx.obj["narration"] = NarrationTracker()
     # One client per process so requests (and each auto-roll round-trip / REPL line)
     # reuse a keep-alive connection instead of reconnecting every time.
     client = make_client(ctx.obj["base_url"])

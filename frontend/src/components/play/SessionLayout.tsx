@@ -60,6 +60,9 @@ type SessionLayoutProps = {
   onCast: (cast: CastTrayResult) => void;
   onRunDebugAction: (id: DevDebugActionId) => void;
   debugStatus?: string;
+  /** Dev-only GM reasoning, surfaced behind the debug console toggle. */
+  thinking?: string[];
+  showThinking?: boolean;
   className?: string;
 };
 
@@ -83,6 +86,8 @@ export function SessionLayout({
   onCast,
   onRunDebugAction,
   debugStatus = '',
+  thinking = [],
+  showThinking = false,
   className,
 }: SessionLayoutProps) {
   const sessionMainRef = useRef<HTMLDivElement>(null);
@@ -400,6 +405,8 @@ export function SessionLayout({
           onClose={() => setDebugOpenPersisted(false)}
           onAction={handleDebugAction}
           status={debugStatus}
+          thinking={thinking}
+          showThinking={showThinking}
         />
       ) : null}
 

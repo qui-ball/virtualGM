@@ -21,17 +21,12 @@ def _session(gs: GameState) -> Session | None:
     return getattr(gs, "_session", None)
 
 
-def _queue_combat_event(gs: GameState, event_type: str, payload: dict) -> None:
-    if gs._event_queue is not None:
-        gs._event_queue.put_nowait((event_type, payload))
-
-
 def emit_combat_start(gs: GameState, initiative_order: list[str]) -> None:
     payload = {
         "initiative_order": list(initiative_order),
         "game_state": snapshot_dict_for_gs(gs),
     }
-    _queue_combat_event(gs, "combat_start", payload)
+    gs.emit("combat_start", payload)
     session = _session(gs)
     if session is not None:
         from api.transcript_log import append_combat_start
@@ -43,7 +38,7 @@ def emit_combat_end(gs: GameState, reason: str = "") -> None:
     payload: dict = {"game_state": snapshot_dict_for_gs(gs)}
     if reason:
         payload["reason"] = reason
-    _queue_combat_event(gs, "combat_end", payload)
+    gs.emit("combat_end", payload)
     session = _session(gs)
     if session is not None:
         from api.transcript_log import append_combat_end

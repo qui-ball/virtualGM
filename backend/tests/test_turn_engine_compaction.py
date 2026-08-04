@@ -50,7 +50,7 @@ async def _drain(agen):
 
 
 def _stub_run_agent_iter(msgs):
-    async def fake(deps, message_history, user_prompt=None, deferred_tool_results=None, on_thinking=None):
+    async def fake(deps, message_history, user_prompt=None, deferred_tool_results=None, on_event=None):
         return _fake_result(msgs)
 
     return fake
