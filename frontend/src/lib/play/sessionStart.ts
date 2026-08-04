@@ -1,7 +1,8 @@
 import {
-  createSession,
+  continueActiveCampaign,
   getSessionMessages,
   getSessionState,
+  saveActiveCampaign,
 } from '@/api/client';
 import { syncGameStateFlags } from '@/lib/play/devDebugActions';
 import {
@@ -19,6 +20,10 @@ import type { GameStateSnapshot } from '@/types';
 
 export type PlaySessionStartOptions = {
   campaignId?: string;
+  /** Playthrough id from GET /campaigns — prefer continue over create. */
+  activeCampaignId?: string;
+  /** Live session from start response — prefer over continue when still warm. */
+  sessionId?: string;
   characterName?: string;
   soloMode?: boolean;
   recommendedPlayers?: number;
@@ -65,65 +70,86 @@ export async function loadPlayTranscript(
   }
 }
 
-/** Resume cached session or create a new one; persists cache on create. */
+/** Resume cached session, warm sessionId, continue a playthrough, or create. */
 export async function bootstrapPlaySession(
   options?: PlaySessionStartOptions,
 ): Promise<PlaySessionBootstrap> {
   const campaignId = options?.campaignId;
-  const cached = getSessionCache(campaignId);
+  const activeCampaignId = options?.activeCampaignId;
+  const warmSessionId = options?.sessionId;
+  const cacheKey = activeCampaignId ?? campaignId;
+  const cached = getSessionCache(cacheKey);
 
-  if (cached) {
+  async function fromSessionId(
+    sessionId: string,
+    resumedFromCache: boolean,
+  ): Promise<PlaySessionBootstrap | null> {
     try {
-      // Read authoritative state from the server (also confirms the session still
-      // exists — 404s here fall through to create). Trust the server over the cache,
-      // which may be stale if state changed since this client last took a turn.
-      const live = await getSessionState(cached.sessionId);
-      const gameState = syncGameStateFlags(live.game_state ?? cached.gameState);
-      const transcript = await loadPlayTranscript(cached.sessionId, gameState);
-      if (live.game_state) {
-        storeSessionCache(campaignId, {
-          sessionId: cached.sessionId,
-          gameState,
-        });
-      }
-      return {
-        sessionId: cached.sessionId,
-        gameState,
-        transcript,
-        resumedFromCache: true,
-      };
+      const live = await getSessionState(sessionId);
+      const raw = live.game_state ?? cached?.gameState;
+      if (!raw) return null;
+      const gameState = syncGameStateFlags(raw);
+      const transcript = await loadPlayTranscript(sessionId, gameState);
+      storeSessionCache(cacheKey, { sessionId, gameState });
+      return { sessionId, gameState, transcript, resumedFromCache };
     } catch {
-      // Cached session expired on server — fall through to create.
+      return null;
     }
   }
 
-  const res = await createSession({
-    ...(options?.characterName
-      ? { character_name: options.characterName }
-      : {}),
-    ...(options?.soloMode !== undefined
-      ? { solo_mode: options.soloMode }
-      : {}),
-    ...(options?.recommendedPlayers !== undefined
-      ? { recommended_players: options.recommendedPlayers }
-      : {}),
-  });
-  const gameState = res.game_state ? syncGameStateFlags(res.game_state) : null;
-  if (gameState) {
-    storeSessionCache(campaignId, {
+  if (cached) {
+    const fromCache = await fromSessionId(cached.sessionId, true);
+    if (fromCache) return fromCache;
+  }
+
+  if (warmSessionId) {
+    const fromWarm = await fromSessionId(warmSessionId, false);
+    if (fromWarm) return fromWarm;
+  }
+
+  if (activeCampaignId) {
+    const res = await continueActiveCampaign(activeCampaignId);
+    const gameState = res.game_state ? syncGameStateFlags(res.game_state) : null;
+    if (gameState) {
+      storeSessionCache(cacheKey, {
+        sessionId: res.session_id,
+        gameState,
+      });
+    }
+    const transcript = await loadPlayTranscript(
+      res.session_id,
+      res.game_state ?? null,
+    );
+    return {
       sessionId: res.session_id,
       gameState,
-    });
+      transcript,
+      resumedFromCache: false,
+    };
   }
-  const transcript = await loadPlayTranscript(
-    res.session_id,
-    res.game_state ?? null,
-  );
 
-  return {
-    sessionId: res.session_id,
-    gameState,
-    transcript,
-    resumedFromCache: false,
-  };
+  // No playthrough context — do not invent a legacy session; caller should redirect.
+  throw new Error('No active campaign to resume — start from Campaigns');
+}
+
+/** Persist playthrough progress while a session is live. */
+export async function savePlaythroughProgress(
+  activeCampaignId: string,
+): Promise<void> {
+  await saveActiveCampaign(activeCampaignId);
+}
+
+/**
+ * Prompt sent (without a player bubble) so the GM narrates the campaign opening
+ * when a fresh session has no GM lines yet.
+ */
+export const CAMPAIGN_OPENING_PROMPT =
+  'Begin the campaign. Load the opening campaign section if needed, narrate the opening scene for this character from the campaign materials, then pause and wait for the player\'s first action. Do not invent combat or call for a roll unless the opening scene requires it.';
+
+/** True when the session still needs an opening GM narration. */
+export function transcriptNeedsOpening(entries: TranscriptEntry[]): boolean {
+  return !entries.some(
+    (e) =>
+      (e.kind === 'message' && e.role === 'gm') || e.kind === 'roll_prompt',
+  );
 }

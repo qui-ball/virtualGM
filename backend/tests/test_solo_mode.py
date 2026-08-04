@@ -32,16 +32,13 @@ def test_create_session_solo_mode_on_explicit():
     assert res.json()["game_state"]["solo_mode"] is True
 
 
-def test_campaign_list_includes_metadata():
+def test_campaign_list_empty_until_start():
+    from catalog.playthrough_store import playthrough_store
+
+    playthrough_store.clear()
     res = client.get("/campaigns")
     assert res.status_code == 200
-    lost_mine = res.json()["campaigns"][0]
-    assert lost_mine["id"] == "lost-mine"
-    assert lost_mine["recommended_players"] == 4
-    assert lost_mine["level_min"] == 1
-    assert lost_mine["level_max"] == 5
-    assert lost_mine["avg_level"] == 3
-    assert lost_mine["solo_mode"] is True
+    assert res.json()["campaigns"] == []
 
 
 def test_solo_mode_instruction_block_empty_when_disabled():

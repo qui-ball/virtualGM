@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCampaigns } from '@/api/client';
 import {
-  campaignsFromApiOrFixture,
+  campaignsFromApi,
   fetchCampaignList,
 } from '@/lib/play/campaignApi';
-import { LOBBY_CAMPAIGNS } from '@/lib/play/campaignLobby';
 import type { CampaignSummary } from '@/types';
 
 vi.mock('@/api/client', () => ({
@@ -13,7 +12,7 @@ vi.mock('@/api/client', () => ({
 
 const API_CAMPAIGNS: CampaignSummary[] = [
   {
-    id: 'lost-mine',
+    id: 'pt-1',
     name: 'Lost Mine of Phandelver',
     chapter: 2,
     time_current: 20,
@@ -29,24 +28,40 @@ const API_CAMPAIGNS: CampaignSummary[] = [
     level_max: 5,
     avg_level: 3,
     solo_mode: true,
+    campaign_template_slug: 'fantasy-lost-mine',
+    session_id: 'sess-1',
+    xp: 80,
+    hp: 14,
+    hp_max: 14,
+    mana: null,
+    mana_max: null,
+    evasion: 14,
+    finesse: 1,
   },
   {
-    id: 'sunless-citadel',
-    name: 'The Sunless Citadel',
+    id: 'pt-2',
+    name: 'Touch of the Necromancer',
     chapter: 1,
-    time_current: 5,
-    time_max: 50,
-    last_scene: 'Grove',
-    character_name: 'Zaelan',
+    time_current: 35,
+    time_max: 35,
+    last_scene: 'Shrine',
+    character_name: 'Vespera Greythorn',
     character_class: 'mage',
-    level: 4,
-    pending_level_up: true,
+    level: 1,
+    pending_level_up: false,
     active: false,
-    recommended_players: 4,
+    recommended_players: 1,
     level_min: 1,
     level_max: 3,
     avg_level: 2,
     solo_mode: false,
+    xp: 0,
+    hp: 8,
+    hp_max: 8,
+    mana: 7,
+    mana_max: 7,
+    evasion: 11,
+    finesse: 0,
   },
 ];
 
@@ -58,38 +73,46 @@ describe('campaignApi', () => {
   it('fetchCampaignList maps API campaigns to lobby items', async () => {
     vi.mocked(getCampaigns).mockResolvedValue({ campaigns: API_CAMPAIGNS });
 
-    const { active, others } = await fetchCampaignList();
+    const { campaigns, error } = await fetchCampaignList();
 
-    expect(active.id).toBe('lost-mine');
-    expect(active.title).toBe('Lost Mine of Phandelver');
-    expect(active.characterClass).toBe('warrior');
-    expect(active.classShort).toBe('Warrior');
-    expect(active.timeCurrent).toBe(20);
-    expect(active.recommendedPlayers).toBe(4);
-    expect(active.soloMode).toBe(true);
-    expect(others).toHaveLength(1);
-    expect(others[0]?.id).toBe('sunless-citadel');
-    expect(others[0]?.pendingLevelUp).toBe(true);
+    expect(error).toBeNull();
+    expect(campaigns).toHaveLength(2);
+    expect(campaigns[0]?.id).toBe('pt-1');
+    expect(campaigns[0]?.title).toBe('Lost Mine of Phandelver');
+    expect(campaigns[0]?.soloMode).toBe(true);
+    expect(campaigns[0]?.hp).toBe(14);
+    expect(campaigns[0]?.hpMax).toBe(14);
+    expect(campaigns[0]?.xp).toBe(80);
+    expect(campaigns[1]?.id).toBe('pt-2');
+    expect(campaigns[1]?.mana).toBe(7);
   });
 
-  it('fetchCampaignList falls back to fixtures when API fails', async () => {
+  it('fetchCampaignList returns empty when API has no playthroughs', async () => {
+    vi.mocked(getCampaigns).mockResolvedValue({ campaigns: [] });
+
+    const { campaigns, error } = await fetchCampaignList();
+
+    expect(error).toBeNull();
+    expect(campaigns).toEqual([]);
+  });
+
+  it('fetchCampaignList returns error when API fails', async () => {
     vi.mocked(getCampaigns).mockRejectedValue(new Error('offline'));
 
-    const { active, others } = await fetchCampaignList();
+    const { campaigns, error } = await fetchCampaignList();
 
-    expect(active.id).toBe('lost-mine');
-    expect(others.length).toBeGreaterThan(0);
+    expect(campaigns).toEqual([]);
+    expect(error).toBe('offline');
   });
 
-  it('campaignsFromApiOrFixture returns fixtures when summaries empty', () => {
-    expect(campaignsFromApiOrFixture(null)).toEqual(LOBBY_CAMPAIGNS);
-    expect(campaignsFromApiOrFixture([])).toEqual(LOBBY_CAMPAIGNS);
+  it('campaignsFromApi returns empty when summaries empty', () => {
+    expect(campaignsFromApi(null)).toEqual([]);
+    expect(campaignsFromApi([])).toEqual([]);
   });
 
-  it('campaignsFromApiOrFixture maps summaries', () => {
-    const list = campaignsFromApiOrFixture([API_CAMPAIGNS[1]!]);
+  it('campaignsFromApi maps summaries', () => {
+    const list = campaignsFromApi([API_CAMPAIGNS[1]!]);
     expect(list).toHaveLength(1);
-    expect(list[0]?.characterName).toBe('Zaelan');
-    expect(list[0]?.characterClass).toBe('mage');
+    expect(list[0]?.characterName).toBe('Vespera Greythorn');
   });
 });

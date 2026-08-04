@@ -62,7 +62,7 @@ Every FastAPI route has a client wrapper. Play/campaign UI uses all session rout
 | Route | `client.ts` | Wired in UI | Notes |
 |-------|-------------|-------------|-------|
 | `GET /health` | `getHealth()` | ❌ Tests only | Optional lobby “backend connected” indicator |
-| `GET /campaigns` | `getCampaigns()` | ✅ `CampaignPage` → `fetchCampaignList()` | Fixture fallback on network error |
+| `GET /campaigns` | `getCampaigns()` | ✅ `CampaignPage` → `fetchCampaignList()` | Surfaces error in lobby on failure (no fixture) |
 | `POST /sessions` | `createSession()` | ✅ `bootstrapPlaySession()` | Sends optional `character_name`; backend ignores |
 | `GET /sessions/{id}/messages` | `getSessionMessages()` | ✅ Transcript on bootstrap/resume | No `game_state` in response |
 | `POST /sessions/{id}/level-up` | `submitLevelUp()` | ✅ `LevelUpDialog` → `confirmLevelUp()` | Dev local fallback if API 400 |
@@ -91,9 +91,9 @@ Every FastAPI route has a client wrapper. Play/campaign UI uses all session rout
 | OOC composer messages | `sendMessage({ ooc: true })` | No `ooc` on `TurnRequest` |
 | Free rolls (`+` tray) | `performFreeRoll()` | No `free_roll` on `TurnRequest` |
 | Character notes | `SheetNotesTab` | `localStorage` only |
-| Lobby character switcher vitals | `CampaignPage` fixtures | No `GET /characters` |
-| Other campaigns “Open” | `CampaignRow` disabled | No campaign activate API (#3) |
-| Dev demo roll (no server pending) | `devRollPromptFixture` | Resolves locally in dev |
+| Lobby character switcher vitals | — | Removed (WS-5); vitals from `GET /campaigns` snapshot |
+| Lobby playthrough cards | — | Each instance equal; Continue → `/play` |
+| Dev demo roll (no server pending) | `devRollPromptFixture` | Debug console only — not auto-injected on session start |
 | Non-boss HP=0 recovery | `applyNonBossAutoRecover` | Server narrates but doesn’t heal (#12) |
 
 **Stopgaps within available API:**
@@ -114,12 +114,12 @@ Every FastAPI route has a client wrapper. Play/campaign UI uses all session rout
 | Play session (chat, rolls, vitals) | ✅ | ✅ Wired |
 | Rests / use item / cast spell | ✅ | ✅ Wired |
 | Level-up / boss death | ✅ | ✅ Wired |
-| Campaign lobby list | ✅ (static) | ✅ `GET /campaigns` + fixture fallback |
+| Campaign lobby list | ✅ playthrough store | ✅ `GET /campaigns` (vitals + resume ids) |
 | Transcript on session start / resume | ✅ | ✅ `GET .../messages` + `hydrateTranscript` |
 | Session resume (same browser) | ⚠️ Partial | ✅ Cache restores `game_state`; transcript from API |
-| Campaign-scoped session start | ❌ | ⚠️ `?campaignId=` + cache only; backend ignores |
-| Character switcher | ❌ | ❌ Fixtures |
-| New campaign | ❌ | ❌ Placeholder UI |
+| Campaign-scoped session start | ✅ `POST /active-campaigns` | ✅ New campaign flow |
+| Character switcher | ❌ removed | ❌ removed (FR-6.4.1) |
+| New campaign | ✅ templates + start | ✅ NewCampaignFlow + wizard |
 | Auth on REST calls | ❌ | ❌ Supabase auth is route-guard only |
 | `GET /health` | ✅ | ⚠️ Client helper exists; **not called from UI** |
 | Multi-user live sync | ❌ | ❌ Single-browser, turn-initiator SSE only |
@@ -276,37 +276,35 @@ POST /sessions
 
 #### 5. Character APIs (FastAPI)
 
-**Missing:** `GET /characters`, `POST /characters`, etc.
+**Lobby:** Character display is **per playthrough**. `GET /campaigns` includes bound PC name/class/level plus vitals (`hp`, `hp_max`, `mana`, `mana_max`, `xp`, `evasion`) from `pc_snapshot`. No global character switcher.
 
-**Today:** Character switcher uses frontend fixtures. Supabase PostgREST can CRUD `characters` (RLS smoke test on home page only) — that path is **not** integrated into `/campaign` or `/play`.
-
-**Lobby card gap:** `GET /campaigns` returns `character_name`, `character_class`, `level` per campaign but **not** HP/MP/XP vitals needed for the full character card bars.
+**Still missing for a full character library UI (out of scope for lobby):** standalone `GET /characters` list / sheet editing outside a playthrough.
 
 ---
 
 ### P1 — Campaign management
 
-#### 6. Create campaign
+#### 6. Create / start campaign
 
-**Missing:** `POST /campaigns`
+**Shipped (feature 06):** `GET /campaign-templates`, `POST /active-campaigns`, character draft APIs, and `NewCampaignFlow` + wizard on the lobby.
 
-**Today:** Only `GET /campaigns` exists. New Campaign modal is disabled placeholder.
+**Still open (auth / ownership):** Bind create/list to the signed-in user (`Authorization` + RLS-backed ownership). A separate `POST /campaigns` is not required while `POST /active-campaigns` remains the start path.
 
 #### 7. Campaign templates
 
-**Missing:** `GET /campaign-templates` (or equivalent)
+**Shipped:** `GET /campaign-templates` (+ detail) for the new-campaign picker.
 
-**Today:** No backend route. Templates may exist in Supabase seed data but are not exposed via FastAPI.
+**Still open:** Template catalog completeness / packaging beyond the seeded set.
 
 #### 8. Persisted campaign list
 
-**Not a new route — extend existing `GET /campaigns`:**
+**Mostly shipped:** `GET /campaigns` loads playthroughs from the playthrough store (not a static fixture), includes PC vitals and `session_id` for resume. Lobby lists **all** instances equally.
 
-| Today | Needed |
-|-------|--------|
-| Static Python fixture (`api/campaigns.py`) | Load from `active_campaigns` + joins per signed-in user |
-| No `session_id` on rows | Include active `session_id` for resume |
-| No status filter | `status`: active / paused / completed; optional `?status=` |
+| Today | Still needed |
+|-------|--------------|
+| Playthrough store + vitals + `session_id` | Per signed-in user scoping (auth) |
+| Ordering is create-time (acceptable for now) | Optional last-played / `updated_at` ordering |
+| No status filter | Optional `status`: active / paused / completed; `?status=` |
 
 ---
 

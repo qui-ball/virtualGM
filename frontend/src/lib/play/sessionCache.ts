@@ -4,7 +4,7 @@ const STORAGE_KEY = 'vgm.playSessionCache';
 
 export type SessionCacheEntry = {
   sessionId: string;
-  gameState: GameStateSnapshot;
+  gameState?: GameStateSnapshot;
   updatedAt: number;
 };
 

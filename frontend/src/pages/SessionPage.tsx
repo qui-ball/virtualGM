@@ -1,16 +1,23 @@
-import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { PlayShell, SessionLayout } from '@/components/play';
 import type { PlusMenuAction } from '@/components/play/PlusMenu';
 import type { FreeRollTrayConfig } from '@/components/play/RollTray';
 import { useChat } from '@/hooks/useChat';
-import { parseRecommendedPlayersParam, parseSoloModeParam } from '@/lib/play/campaignMeta';
+import {
+  parseRecommendedPlayersParam,
+  parseSoloModeParam,
+} from '@/lib/play/campaignMeta';
 import { toCharacterView } from '@/lib/play/characterView';
+import { PLAY_ROUTES } from '@/lib/play/routes';
+import { savePlaythroughProgress } from '@/lib/play/sessionStart';
 
-/** Live play session at `/play` (WS-3 layout + WS-5 chat & rolls + WS-7 flows). */
+/** Live play session at `/play` — requires activeCampaignId from lobby/start. */
 export function SessionPage() {
   const [searchParams] = useSearchParams();
   const campaignId = searchParams.get('campaignId') ?? undefined;
+  const activeCampaignId = searchParams.get('activeCampaignId') ?? undefined;
+  const sessionId = searchParams.get('sessionId') ?? undefined;
   const characterName = searchParams.get('characterName') ?? undefined;
   const soloMode = parseSoloModeParam(searchParams.get('soloMode'));
   const recommendedPlayers = parseRecommendedPlayersParam(
@@ -42,15 +49,59 @@ export function SessionPage() {
     showThinking,
   } = useChat();
 
+  const activeCampaignIdRef = useRef(activeCampaignId);
+  activeCampaignIdRef.current = activeCampaignId;
+
   useEffect(() => {
-    void startSession({ campaignId, characterName, soloMode, recommendedPlayers });
-  }, [startSession, campaignId, characterName, soloMode, recommendedPlayers]);
+    if (!activeCampaignId) return;
+    void startSession({
+      campaignId,
+      activeCampaignId,
+      sessionId,
+      characterName,
+      soloMode,
+      recommendedPlayers,
+    });
+  }, [
+    startSession,
+    campaignId,
+    activeCampaignId,
+    sessionId,
+    characterName,
+    soloMode,
+    recommendedPlayers,
+  ]);
+
+  useEffect(() => {
+    if (!activeCampaignId) return;
+
+    const save = () => {
+      const id = activeCampaignIdRef.current;
+      if (id) void savePlaythroughProgress(id);
+    };
+
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') save();
+    };
+
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', save);
+      document.removeEventListener('visibilitychange', onHide);
+      save();
+    };
+  }, [activeCampaignId]);
 
   const characterView = useMemo(
     () =>
       gameState?.character ? toCharacterView(gameState.character) : null,
     [gameState],
   );
+
+  if (!activeCampaignId) {
+    return <Navigate to={PLAY_ROUTES.campaign} replace />;
+  }
 
   const handlePlusAction = (action: PlusMenuAction) => {
     switch (action) {

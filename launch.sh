@@ -3,7 +3,8 @@
 # Virtual GM – development launch script
 # Usage: ./launch.sh [--wsl] [up|down|restart|logs|status] [service...]
 #
-#   ./launch.sh up          Start everything: local Supabase (if supabase/config.toml exists) + pending SQL migrations + backend (Docker) + frontend (npm run dev)
+#   ./launch.sh up          Start everything: local Supabase + pending SQL migrations + seed.sql (catalog) + backend (Docker) + frontend (npm run dev)
+#   ./launch.sh up --reset-db   Same as up, but runs `supabase db reset` first (fresh migrations + seed; destructive to local DB data)
 #   ./launch.sh up backend  Start only backend (Docker); local Supabase is not started
 #   ./launch.sh up supabase Start only local Supabase CLI stack (see https://supabase.com/docs/guides/cli)
 #   ./launch.sh down        Stop backend and frontend (if started by this script)
@@ -32,6 +33,8 @@ SUPABASE_CONFIG="${SCRIPT_DIR}/supabase/config.toml"
 LAUNCH_WSL=0
 # Set to 1 with --continue-without-supabase: start backend/frontend even if local Supabase fails
 LAUNCH_CONTINUE_WITHOUT_SUPABASE=0
+# Set to 1 with --reset-db: run `supabase db reset` before start (destructive local wipe + full migrate/seed)
+LAUNCH_RESET_DB=0
 # Populated from supabase/config.toml when present
 SUPABASE_API_PORT=54321
 SUPABASE_STUDIO_PORT=55423
@@ -524,6 +527,56 @@ apply_supabase_migrations() {
   return 0
 }
 
+# Apply supabase/seed.sql after migrations.
+# `migration up` does NOT re-run seed; without this, catalog rows (templates, prebuilts, packages)
+# can be missing on an already-initialized local DB. seed.sql is idempotent (ON CONFLICT).
+apply_supabase_seed() {
+  supabase_local_configured || return 0
+  supabase_cli_available || return 0
+  local seed_file="${SCRIPT_DIR}/supabase/seed.sql"
+  if [[ ! -f "$seed_file" ]]; then
+    warn "No supabase/seed.sql found; skipping catalog seed."
+    return 0
+  fi
+  if ! supabase_is_running; then
+    warn "Local Supabase is not running; cannot apply seed.sql."
+    return 1
+  fi
+
+  bold "Supabase: applying seed.sql (catalog data)..."
+
+  # Prefer piping into the local Postgres container (works without psql on host).
+  local db_container=""
+  if command -v docker >/dev/null 2>&1; then
+    db_container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^supabase_db_virtualGM$' | head -1 || true)
+    if [[ -z "$db_container" ]]; then
+      db_container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E 'supabase_db_' | head -1 || true)
+    fi
+  fi
+
+  if [[ -n "$db_container" ]]; then
+    if docker exec -i "$db_container" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$seed_file"; then
+      ok "Supabase seed applied (via $db_container)."
+      return 0
+    fi
+    err "Failed to apply seed.sql via Docker exec on $db_container."
+    return 1
+  fi
+
+  # Fallback: host psql + DB URL from supabase status
+  if command -v psql >/dev/null 2>&1; then
+    local db_url=""
+    db_url=$(cd "$SCRIPT_DIR" && supabase status -o env 2>/dev/null | grep -E '^(DB_URL|DATABASE_URL)=' | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [[ -n "$db_url" ]] && psql "$db_url" -v ON_ERROR_STOP=1 -f "$seed_file"; then
+      ok "Supabase seed applied (via psql)."
+      return 0
+    fi
+  fi
+
+  err "Could not apply seed.sql (no supabase_db container and no usable psql). Run: supabase db reset --yes"
+  return 1
+}
+
 stop_supabase_if_configured() {
   supabase_local_configured || return 0
   supabase_cli_available || return 0
@@ -570,6 +623,7 @@ show_status_and_urls() {
       echo "    Frontend: http://${lan_ip}:${FRONTEND_PORT}"
       echo ""
       echo "  Open these URLs on your phone. If the IP above does not work, run ipconfig in Windows and use the IPv4 address for Wi-Fi or Ethernet."
+      echo "  API calls: when VITE_API_URL is localhost, the frontend rewrites it to this host automatically."
       echo -e "  ${YELLOW}WSL2: If the page does not load, forward ports from Windows to WSL:${NC}"
       echo "    1. In PowerShell (Admin), get WSL IP:  wsl hostname -I"
       echo "    2. Then (replace WSL_IP with that number):"
@@ -650,8 +704,26 @@ cmd_up() {
         exit 1
       fi
     fi
-    if ! apply_supabase_migrations; then
-      exit 1
+    if supabase_is_running; then
+      if [[ "$LAUNCH_RESET_DB" -eq 1 ]]; then
+        bold "Supabase: resetting local database (all migrations + seed.sql)..."
+        if ! (cd "$SCRIPT_DIR" && supabase db reset --yes); then
+          err "supabase db reset failed."
+          exit 1
+        fi
+        ok "Local database reset complete (schema + seed)."
+      else
+        if ! apply_supabase_migrations; then
+          exit 1
+        fi
+        if ! apply_supabase_seed; then
+          if [[ "$LAUNCH_CONTINUE_WITHOUT_SUPABASE" -eq 1 ]]; then
+            warn "Continuing without seed data (--continue-without-supabase)."
+          else
+            exit 1
+          fi
+        fi
+      fi
     fi
     echo ""
   fi
@@ -755,6 +827,10 @@ while [[ $# -gt 0 ]]; do
       LAUNCH_CONTINUE_WITHOUT_SUPABASE=1
       shift
       ;;
+    --reset-db)
+      LAUNCH_RESET_DB=1
+      shift
+      ;;
     *)
       break
       ;;
@@ -772,10 +848,11 @@ main() {
     status) cmd_status "$@" ;;
     *)
       err "Unknown command: $cmd"
-      echo "Usage: $0 [--wsl] [--continue-without-supabase] {up|down|restart|logs|status} [service...]"
+      echo "Usage: $0 [--wsl] [--continue-without-supabase] [--reset-db] {up|down|restart|logs|status} [service...]"
       echo "  --wsl    (WSL2 only) Run PowerShell to allow mobile devices (port forwarding + firewall). Use with: $0 --wsl up"
       echo "  --continue-without-supabase  If local Supabase fails to start, still start backend/frontend (hosted Supabase OK)."
-      echo "  up       Start local Supabase (if supabase/config.toml exists) + backend + frontend, or only listed services."
+      echo "  --reset-db  Wipe and recreate local Supabase DB from migrations + seed.sql (destructive)."
+      echo "  up       Start local Supabase (if supabase/config.toml exists) + migrate + seed + backend + frontend, or only listed services."
       echo "           Use pseudo-service name 'supabase' for CLI stack only, or combine e.g. 'up backend supabase'."
       echo "  down     Stop backend, frontend, and local Supabase (when no service names given)."
       echo "  restart  Full stack restart (no args), or: restart <service> to restart only that Compose service (e.g. backend)."

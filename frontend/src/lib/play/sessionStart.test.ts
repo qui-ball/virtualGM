@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, getSessionMessages, getSessionState } from '@/api/client';
+import {
+  continueActiveCampaign,
+  getSessionMessages,
+  getSessionState,
+} from '@/api/client';
 import {
   bootstrapPlaySession,
   loadPlayTranscript,
+  transcriptNeedsOpening,
 } from '@/lib/play/sessionStart';
 import {
   clearSessionCache,
@@ -12,9 +17,10 @@ import {
 import type { GameStateSnapshot } from '@/types';
 
 vi.mock('@/api/client', () => ({
-  createSession: vi.fn(),
+  continueActiveCampaign: vi.fn(),
   getSessionMessages: vi.fn(),
   getSessionState: vi.fn(),
+  saveActiveCampaign: vi.fn(),
 }));
 
 function createSessionStorageMock(): Storage {
@@ -109,7 +115,7 @@ describe('sessionStart', () => {
 
   describe('bootstrapPlaySession', () => {
     it('resumes from session cache when messages succeed', async () => {
-      storeSessionCache('lost-mine', {
+      storeSessionCache('fantasy-lost-mine', {
         sessionId: 'cached-sess',
         gameState: GAME_STATE,
       });
@@ -121,15 +127,70 @@ describe('sessionStart', () => {
         transcript: [],
       });
 
-      const result = await bootstrapPlaySession({ campaignId: 'lost-mine' });
+      const result = await bootstrapPlaySession({
+        campaignId: 'fantasy-lost-mine',
+      });
 
       expect(result.resumedFromCache).toBe(true);
       expect(result.sessionId).toBe('cached-sess');
-      expect(result.gameState?.character?.name).toBe('Aldric of Corlinn Hill');
-      expect(createSession).not.toHaveBeenCalled();
+      expect(continueActiveCampaign).not.toHaveBeenCalled();
     });
 
-    it('restores combat strip state from live session on cache resume (WS-7.3)', async () => {
+    it('uses warm sessionId from start without calling continue', async () => {
+      vi.mocked(getSessionState).mockResolvedValue({
+        game_state: GAME_STATE,
+      });
+      vi.mocked(getSessionMessages).mockResolvedValue({
+        messages: [],
+        transcript: [],
+      });
+
+      const result = await bootstrapPlaySession({
+        activeCampaignId: 'ac-1',
+        sessionId: 'warm-sess',
+      });
+
+      expect(result.sessionId).toBe('warm-sess');
+      expect(getSessionState).toHaveBeenCalledWith('warm-sess');
+      expect(continueActiveCampaign).not.toHaveBeenCalled();
+      expect(getSessionCache('ac-1')?.sessionId).toBe('warm-sess');
+    });
+
+    it('continues playthrough when cache and warm session fail', async () => {
+      storeSessionCache('ac-1', {
+        sessionId: 'stale-sess',
+        gameState: GAME_STATE,
+      });
+      vi.mocked(getSessionState).mockRejectedValue(new Error('404'));
+      vi.mocked(continueActiveCampaign).mockResolvedValue({
+        active_campaign_id: 'ac-1',
+        character_id: 'ch-1',
+        session_id: 'continued-sess',
+        character_name: 'Aldric of Corlinn Hill',
+        campaign_template_slug: 'fantasy-lost-mine',
+        game_state: GAME_STATE,
+      });
+      vi.mocked(getSessionMessages).mockResolvedValue({
+        messages: [],
+        transcript: [],
+      });
+
+      const result = await bootstrapPlaySession({
+        activeCampaignId: 'ac-1',
+        sessionId: 'also-stale',
+      });
+
+      expect(result.sessionId).toBe('continued-sess');
+      expect(continueActiveCampaign).toHaveBeenCalledWith('ac-1');
+    });
+
+    it('throws when no playthrough context', async () => {
+      await expect(bootstrapPlaySession({})).rejects.toThrow(
+        /start from Campaigns/i,
+      );
+    });
+
+    it('restores combat strip state from live session on cache resume', async () => {
       const combatState: GameStateSnapshot = {
         ...GAME_STATE,
         in_combat: true,
@@ -147,7 +208,7 @@ describe('sessionStart', () => {
           },
         },
       };
-      storeSessionCache('lost-mine', {
+      storeSessionCache('fantasy-lost-mine', {
         sessionId: 'cached-sess',
         gameState: { ...GAME_STATE, in_combat: false },
       });
@@ -159,90 +220,70 @@ describe('sessionStart', () => {
         transcript: [],
       });
 
-      const result = await bootstrapPlaySession({ campaignId: 'lost-mine' });
+      const result = await bootstrapPlaySession({
+        campaignId: 'fantasy-lost-mine',
+      });
 
       expect(result.gameState?.in_combat).toBe(true);
       expect(result.gameState?.initiative_order).toEqual([
         'Aldric of Corlinn Hill',
         'Goblin 1',
       ]);
-      expect(result.gameState?.current_turn_index).toBe(1);
+      clearSessionCache('fantasy-lost-mine');
     });
+  });
+});
 
-    it('creates a new session when cache is stale', async () => {
-      storeSessionCache('lost-mine', {
-        sessionId: 'stale-sess',
-        gameState: GAME_STATE,
-      });
-      vi.mocked(getSessionState).mockRejectedValue(new Error('404'));
-      vi.mocked(getSessionMessages)
-        .mockRejectedValueOnce(new Error('404'))
-        .mockResolvedValueOnce({ messages: [], transcript: [] });
-      vi.mocked(createSession).mockResolvedValue({
-        session_id: 'new-sess',
-        character_name: 'Aldric of Corlinn Hill',
-        game_state: GAME_STATE,
-      });
+describe('transcriptNeedsOpening', () => {
+  it('is true for seeded scene/system-only transcripts', () => {
+    expect(
+      transcriptNeedsOpening([
+        {
+          kind: 'scene',
+          id: '1',
+          text: 'Scene · Road to Phandalin',
+          timestamp: 1,
+        },
+        {
+          kind: 'message',
+          id: '2',
+          role: 'system',
+          content: 'Session started. You are Aldric.',
+          timestamp: 2,
+        },
+      ]),
+    ).toBe(true);
+  });
 
-      const result = await bootstrapPlaySession({ campaignId: 'lost-mine' });
-
-      expect(result.resumedFromCache).toBe(false);
-      expect(result.sessionId).toBe('new-sess');
-      expect(createSession).toHaveBeenCalledWith({});
-      expect(getSessionCache('lost-mine')?.sessionId).toBe('new-sess');
-    });
-
-    it('creates session with solo_mode when provided', async () => {
-      vi.mocked(createSession).mockResolvedValue({
-        session_id: 'solo-sess',
-        character_name: 'Aldric of Corlinn Hill',
-        game_state: { ...GAME_STATE, solo_mode: true },
-      });
-      vi.mocked(getSessionMessages).mockResolvedValue({
-        messages: [],
-        transcript: [],
-      });
-
-      await bootstrapPlaySession({
-        campaignId: 'lost-mine',
-        soloMode: true,
-      });
-
-      expect(createSession).toHaveBeenCalledWith({ solo_mode: true });
-    });
-
-    it('creates session with character_name when provided', async () => {
-      vi.mocked(createSession).mockResolvedValue({
-        session_id: 'new-sess',
-        character_name: 'Zaelan',
-        game_state: GAME_STATE,
-      });
-      vi.mocked(getSessionMessages).mockResolvedValue({
-        messages: [],
-        transcript: [],
-      });
-
-      await bootstrapPlaySession({ characterName: 'Zaelan' });
-
-      expect(createSession).toHaveBeenCalledWith({ character_name: 'Zaelan' });
-    });
-
-    it('stores cache on new session per campaign bucket', async () => {
-      vi.mocked(createSession).mockResolvedValue({
-        session_id: 'camp-b-sess',
-        character_name: 'Wren',
-        game_state: GAME_STATE,
-      });
-      vi.mocked(getSessionMessages).mockResolvedValue({
-        messages: [],
-        transcript: [],
-      });
-
-      await bootstrapPlaySession({ campaignId: 'ribcage-coast' });
-
-      expect(getSessionCache('ribcage-coast')?.sessionId).toBe('camp-b-sess');
-      clearSessionCache('ribcage-coast');
-      expect(getSessionCache('lost-mine')).toBeNull();
-    });
+  it('is false once a GM message or roll prompt exists', () => {
+    expect(
+      transcriptNeedsOpening([
+        {
+          kind: 'message',
+          id: '1',
+          role: 'gm',
+          content: 'The road winds east…',
+          timestamp: 1,
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      transcriptNeedsOpening([
+        {
+          kind: 'roll_prompt',
+          id: '1',
+          prompt: {
+            id: '1',
+            label: 'Attack',
+            diceCount: 1,
+            diceType: 'd20',
+            modifier: 0,
+            advType: 'norm',
+          },
+          rolled: false,
+          timestamp: 1,
+        },
+      ]),
+    ).toBe(false);
   });
 });

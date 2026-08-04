@@ -63,6 +63,8 @@ import { rollDice, rollD20 } from '@/lib/play/roll';
 import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
 import {
   bootstrapPlaySession,
+  CAMPAIGN_OPENING_PROMPT,
+  transcriptNeedsOpening,
   type PlaySessionStartOptions,
 } from '@/lib/play/sessionStart';
 import {
@@ -306,36 +308,18 @@ export function useChat() {
         setGameState(boot.gameState);
       }
 
-      let entries = boot.transcript;
-
-      if (isDev) {
-        const hasRollPrompt = entries.some((e) => e.kind === 'roll_prompt');
-        if (!hasRollPrompt) {
-          const now = Date.now();
-          entries = [
-            ...entries,
-            chatMessageToTranscriptEntry({
-              role: 'gm',
-              content:
-                'A goblin snarls and raises its shield. [Dev fixture] Use the roll card below to test the UI.',
-              timestamp: now + 1,
-            }),
-            createDevDemoRollPromptEntry(
-              boot.gameState?.character ?? null,
-              now + 2,
-            ),
-          ];
-          setPendingAction(DEV_DEMO_PENDING_ACTION);
-          pendingPromptIdRef.current = DEV_DEMO_ROLL_PROMPT_ID;
-        }
-      }
-
+      const entries = boot.transcript;
       setTranscript(entries);
       setSessionReady(true);
+
+      // Fresh playthrough: ask the GM to narrate the opening (no player bubble).
+      if (transcriptNeedsOpening(entries)) {
+        await processTurnStream({ message: CAMPAIGN_OPENING_PROMPT });
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [processTurnStream]);
 
   const sendMessage = useCallback(
     async (text: string, options?: { ooc?: boolean }) => {

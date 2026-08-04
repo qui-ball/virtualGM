@@ -1,10 +1,5 @@
 import { getCampaigns } from '@/api/client';
 import type { CampaignListItem } from '@/lib/play/campaignLobby';
-import {
-  LOBBY_CAMPAIGNS,
-  activeCampaign as fixtureActive,
-  otherCampaigns as fixtureOthers,
-} from '@/lib/play/campaignLobby';
 import type { CampaignSummary } from '@/types';
 
 function summaryToListItem(c: CampaignSummary): CampaignListItem {
@@ -31,37 +26,47 @@ function summaryToListItem(c: CampaignSummary): CampaignListItem {
     levelMax: c.level_max ?? 5,
     avgLevel: c.avg_level ?? undefined,
     soloMode: c.solo_mode ?? false,
+    campaignTemplateSlug: c.campaign_template_slug ?? undefined,
+    sessionId: c.session_id ?? undefined,
+    characterId: c.character_id ?? undefined,
+    xp: c.xp ?? 0,
+    hp: c.hp ?? 1,
+    hpMax: c.hp_max ?? 1,
+    mana: c.mana ?? null,
+    manaMax: c.mana_max ?? null,
+    evasion: c.evasion ?? 10,
+    finesse: c.finesse ?? 0,
   };
 }
 
-/** Fetch campaigns from API; fall back to fixtures when offline (G9). */
-export async function fetchCampaignList(): Promise<{
-  active: CampaignListItem;
-  others: CampaignListItem[];
-}> {
+export type FetchCampaignListResult = {
+  campaigns: CampaignListItem[];
+  error: string | null;
+};
+
+/** Fetch playthroughs from API. Empty list when none — never invent fixture campaigns. */
+export async function fetchCampaignList(): Promise<FetchCampaignListResult> {
   try {
     const res = await getCampaigns();
-    const active =
-      res.campaigns.find((c) => c.active) ?? res.campaigns[0];
-    if (!active) {
-      return { active: fixtureActive(), others: fixtureOthers() };
-    }
-    const others = res.campaigns.filter((c) => c.id !== active.id);
     return {
-      active: summaryToListItem(active),
-      others: others.map(summaryToListItem),
+      campaigns: res.campaigns.map(summaryToListItem),
+      error: null,
     };
-  } catch {
-    return { active: fixtureActive(), others: fixtureOthers() };
+  } catch (err) {
+    return {
+      campaigns: [],
+      error:
+        err instanceof Error ? err.message : 'Failed to load campaigns',
+    };
   }
 }
 
-/** Full list for tests and fallback. */
-export function campaignsFromApiOrFixture(
+/** Map API summaries; empty/null → empty list (no fixture fallback). */
+export function campaignsFromApi(
   summaries: CampaignSummary[] | null,
 ): CampaignListItem[] {
   if (!summaries?.length) {
-    return LOBBY_CAMPAIGNS;
+    return [];
   }
   return summaries.map(summaryToListItem);
 }

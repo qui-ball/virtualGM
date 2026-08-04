@@ -111,9 +111,9 @@ def test_rest_blocked_during_combat():
 
 
 def test_combat_transcript_appended_when_session_linked():
-    session = Session()
+    gs = GameState()
+    session = Session(id="combat-test", game_state=gs)
     session.game_state.pc = create_player_character()
-    gs = session.game_state
     gs._session = session
     start_combat_state(gs, ["Aldric", "Goblin 1"])
     from game.combat_lifecycle import emit_combat_start, finish_combat
@@ -146,7 +146,8 @@ def test_remove_enemy_updates_initiative_while_combat_active():
     remove_from_initiative(gs, "Goblin 1")
 
     assert gs.initiative_order == ["Aldric", "Goblin 2"]
-    assert gs.current_turn_index == 0
+    # Current combatant removed → next combatant inherits the same index slot.
+    assert gs.current_turn_index == 1
     assert gs.in_combat is True
 
 
@@ -172,5 +173,6 @@ def test_apply_damage_at_zero_hp_removes_from_initiative():
     apply_damage(_ctx(gs), "Goblin 1", 4)
 
     assert gs.initiative_order == ["Aldric", "Goblin 2"]
-    assert gs.current_turn_index == 0
+    # Current combatant dropped at 0 HP → next inherits the turn index.
+    assert gs.current_turn_index == 1
     assert "Goblin 1" in gs.enemies
