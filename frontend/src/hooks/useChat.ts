@@ -59,18 +59,24 @@ import {
 } from '@/lib/play/bossDeath';
 import { rollResultPayloadToFields } from '@/lib/play/rollResultAdapter';
 import { findActiveRollPrompt } from '@/lib/play/transcript';
-import { rollDice, rollD20 } from '@/lib/play/roll';
+import { playDiceAnimation } from '@/lib/play/diceAnimation';
+import { rollDice } from '@/lib/play/roll';
 import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
+import { stripSpuriousSystemErrors } from '@/lib/play/transcriptHydrate';
 import {
   bootstrapPlaySession,
   CAMPAIGN_OPENING_PROMPT,
-  transcriptNeedsOpening,
+  CAMPAIGN_RESUME_PROMPT,
+  savePlaythroughProgress,
+  shouldRequestOpeningNarration,
+  shouldRequestResumeNarration,
   type PlaySessionStartOptions,
 } from '@/lib/play/sessionStart';
 import {
   storeSessionCache,
 } from '@/lib/play/sessionCache';
 import type {
+  DiceType,
   GameStateSnapshot,
   PendingAction,
   TurnRequest,
@@ -94,13 +100,29 @@ export function useChat() {
 
   const sessionIdRef = useRef<string | null>(null);
   const campaignIdRef = useRef<string | null>(null);
+  const activeCampaignIdRef = useRef<string | null>(null);
   const startingRef = useRef(false);
   const pendingPromptIdRef = useRef<string | null>(null);
   const autoRecoveredRef = useRef(false);
 
   const appendEntry = useCallback((entry: TranscriptEntry) => {
+    if (
+      entry.kind === 'message' &&
+      entry.role === 'system' &&
+      (/savePlaythroughProgress is not defined/i.test(entry.content) ||
+        /BodyStreamBuffer was aborted/i.test(entry.content) ||
+        /AbortError/i.test(entry.content))
+    ) {
+      return;
+    }
     setTranscript((prev) => [...prev, entry]);
   }, []);
+
+  // Drop a one-off bug bubble if it already landed in the live transcript.
+  useEffect(() => {
+    if (!sessionReady) return;
+    setTranscript((prev) => stripSpuriousSystemErrors(prev));
+  }, [sessionReady]);
 
   const patchGameState = useCallback(
     (patch: (state: GameStateSnapshot) => GameStateSnapshot) => {
@@ -115,7 +137,9 @@ export function useChat() {
   const persistSession = useCallback(
     (sessionId: string, state: GameStateSnapshot | null) => {
       if (!state) return;
-      storeSessionCache(campaignIdRef.current, {
+      const cacheKey =
+        activeCampaignIdRef.current ?? campaignIdRef.current;
+      storeSessionCache(cacheKey, {
         sessionId,
         gameState: state,
       });
@@ -249,6 +273,9 @@ export function useChat() {
             );
             pendingPromptIdRef.current = promptEntry.id;
             appendEntry(promptEntry);
+            // Unlock UI as soon as the roll prompt arrives — don't wait for the
+            // SSE body to close (reload / proxy hang can leave the stream open).
+            setLoading(false);
             break;
           }
           case 'complete': {
@@ -262,6 +289,13 @@ export function useChat() {
             );
             if (sessionIdRef.current) {
               persistSession(sessionIdRef.current, nextState);
+            }
+            setLoading(false);
+            const playthroughId = activeCampaignIdRef.current;
+            if (playthroughId) {
+              void savePlaythroughProgress(playthroughId).catch(() => {
+                // Auto-save must never surface as a transcript error.
+              });
             }
             break;
           }
@@ -277,17 +311,31 @@ export function useChat() {
             // The turn may have mutated state before failing (no snapshot rides on
             // `error`). Reconcile to the server's authoritative state.
             scheduleStateRefetch();
+            setLoading(false);
             break;
         }
       }
     } catch (err) {
-      appendEntry(
-        chatMessageToTranscriptEntry({
-          role: 'system',
-          content: `Error: ${err}`,
-          timestamp: Date.now(),
-        }),
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      const name = err instanceof Error ? err.name : '';
+      // Fetch/stream aborts are transport noise (HMR, tab sleep, old idle timer) —
+      // never dump them into the player chat.
+      const isAbort =
+        name === 'AbortError' ||
+        /BodyStreamBuffer was aborted|Turn stream stalled|The operation was aborted/i.test(
+          message,
+        );
+      const isKnownNoise =
+        isAbort || /savePlaythroughProgress is not defined/i.test(message);
+      if (!isKnownNoise) {
+        appendEntry(
+          chatMessageToTranscriptEntry({
+            role: 'system',
+            content: `Error: ${err}`,
+            timestamp: Date.now(),
+          }),
+        );
+      }
     } finally {
       // A turn that ends without resolving its narrations — dropped connection, mid-turn
       // crash — must not leave half a sentence standing. Settled bubbles are untouched.
@@ -300,6 +348,7 @@ export function useChat() {
     if (startingRef.current || sessionIdRef.current) return;
     startingRef.current = true;
     campaignIdRef.current = options?.campaignId ?? null;
+    activeCampaignIdRef.current = options?.activeCampaignId ?? null;
     setLoading(true);
     try {
       const boot = await bootstrapPlaySession(options);
@@ -308,13 +357,16 @@ export function useChat() {
         setGameState(boot.gameState);
       }
 
-      const entries = boot.transcript;
+      const entries = stripSpuriousSystemErrors(boot.transcript);
       setTranscript(entries);
       setSessionReady(true);
 
-      // Fresh playthrough: ask the GM to narrate the opening (no player bubble).
-      if (transcriptNeedsOpening(entries)) {
+      // Fresh playthrough → opening. Mid-campaign continue → brief re-orient.
+      // Never restart the prologue just because the live session was recreated.
+      if (shouldRequestOpeningNarration(entries, boot.gameState)) {
         await processTurnStream({ message: CAMPAIGN_OPENING_PROMPT });
+      } else if (shouldRequestResumeNarration(entries, boot.gameState)) {
+        await processTurnStream({ message: CAMPAIGN_RESUME_PROMPT });
       }
     } finally {
       setLoading(false);
@@ -377,6 +429,13 @@ export function useChat() {
 
         setTranscript((prev) => markRollPromptRolled(prev, promptId, r.advUsed));
 
+        const rolls =
+          r.diceType === 'd20' && r.advUsed !== 'norm' && r.dieB != null
+            ? [r.dieA, r.dieB]
+            : r.rolls;
+
+        await playDiceAnimation({ diceType: r.diceType, rolls });
+
         if (isDevDemoPendingAction(pendingAction)) {
           const result = rollDiceToResultFields(r, promptId, prompt.label, {
             stat: prompt.stat,
@@ -401,10 +460,6 @@ export function useChat() {
           return;
         }
 
-        const rolls =
-          r.diceType === 'd20' && r.advUsed !== 'norm' && r.dieB != null
-            ? [r.dieA, r.dieB]
-            : r.rolls;
         await submitRollResult(r.total, rolls);
       } finally {
         setRolling(false);
@@ -418,21 +473,40 @@ export function useChat() {
       label: string;
       modifier: number;
       vs?: number | null;
+      diceType?: DiceType;
+      diceCount?: number;
     }) => {
       if (loading || rolling) return;
       setRolling(true);
       try {
         const promptId = createEntryId();
-        const r = rollD20({ adv: 'norm', modifier: opts.modifier, vs: opts.vs ?? null });
+        const diceType = opts.diceType ?? 'd20';
+        const diceCount = Math.max(1, opts.diceCount ?? 1);
+        const r = rollDice({
+          diceCount,
+          diceType,
+          adv: 'norm',
+          modifier: opts.modifier,
+          vs: opts.vs ?? null,
+        });
+        const rolls =
+          r.diceType === 'd20' && r.advUsed !== 'norm' && r.dieB != null
+            ? [r.dieA, r.dieB]
+            : r.rolls;
+        await playDiceAnimation({ diceType: r.diceType, rolls });
         const result: RollResultFields = {
           id: createEntryId(),
           promptId,
           label: opts.label,
+          diceCount: r.diceCount,
+          diceType: r.diceType,
+          rolls: r.rolls,
           nat: r.nat,
           dieA: r.dieA,
+          dieB: r.dieB,
           total: r.total,
           modifier: r.modifier,
-          advUsed: 'norm',
+          advUsed: r.advUsed,
           crit: r.crit,
           fumble: r.fumble,
           pass: r.pass,

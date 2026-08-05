@@ -2314,6 +2314,7 @@ a.play-btn-primary:hover {
   --combat-red-hot: #d44a4a;
   --combat-red-glow: #ff6b6b;
   --z-combat-splash: 9990;
+  --z-dice-overlay: 9985;
   --z-boss-death: 10000;
 }
 
@@ -2412,6 +2413,52 @@ a.play-btn-primary:hover {
   .play-combat-splash-enter,
   .play-combat-splash-exit {
     animation: none;
+  }
+}
+
+/* --- Visual dice roller (feature 08) --- */
+
+.play-dice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dice-overlay, 9985);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  background: transparent;
+  transition:
+    opacity 180ms ease-out,
+    visibility 180ms ease-out;
+}
+
+.play-dice-overlay-active {
+  /* Visual only — never intercept clicks (avoids locking the play UI if a roll hangs). */
+  pointer-events: none;
+  opacity: 1;
+  visibility: visible;
+}
+
+.play-dice-overlay-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Keep layout sized while hidden so DiceBox can initialize. */
+  opacity: 1;
+}
+
+.play-dice-overlay-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .play-dice-overlay {
+    transition: none;
   }
 }
 

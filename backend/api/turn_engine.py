@@ -1,6 +1,7 @@
 """Core turn execution — streams SSE events as the agent runs."""
 
 import asyncio
+import os
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -145,20 +146,40 @@ async def stream_turn(
     gs._event_queue = queue
     gs._session = session
 
+    # Hard cap so a hung provider cannot hold session.lock forever and block
+    # every later turn for this session (frontend stuck on "GM is thinking").
+    turn_timeout = int(os.getenv("TURN_TIMEOUT_SECONDS", "180"))
+
     async def run():
         try:
             async with session.lock:
-                result = await run_agent_iter(
-                    deps=gs,
-                    message_history=session.message_history,
-                    user_prompt=player_message,
-                    on_event=_queue_run_event(queue),
+                result = await asyncio.wait_for(
+                    run_agent_iter(
+                        deps=gs,
+                        message_history=session.message_history,
+                        user_prompt=player_message,
+                        on_event=_queue_run_event(queue),
+                    ),
+                    timeout=turn_timeout,
                 )
                 _handle_result(session, result, queue)
                 # Compact under the lock — before any next-turn request can read
                 # the pre-compaction history. The complete event is already queued,
                 # so summarizer latency stays off the player-visible response.
                 await maybe_compact(session, result)
+        except TimeoutError:
+            logger.error(f"Turn timed out after {turn_timeout}s")
+            queue.put_nowait(
+                (
+                    "error",
+                    {
+                        "message": (
+                            f"GM turn timed out after {turn_timeout}s — "
+                            "try again."
+                        )
+                    },
+                )
+            )
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))
@@ -195,17 +216,35 @@ async def stream_deferred_response(
     for call_info in session.pending_deferred.deferred_calls:
         deferred_results.calls[call_info["tool_call_id"]] = roll_result_str
 
+    turn_timeout = int(os.getenv("TURN_TIMEOUT_SECONDS", "180"))
+
     async def run():
         try:
             async with session.lock:
-                result = await run_agent_iter(
-                    deps=gs,
-                    message_history=session.pending_deferred.messages_snapshot,
-                    deferred_tool_results=deferred_results,
-                    on_event=_queue_run_event(queue),
+                result = await asyncio.wait_for(
+                    run_agent_iter(
+                        deps=gs,
+                        message_history=session.pending_deferred.messages_snapshot,
+                        deferred_tool_results=deferred_results,
+                        on_event=_queue_run_event(queue),
+                    ),
+                    timeout=turn_timeout,
                 )
                 _handle_result(session, result, queue)
                 await maybe_compact(session, result)
+        except TimeoutError:
+            logger.error(f"Deferred turn timed out after {turn_timeout}s")
+            queue.put_nowait(
+                (
+                    "error",
+                    {
+                        "message": (
+                            f"GM turn timed out after {turn_timeout}s — "
+                            "try again."
+                        )
+                    },
+                )
+            )
         except Exception as e:
             logger.error(f"Turn error: {e}")
             queue.put_nowait(("error", {"message": str(e)}))

@@ -196,6 +196,8 @@ export async function* streamTurn(
   sessionId: string,
   body: TurnRequest,
 ): AsyncGenerator<TurnEvent> {
+  // No client-side idle abort: GLM thinking can take minutes with no SSE bytes
+  // until the thinking part ends. Backend TURN_TIMEOUT_SECONDS owns hung turns.
   const res = await fetch(`${apiBaseUrl}/sessions/${sessionId}/turns`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

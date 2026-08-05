@@ -9,6 +9,29 @@ import type {
   TranscriptEntryDto,
 } from '@/types';
 
+/** Dev/ops noise that must never stay in the player-facing chat. */
+export function isSpuriousSystemError(content: string): boolean {
+  return (
+    /savePlaythroughProgress is not defined/i.test(content) ||
+    /BodyStreamBuffer was aborted/i.test(content) ||
+    /AbortError/i.test(content)
+  );
+}
+
+/** Drop known spurious system error bubbles from a transcript. */
+export function stripSpuriousSystemErrors(
+  entries: TranscriptEntry[],
+): TranscriptEntry[] {
+  return entries.filter(
+    (e) =>
+      !(
+        e.kind === 'message' &&
+        e.role === 'system' &&
+        isSpuriousSystemError(e.content)
+      ),
+  );
+}
+
 /** Rebuild client transcript from API transcript rows (G10). */
 export function hydrateTranscript(
   rows: TranscriptEntryDto[],
@@ -26,6 +49,12 @@ export function hydrateTranscript(
         break;
       case 'message':
         if (row.content && row.role) {
+          if (
+            row.role === 'system' &&
+            isSpuriousSystemError(row.content)
+          ) {
+            break;
+          }
           out.push({
             kind: 'message',
             id: row.id,

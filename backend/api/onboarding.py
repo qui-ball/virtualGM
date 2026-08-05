@@ -261,7 +261,7 @@ def continue_active_campaign(active_campaign_id: str):
     gs.time_max = pt.time_max
 
     session = store.create(game_state=gs)
-    _seed_transcript(session, gs)
+    _seed_transcript(session, gs, resumed=True)
     playthrough_store.update_session_id(pt.id, session.id)
 
     logger.info(f"Continued playthrough {pt.id} as session={session.id}")
@@ -280,16 +280,28 @@ def continue_active_campaign(active_campaign_id: str):
     response_model=SaveCampaignResponse,
 )
 def save_active_campaign(active_campaign_id: str):
-    """Snapshot the live session (or last known PC) into durable playthrough storage."""
+    """Snapshot the live session into durable playthrough storage.
+
+    If the live in-memory session is gone (backend restart), return the last
+    durable snapshot as a successful no-op so pagehide/visibility saves do not
+    400 and so clients are not told to invent a new campaign.
+    """
     pt = playthrough_store.get_playthrough(active_campaign_id)
     if pt is None:
         raise HTTPException(status_code=404, detail="Playthrough not found")
 
     session = store.get(pt.session_id) if pt.session_id else None
     if session is None or session.game_state.pc is None:
-        raise HTTPException(
-            status_code=400,
-            detail="No live session to save — call /continue first",
+        logger.info(
+            f"Save skipped for {active_campaign_id} — no live session "
+            "(durable snapshot unchanged; call /continue to resume)"
+        )
+        return SaveCampaignResponse(
+            active_campaign_id=pt.id,
+            session_id=pt.session_id or "",
+            chapter=pt.chapter,
+            time_current=pt.time_current,
+            last_scene=pt.last_scene or "",
         )
 
     gs = session.game_state
@@ -367,10 +379,21 @@ def _game_state_from_template(
     return gs
 
 
-def _seed_transcript(session, gs: GameState) -> None:
+def _seed_transcript(session, gs: GameState, *, resumed: bool = False) -> None:
     append_scene(session, f"Scene · {gs.scene_label}")
     name = gs.pc.name if gs.pc else "Adventurer"
-    append_message(session, role="system", content=f"Session started. You are {name}.")
+    if resumed:
+        append_message(
+            session,
+            role="system",
+            content=f"Session resumed. You are {name}.",
+        )
+    else:
+        append_message(
+            session,
+            role="system",
+            content=f"Session started. You are {name}.",
+        )
 
 
 def _pc_for_playthrough(pt) -> CharacterState:

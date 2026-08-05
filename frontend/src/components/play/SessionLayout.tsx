@@ -21,6 +21,7 @@ import {
 import { buildSessionMainPullMeasure } from '@/lib/play/sessionPullLayout';
 import { BossDeathModal } from '@/components/play/BossDeathModal';
 import { CombatModeSplash } from '@/components/play/CombatModeSplash';
+import { DiceRollOverlay } from '@/components/play/DiceRollOverlay';
 import { CombatStrip } from '@/components/play/CombatStrip';
 import { CastTray } from '@/components/play/CastTray';
 import { CharHeader } from '@/components/play/CharHeader';
@@ -332,12 +333,10 @@ export function SessionLayout({
         open={trayOpen && !sessionBlocked}
         config={trayConfig}
         rolling={rolling}
-        onRoll={() => {
-          if (trayConfig) {
-            onFreeRoll(trayConfig);
-            setTrayOpen(false);
-            setTrayConfig(null);
-          }
+        onRoll={(config) => {
+          onFreeRoll(config);
+          setTrayOpen(false);
+          setTrayConfig(null);
         }}
         onClose={() => {
           setTrayOpen(false);
@@ -430,6 +429,7 @@ export function SessionLayout({
       ) : null}
 
       <CombatModeSplash phase={splashPhase} onDismiss={dismissSplash} />
+      <DiceRollOverlay />
     </div>
   );
 }

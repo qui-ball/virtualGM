@@ -6,6 +6,7 @@ import {
 } from '@/api/client';
 import { syncGameStateFlags } from '@/lib/play/devDebugActions';
 import {
+  clearSessionCache,
   getSessionCache,
   storeSessionCache,
 } from '@/lib/play/sessionCache';
@@ -14,7 +15,7 @@ import {
   chatMessageToTranscriptEntry,
 } from '@/lib/play/transcriptBuild';
 import { createEntryId, type TranscriptEntry } from '@/lib/play/transcript';
-import { hydrateTranscript } from '@/lib/play/transcriptHydrate';
+import { hydrateTranscript, stripSpuriousSystemErrors } from '@/lib/play/transcriptHydrate';
 import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
 import type { GameStateSnapshot } from '@/types';
 
@@ -43,10 +44,12 @@ export async function loadPlayTranscript(
 ): Promise<TranscriptEntry[]> {
   try {
     const history = await getSessionMessages(sessionId);
-    return recoverLeakedRollPrompts(
-      hydrateTranscript(
-        history.transcript,
-        fallbackState?.character ?? null,
+    return stripSpuriousSystemErrors(
+      recoverLeakedRollPrompts(
+        hydrateTranscript(
+          history.transcript,
+          fallbackState?.character ?? null,
+        ),
       ),
     );
   } catch {
@@ -100,6 +103,8 @@ export async function bootstrapPlaySession(
   if (cached) {
     const fromCache = await fromSessionId(cached.sessionId, true);
     if (fromCache) return fromCache;
+    // Dead session id after backend restart — drop so we don't keep probing it.
+    clearSessionCache(cacheKey);
   }
 
   if (warmSessionId) {
@@ -136,7 +141,17 @@ export async function bootstrapPlaySession(
 export async function savePlaythroughProgress(
   activeCampaignId: string,
 ): Promise<void> {
-  await saveActiveCampaign(activeCampaignId);
+  try {
+    await saveActiveCampaign(activeCampaignId);
+  } catch (err) {
+    // After a backend restart there is no live session until /continue; the
+    // durable playthrough already holds the last successful snapshot.
+    const message = err instanceof Error ? err.message : String(err);
+    if (/call \/continue first|No live session/i.test(message)) {
+      return;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -146,10 +161,44 @@ export async function savePlaythroughProgress(
 export const CAMPAIGN_OPENING_PROMPT =
   'Begin the campaign. Load the opening campaign section if needed, narrate the opening scene for this character from the campaign materials, then pause and wait for the player\'s first action. Do not invent combat or call for a roll unless the opening scene requires it.';
 
+/**
+ * Mid-campaign resume after backend restart / continue recreate — re-orient only.
+ * Must never restart the prologue.
+ */
+export const CAMPAIGN_RESUME_PROMPT =
+  'The player is resuming a mid-campaign playthrough. Using the live game state (scene, chapter, countdowns, character progress), briefly re-orient them in the current moment with one narrate(). Do NOT restart the campaign opening or prologue. Then pause and wait for their action.';
+
 /** True when the session still needs an opening GM narration. */
 export function transcriptNeedsOpening(entries: TranscriptEntry[]): boolean {
   return !entries.some(
     (e) =>
       (e.kind === 'message' && e.role === 'gm') || e.kind === 'roll_prompt',
   );
+}
+
+/** Durable progress that means this is not a brand-new playthrough. */
+export function playthroughHasProgress(
+  state: GameStateSnapshot | null | undefined,
+): boolean {
+  if (!state) return false;
+  if ((state.character?.xp ?? 0) > 0) return true;
+  if ((state.chapter ?? 1) > 1) return true;
+  if ((state.time_current ?? 0) > 0) return true;
+  return false;
+}
+
+/** Fresh playthrough with empty GM transcript → request opening narration. */
+export function shouldRequestOpeningNarration(
+  entries: TranscriptEntry[],
+  gameState: GameStateSnapshot | null | undefined,
+): boolean {
+  return transcriptNeedsOpening(entries) && !playthroughHasProgress(gameState);
+}
+
+/** Continued mid-campaign seed transcript → request brief re-orient, not opening. */
+export function shouldRequestResumeNarration(
+  entries: TranscriptEntry[],
+  gameState: GameStateSnapshot | null | undefined,
+): boolean {
+  return transcriptNeedsOpening(entries) && playthroughHasProgress(gameState);
 }
