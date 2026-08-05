@@ -6,7 +6,12 @@ import {
 } from '@/api/client';
 import {
   bootstrapPlaySession,
+  CAMPAIGN_OPENING_PROMPT,
+  CAMPAIGN_RESUME_PROMPT,
   loadPlayTranscript,
+  playthroughHasProgress,
+  shouldRequestOpeningNarration,
+  shouldRequestResumeNarration,
   transcriptNeedsOpening,
 } from '@/lib/play/sessionStart';
 import {
@@ -14,6 +19,7 @@ import {
   getSessionCache,
   storeSessionCache,
 } from '@/lib/play/sessionCache';
+import type { TranscriptEntry } from '@/lib/play/transcript';
 import type { GameStateSnapshot } from '@/types';
 
 vi.mock('@/api/client', () => ({
@@ -279,11 +285,100 @@ describe('transcriptNeedsOpening', () => {
             diceType: 'd20',
             modifier: 0,
             advType: 'norm',
+            stubEnriched: true,
           },
           rolled: false,
           timestamp: 1,
         },
       ]),
     ).toBe(false);
+  });
+});
+
+describe('playthroughHasProgress / opening vs resume', () => {
+  const seedOnly: TranscriptEntry[] = [
+    {
+      kind: 'scene',
+      id: '1',
+      text: 'Scene · Abandoned shrine, dusk',
+      timestamp: 1,
+    },
+    {
+      kind: 'message',
+      id: '2',
+      role: 'system',
+      content: 'Session resumed. You are KK.',
+      timestamp: 2,
+    },
+  ];
+
+  it('detects mid-campaign progress from xp / time / chapter', () => {
+    expect(playthroughHasProgress(GAME_STATE)).toBe(false);
+    expect(
+      playthroughHasProgress({
+        ...GAME_STATE,
+        character: { ...GAME_STATE.character!, xp: 25 },
+      }),
+    ).toBe(true);
+    expect(
+      playthroughHasProgress({ ...GAME_STATE, time_current: 35 }),
+    ).toBe(true);
+    expect(playthroughHasProgress({ ...GAME_STATE, chapter: 2 })).toBe(true);
+  });
+
+  it('requests opening only for fresh playthroughs', () => {
+    expect(shouldRequestOpeningNarration(seedOnly, GAME_STATE)).toBe(true);
+    expect(
+      shouldRequestOpeningNarration(seedOnly, {
+        ...GAME_STATE,
+        character: { ...GAME_STATE.character!, xp: 25 },
+        time_current: 35,
+      }),
+    ).toBe(false);
+  });
+
+  it('requests resume narration for mid-campaign continue', () => {
+    expect(shouldRequestResumeNarration(seedOnly, GAME_STATE)).toBe(false);
+    expect(
+      shouldRequestResumeNarration(seedOnly, {
+        ...GAME_STATE,
+        character: { ...GAME_STATE.character!, xp: 25 },
+        scene_label: 'Abandoned shrine, dusk',
+        time_current: 35,
+      }),
+    ).toBe(true);
+    expect(CAMPAIGN_RESUME_PROMPT).toMatch(/Do NOT restart/i);
+    expect(CAMPAIGN_OPENING_PROMPT).toMatch(/Begin the campaign/i);
+  });
+
+  it('continues after stale cache 404 and replaces the session id', async () => {
+    storeSessionCache('ac-stale', {
+      sessionId: 'dead-sess',
+      gameState: GAME_STATE,
+    });
+    vi.mocked(getSessionState).mockRejectedValue(new Error('404'));
+    vi.mocked(continueActiveCampaign).mockResolvedValue({
+      active_campaign_id: 'ac-stale',
+      character_id: 'ch-1',
+      session_id: 'new-sess',
+      character_name: 'Aldric of Corlinn Hill',
+      campaign_template_slug: 'fantasy-lost-mine',
+      game_state: {
+        ...GAME_STATE,
+        character: { ...GAME_STATE.character!, xp: 25 },
+        time_current: 35,
+      },
+    });
+    vi.mocked(getSessionMessages).mockResolvedValue({
+      messages: [],
+      transcript: [],
+    });
+
+    const result = await bootstrapPlaySession({
+      activeCampaignId: 'ac-stale',
+    });
+    expect(continueActiveCampaign).toHaveBeenCalledWith('ac-stale');
+    expect(result.sessionId).toBe('new-sess');
+    expect(result.gameState?.character?.xp).toBe(25);
   });
 });
