@@ -49,6 +49,17 @@ const STORM_ICONS: IconPathSet = {
     />
   ),
   close: <path d="M6 6l12 12M18 6L6 18" {...stroke(1.7)} />,
+  speech: (
+    <>
+      <path
+        d="M5 5.5A2.5 2.5 0 017.5 3h9A2.5 2.5 0 0119 5.5v6a2.5 2.5 0 01-2.5 2.5H12l-3.5 3v-3H7.5A2.5 2.5 0 015 11.5v-6z"
+        fill="currentColor"
+        fillOpacity={0.14}
+        {...stroke(1.4)}
+      />
+      <path d="M8.5 7.5h7M8.5 10.5h5" {...stroke(1.4)} />
+    </>
+  ),
 };
 
 const NECROPOLIS_ICONS: IconPathSet = {
@@ -91,6 +102,12 @@ const NECROPOLIS_ICONS: IconPathSet = {
   menu: <path d="M4 8h16M4 12h12M4 16h16" {...stroke(1.7)} />,
   send: <path d="M4 6l16 6-16 6 4-6-4-6z" {...stroke(1.5)} />,
   close: <path d="M7 7l10 10M17 7L7 17" {...stroke(1.7)} />,
+  speech: (
+    <>
+      <path d="M6 5h12a2 2 0 012 2v5a2 2 0 01-2 2h-5l-3 3v-3H6a2 2 0 01-2-2V7a2 2 0 012-2z" {...stroke(1.5)} />
+      <path d="M8.5 8.5h7M8.5 11h4.5" {...stroke(1.2)} />
+    </>
+  ),
 };
 
 const OBSIDIAN_ICONS: IconPathSet = {
@@ -133,6 +150,17 @@ const OBSIDIAN_ICONS: IconPathSet = {
     />
   ),
   close: <path d="M5 5l14 14M19 5L5 19" {...stroke(2)} />,
+  speech: (
+    <>
+      <path
+        d="M4 6a3 3 0 013-3h10a3 3 0 013 3v6a3 3 0 01-3 3h-4l-4 4v-4H7a3 3 0 01-3-3V6z"
+        fill="currentColor"
+        fillOpacity={0.12}
+        {...stroke(2)}
+      />
+      <path d="M8 8h8M8 11.5h5" {...stroke(2)} />
+    </>
+  ),
 };
 
 const MITHRIL_ICONS: IconPathSet = {
@@ -165,6 +193,12 @@ const MITHRIL_ICONS: IconPathSet = {
   menu: <path d="M5 8h14M5 12h14M5 16h14" {...stroke(1.4)} />,
   send: <path d="M4 12l16-7-6 15-3-6-7-2z" {...stroke(1.2)} />,
   close: <path d="M7 7l10 10M17 7L7 17" {...stroke(1.4)} />,
+  speech: (
+    <>
+      <path d="M5.5 5.5h13c.8 0 1.5.7 1.5 1.5v5.5c0 .8-.7 1.5-1.5 1.5H12l-3 2.8V14H5.5c-.8 0-1.5-.7-1.5-1.5V7c0-.8.7-1.5 1.5-1.5z" {...stroke(1.2)} />
+      <path d="M8.5 8.5h7M8.5 11h4.5" {...stroke(1.1)} />
+    </>
+  ),
 };
 
 const GRIMOIRE_ICONS: IconPathSet = {
@@ -204,6 +238,17 @@ const GRIMOIRE_ICONS: IconPathSet = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6L6 18" {...stroke(1.6)} />,
+  speech: (
+    <>
+      <path
+        d="M5 5h13a2 2 0 012 2v6a2 2 0 01-2 2h-5.5L8 19v-4H5a2 2 0 01-2-2V7a2 2 0 012-2z"
+        fill="currentColor"
+        fillOpacity={0.12}
+        {...stroke(1.5)}
+      />
+      <path d="M8 8.5h8M8 11.5h5" {...stroke(1.5)} />
+    </>
+  ),
 };
 
 const ICON_SETS: Record<RpgThemeId, IconPathSet> = {
