@@ -37,6 +37,10 @@ import {
   discardNarration,
   settleNarration,
 } from '@/lib/play/narrationStream';
+import {
+  queueNarrationDelta,
+  takePendingNarrationDeltas,
+} from '@/lib/play/narrationDeltaBuffer';
 import { rollDiceToResultFields } from '@/lib/play/rollResultFields';
 import { pendingActionToRollPrompt, rollTargetFromPendingAction } from '@/lib/play/pendingActionAdapter';
 import {
@@ -182,6 +186,44 @@ export function useChat() {
 
   useEffect(() => () => clearStateRefetch(), [clearStateRefetch]);
 
+  const pendingNarrationDeltas = useRef(new Map<string, string>());
+  const narrationFlushRaf = useRef<number | null>(null);
+
+  const cancelNarrationFlush = useCallback(() => {
+    if (narrationFlushRaf.current != null) {
+      cancelAnimationFrame(narrationFlushRaf.current);
+      narrationFlushRaf.current = null;
+    }
+  }, []);
+
+  const flushNarrationDeltas = useCallback(() => {
+    cancelNarrationFlush();
+    const batch = takePendingNarrationDeltas(pendingNarrationDeltas.current);
+    if (batch.size === 0) return;
+    setTranscript((prev) => {
+      let next = prev;
+      for (const [toolCallId, text] of batch) {
+        next = applyNarrationDelta(next, toolCallId, text);
+      }
+      return next;
+    });
+  }, [cancelNarrationFlush]);
+
+  const scheduleNarrationDelta = useCallback(
+    (toolCallId: string, text: string) => {
+      // Coalesce same-frame SSE bursts; the typewriter reveal handles pacing.
+      queueNarrationDelta(pendingNarrationDeltas.current, toolCallId, text);
+      if (narrationFlushRaf.current != null) return;
+      narrationFlushRaf.current = requestAnimationFrame(() => {
+        narrationFlushRaf.current = null;
+        flushNarrationDeltas();
+      });
+    },
+    [flushNarrationDeltas],
+  );
+
+  useEffect(() => () => cancelNarrationFlush(), [cancelNarrationFlush]);
+
   const processTurnStream = useCallback(async (body: TurnRequest) => {
     if (!sessionIdRef.current) return;
     setLoading(true);
@@ -189,20 +231,39 @@ export function useChat() {
       for await (const event of streamTurn(sessionIdRef.current, body)) {
         switch (event.type) {
           case 'narration_delta':
-            setTranscript((prev) =>
-              applyNarrationDelta(prev, event.tool_call_id, event.text),
-            );
+            scheduleNarrationDelta(event.tool_call_id, event.text);
             break;
-          case 'narration':
-            setTranscript((prev) =>
-              settleNarration(prev, event.tool_call_id, event.text),
+          case 'narration': {
+            // Flush coalesced deltas in the same commit as settle so UI never
+            // briefly shows a stale streaming string after authoritative text.
+            cancelNarrationFlush();
+            const batch = takePendingNarrationDeltas(
+              pendingNarrationDeltas.current,
             );
+            setTranscript((prev) => {
+              let next = prev;
+              for (const [toolCallId, text] of batch) {
+                next = applyNarrationDelta(next, toolCallId, text);
+              }
+              return settleNarration(next, event.tool_call_id, event.text);
+            });
             break;
-          case 'narration_discard':
-            setTranscript((prev) =>
-              discardNarration(prev, event.tool_call_id, event.retract),
+          }
+          case 'narration_discard': {
+            cancelNarrationFlush();
+            pendingNarrationDeltas.current.delete(event.tool_call_id);
+            const batch = takePendingNarrationDeltas(
+              pendingNarrationDeltas.current,
             );
+            setTranscript((prev) => {
+              let next = prev;
+              for (const [toolCallId, text] of batch) {
+                next = applyNarrationDelta(next, toolCallId, text);
+              }
+              return discardNarration(next, event.tool_call_id, event.retract);
+            });
             break;
+          }
           case 'thinking':
             // Captured for the dev console only; never appended to the transcript.
             if (isDev) {
@@ -339,10 +400,19 @@ export function useChat() {
     } finally {
       // A turn that ends without resolving its narrations — dropped connection, mid-turn
       // crash — must not leave half a sentence standing. Settled bubbles are untouched.
+      cancelNarrationFlush();
+      pendingNarrationDeltas.current.clear();
       setTranscript(clearStreamingNarrations);
       setLoading(false);
     }
-  }, [appendEntry, persistSession, scheduleStateRefetch, clearStateRefetch]);
+  }, [
+    appendEntry,
+    persistSession,
+    scheduleStateRefetch,
+    clearStateRefetch,
+    scheduleNarrationDelta,
+    cancelNarrationFlush,
+  ]);
 
   const startSession = useCallback(async (options?: StartSessionOptions) => {
     if (startingRef.current || sessionIdRef.current) return;

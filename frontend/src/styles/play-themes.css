@@ -1463,6 +1463,93 @@ html[data-theme] .play-chip {
   color: var(--ink-3);
 }
 
+/* Beat `.play-surface button { border:none; border-radius:0 }` so the ring stays circular. */
+.play-surface button.play-narration-speech-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 75%, var(--panel-edge));
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  color: var(--accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.play-surface button.play-narration-speech-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 28%, var(--panel));
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.play-surface button.play-narration-speech-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.play-surface button.play-narration-speech-btn[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 32%, var(--panel));
+  border-color: var(--accent);
+}
+
+.play-narration-speech-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-top-color: var(--accent);
+  animation: play-narration-spin 0.7s linear infinite;
+}
+
+@keyframes play-narration-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.play-narration-quote {
+  quotes: '“' '”';
+  display: inline;
+  padding: 0.05em 0.2em;
+  margin: 0 0.05em;
+  border-radius: 0.3em;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: color-mix(in srgb, var(--accent) 55%, var(--ink));
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  font-style: italic;
+}
+
+.play-narration-quote::before {
+  content: open-quote;
+  font-style: normal;
+  opacity: 0.75;
+}
+
+.play-narration-quote::after {
+  content: close-quote;
+  font-style: normal;
+  opacity: 0.75;
+}
+
 .play-bubble-ts {
   margin-left: auto;
   font-family: var(--mono);

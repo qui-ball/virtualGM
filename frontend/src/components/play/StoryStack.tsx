@@ -3,6 +3,8 @@ import { prefersReducedMotion } from '@/lib/a11y/motion';
 import type { TranscriptEntry } from '@/lib/play/transcript';
 import { formatTranscriptTime } from '@/lib/play/transcript';
 import { hasStreamingNarration } from '@/lib/play/narrationStream';
+import { GmNarrationBubble } from '@/components/play/GmNarrationBubble';
+import { NarrationBody } from '@/components/play/NarrationBody';
 import { RollPromptCard } from '@/components/play/RollPromptCard';
 import { RollResultCard } from '@/components/play/RollResultCard';
 import { SceneMarker } from '@/components/play/SceneMarker';
@@ -41,9 +43,12 @@ export function StoryStack({
     (e) => !(e.kind === 'message' && e.content === '__loading__'),
   );
 
-  // Once narration is flowing, the text itself is the progress indicator — a "GM is
-  // thinking…" line under a bubble that is actively filling reads as a stall.
+  // Once narration is flowing — or a GM bubble just settled and may still be
+  // typewriting — the text itself is the progress indicator.
   const streaming = hasStreamingNarration(entries);
+  const lastVisible = visible[visible.length - 1];
+  const lastIsGm =
+    lastVisible?.kind === 'message' && lastVisible.role === 'gm';
 
   // The log region announces additions, so a streaming bubble would announce only its first
   // fragment ("The") and stay silent as the text grows in place — worse than before
@@ -169,33 +174,33 @@ export function StoryStack({
             }
 
             const isGm = entry.role === 'gm';
+            if (isGm) {
+              return (
+                <GmNarrationBubble
+                  key={entry.id}
+                  entryId={entry.id}
+                  content={entry.content}
+                  timestamp={entry.timestamp}
+                  streaming={Boolean(entry.streaming)}
+                  ooc={entry.ooc}
+                />
+              );
+            }
+
             return (
               <article
                 key={entry.id}
                 className={cn(
-                  'play-bubble',
-                  isGm ? 'play-bubble-gm' : 'play-bubble-you',
+                  'play-bubble play-bubble-you',
                   entry.ooc && 'opacity-90',
-                  entry.streaming && 'play-bubble-streaming',
                 )}
-                aria-busy={entry.streaming || undefined}
-                // Muted while filling; the settled text is announced once from the status
-                // region below, so a screen reader hears the narration whole rather than
-                // just its first fragment.
-                aria-live={entry.streaming ? 'off' : undefined}
               >
                 <header className="play-bubble-head">
-                  <span
-                    className={cn(
-                      'play-avat',
-                      isGm ? 'play-avat-gm' : 'play-avat-you',
-                    )}
-                    aria-hidden
-                  >
-                    {isGm ? 'G' : monogram(characterName)}
+                  <span className="play-avat play-avat-you" aria-hidden>
+                    {monogram(characterName)}
                   </span>
                   <span className="play-bubble-speaker">
-                    {isGm ? 'Game Master' : `You · ${characterName}`}
+                    You · {characterName}
                   </span>
                   <time
                     className="play-bubble-ts"
@@ -204,12 +209,10 @@ export function StoryStack({
                     {formatTranscriptTime(entry.timestamp)}
                   </time>
                 </header>
-                <p className="play-bubble-body whitespace-pre-wrap">
-                  {entry.content}
-                  {entry.streaming ? (
-                    <span className="play-caret" aria-hidden />
-                  ) : null}
-                </p>
+                <NarrationBody
+                  content={entry.content}
+                  highlightQuotes={false}
+                />
               </article>
             );
           }
@@ -220,7 +223,7 @@ export function StoryStack({
         {lastSettledNarration}
       </p>
 
-      {loading && !streaming ? (
+      {loading && !streaming && !lastIsGm ? (
         <p
           className="play-thinking px-1 text-sm text-[var(--ink-3)]"
           role="status"
