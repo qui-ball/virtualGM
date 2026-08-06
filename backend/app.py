@@ -3,6 +3,7 @@
 import json
 import os
 import random
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -17,6 +18,7 @@ from api.level_up import apply_level_up
 from api.combat_roll_guards import note_roll_result_resolution, roll_result_agent_suffix
 from api.onboarding import router as onboarding_router
 from api.roll_result import build_roll_result_payload, format_roll_result_for_agent
+from api.tts import router as narration_audio_router
 from api.schemas import (
     BossDeathRequest,
     CampaignListResponse,
@@ -42,11 +44,21 @@ from catalog.character_factory import (
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
 from supabase_client import is_supabase_configured
+from utils.audio_cache import cleanup_on_startup as cleanup_audio_cache
 
 # Importing agent triggers config + tool registration
 import agent as agent_mod  # noqa: F401
 
-app = FastAPI(title="Virtual GM API")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Narration audio is a best-effort local cache; prune stale/oversized entries
+    # once at boot so a long-idle machine does not carry them forever.
+    cleanup_audio_cache()
+    yield
+
+
+app = FastAPI(title="Virtual GM API", lifespan=lifespan)
 
 # CORS: browser origin must match when testing from another device (http://<LAN-IP>:5173).
 _env = os.getenv("ENV", "development")
@@ -72,6 +84,7 @@ app.add_middleware(
 )
 
 app.include_router(onboarding_router)
+app.include_router(narration_audio_router)
 
 CAMPAIGNS_ROOT = Path(__file__).parent / "campaigns"
 

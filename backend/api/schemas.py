@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from game.models import CharacterState, ConditionName, DiceType, EnemyState, SpellDefinition
 
@@ -193,7 +193,23 @@ class BossDeathRequest(BaseModel):
     choice: Literal["blaze", "risk"]
 
 
+class NarrationAudioRequest(BaseModel):
+    """Registration payload for narration speech.
+
+    ``extra="forbid"`` is the enforcement point for R5: a browser cannot smuggle a
+    ``model`` or ``voice`` past registration, so both stay server-configured.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+
+
 # -- Responses --
+
+
+class NarrationAudioResponse(BaseModel):
+    audio_id: str
 
 
 class PendingAction(BaseModel):
