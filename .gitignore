@@ -14,6 +14,9 @@ local/
 # Backend durable playthrough fallback (when Supabase unavailable)
 backend/data/
 
+# Generated narration audio (best-effort local cache, safe to delete)
+backend/.cache/tts/
+
 # Editor — keep local only
 .vscode/
 
