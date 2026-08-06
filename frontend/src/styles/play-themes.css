@@ -1466,6 +1466,7 @@ html[data-theme] .play-chip {
 /* Beat `.play-surface button { border:none; border-radius:0 }` so the ring stays circular. */
 .play-surface button.play-narration-speech-btn {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1484,12 +1485,25 @@ html[data-theme] .play-chip {
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
   cursor: pointer;
   flex-shrink: 0;
-  overflow: hidden;
+  /* Visible ring stays 28px so the bubble header does not grow; the pseudo-element
+     below widens the pointer target to the 44px minimum. */
+  overflow: visible;
   transition:
     background 160ms ease,
     border-color 160ms ease,
     box-shadow 160ms ease,
     opacity 160ms ease;
+}
+
+.play-surface button.play-narration-speech-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
 }
 
 .play-surface button.play-narration-speech-btn:hover:not(:disabled) {
@@ -1508,6 +1522,14 @@ html[data-theme] .play-chip {
 .play-surface button.play-narration-speech-btn[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 32%, var(--panel));
   border-color: var(--accent);
+}
+
+/* Control-local failure notice — deliberately distinct from idle, and retryable. */
+.play-surface button.play-narration-speech-btn[data-phase='unavailable'] {
+  border-color: color-mix(in srgb, var(--bad) 75%, var(--panel-edge));
+  background: color-mix(in srgb, var(--bad) 16%, var(--panel));
+  color: var(--bad);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 25%, transparent);
 }
 
 .play-narration-speech-spinner {
