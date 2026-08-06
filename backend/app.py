@@ -44,7 +44,7 @@ from catalog.character_factory import (
 from game.session import store
 from api.turn_engine import stream_deferred_response, stream_turn
 from supabase_client import is_supabase_configured
-from utils.audio_cache import cleanup_on_startup as cleanup_audio_cache
+from utils.audio_cache import cleanup_quietly as cleanup_audio_cache
 
 # Importing agent triggers config + tool registration
 import agent as agent_mod  # noqa: F401

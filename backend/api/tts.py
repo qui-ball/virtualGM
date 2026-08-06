@@ -18,7 +18,6 @@ are not a public-deployment security boundary.
 
 from __future__ import annotations
 
-import os
 import threading
 import time
 from collections import OrderedDict, deque
@@ -31,7 +30,13 @@ from loguru import logger
 
 from api.schemas import NarrationAudioRequest, NarrationAudioResponse
 from tts_client import TtsError, open_speech_stream, tts_model, tts_voice
-from utils.audio_cache import cache_key, cleanup, get_cached_path, open_writer
+from utils.audio_cache import (
+    cache_key,
+    cleanup_quietly,
+    get_cached_path,
+    open_writer,
+)
+from utils.env_config import positive_int, positive_number
 
 router = APIRouter(tags=["narration-audio"])
 
@@ -48,28 +53,16 @@ DEFAULT_STREAM_TIMEOUT_SECONDS = 180.0
 REGISTRY_MAX_ENTRIES = 512
 
 
-def _positive_env(name: str, default: float) -> float:
-    raw = (os.getenv(name) or "").strip()
-    if not raw:
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        logger.warning(f"{name} is not numeric; using default {default}")
-        return default
-    return value if value > 0 else default
-
-
 def max_input_chars() -> int:
-    return int(_positive_env("TTS_MAX_INPUT_CHARS", DEFAULT_MAX_INPUT_CHARS))
+    return positive_int("TTS_MAX_INPUT_CHARS", DEFAULT_MAX_INPUT_CHARS)
 
 
 def max_stream_bytes() -> int:
-    return int(_positive_env("TTS_MAX_STREAM_BYTES", DEFAULT_MAX_STREAM_BYTES))
+    return positive_int("TTS_MAX_STREAM_BYTES", DEFAULT_MAX_STREAM_BYTES)
 
 
 def stream_timeout_seconds() -> float:
-    return _positive_env("TTS_STREAM_TIMEOUT_SECONDS", DEFAULT_STREAM_TIMEOUT_SECONDS)
+    return positive_number("TTS_STREAM_TIMEOUT_SECONDS", DEFAULT_STREAM_TIMEOUT_SECONDS)
 
 
 @dataclass(frozen=True)
@@ -122,12 +115,10 @@ class _CallRateLimiter:
 
     def reserve(self) -> bool:
         now = time.monotonic()
-        minute_cap = int(
-            _positive_env("TTS_MAX_CALLS_PER_MINUTE", DEFAULT_MAX_CALLS_PER_MINUTE)
+        minute_cap = positive_int(
+            "TTS_MAX_CALLS_PER_MINUTE", DEFAULT_MAX_CALLS_PER_MINUTE
         )
-        hour_cap = int(
-            _positive_env("TTS_MAX_CALLS_PER_HOUR", DEFAULT_MAX_CALLS_PER_HOUR)
-        )
+        hour_cap = positive_int("TTS_MAX_CALLS_PER_HOUR", DEFAULT_MAX_CALLS_PER_HOUR)
         with self._lock:
             _drop_before(self._minute, now - 60)
             _drop_before(self._hour, now - 3600)
@@ -241,11 +232,4 @@ async def _relay(stream, content_id: str, text: str) -> AsyncIterator[bytes]:
         await stream.aclose()
 
     if published is not None:
-        _cleanup_quietly()
-
-
-def _cleanup_quietly() -> None:
-    try:
-        cleanup()
-    except OSError as exc:
-        logger.warning(f"Narration audio cache cleanup skipped: {exc}")
+        cleanup_quietly()

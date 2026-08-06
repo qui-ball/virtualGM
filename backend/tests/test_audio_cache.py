@@ -239,10 +239,22 @@ def test_cleanup_ignores_temp_files_and_a_missing_directory(monkeypatch, tmp_pat
     writer.abandon()
 
 
-def test_startup_cleanup_is_safe_to_call_repeatedly():
-    audio_cache.cleanup_on_startup()
-    audio_cache.cleanup_on_startup()
+def test_quiet_cleanup_is_safe_to_call_repeatedly():
+    audio_cache.cleanup_quietly()
+    audio_cache.cleanup_quietly()
     assert cache_dir().exists()
+
+
+@pytest.mark.parametrize("raw", ["", "not-a-number", "0", "-3"])
+def test_unusable_limits_fall_back_to_defaults(monkeypatch, raw):
+    """A garbled or non-positive limit must never disable the safeguard."""
+    monkeypatch.setenv("TTS_CACHE_MAX_AGE_DAYS", raw)
+    monkeypatch.setenv("TTS_MAX_CACHE_BYTES", raw)
+
+    assert (
+        audio_cache.max_age_seconds() == audio_cache.DEFAULT_CACHE_MAX_AGE_DAYS * 86400
+    )
+    assert audio_cache.max_cache_bytes() == audio_cache.DEFAULT_MAX_CACHE_BYTES
 
 
 # -- Repository hygiene --

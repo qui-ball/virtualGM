@@ -25,6 +25,8 @@ from typing import Self
 
 from loguru import logger
 
+from utils.env_config import positive_int
+
 #: Rough MP3 bytes produced per character of narration at the configured bitrate.
 BYTES_PER_CHARACTER = 375
 
@@ -54,24 +56,12 @@ def cache_dir() -> Path:
     return path
 
 
-def _int_env(name: str, default: int) -> int:
-    raw = (os.getenv(name) or "").strip()
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        logger.warning(f"{name} is not an integer; using default {default}")
-        return default
-    return value if value > 0 else default
-
-
 def max_age_seconds() -> int:
-    return _int_env("TTS_CACHE_MAX_AGE_DAYS", DEFAULT_CACHE_MAX_AGE_DAYS) * 86400
+    return positive_int("TTS_CACHE_MAX_AGE_DAYS", DEFAULT_CACHE_MAX_AGE_DAYS) * 86400
 
 
 def max_cache_bytes() -> int:
-    return _int_env("TTS_MAX_CACHE_BYTES", DEFAULT_MAX_CACHE_BYTES)
+    return positive_int("TTS_MAX_CACHE_BYTES", DEFAULT_MAX_CACHE_BYTES)
 
 
 def cache_key(text: str, model: str, voice: str) -> str:
@@ -205,8 +195,8 @@ def cleanup() -> None:
         total -= size
 
 
-def cleanup_on_startup() -> None:
-    """Cleanup that must never take the app down."""
+def cleanup_quietly() -> None:
+    """Cleanup that must never take down the app or a request."""
     try:
         cleanup()
     except OSError as exc:
