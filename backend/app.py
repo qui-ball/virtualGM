@@ -5,18 +5,23 @@ import os
 import random
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
+from typing import Annotated
+
 from game.models import DICE_SIDES, GameState, create_player_character
+from api.accounts import require_account_id, router as accounts_router
+from api.autosave import autosave_session
 from api.campaigns import list_campaigns
 from api.enrichment import build_pending_action
 from api.level_up import apply_level_up
 from api.combat_roll_guards import note_roll_result_resolution, roll_result_agent_suffix
 from api.onboarding import router as onboarding_router
 from api.roll_result import build_roll_result_payload, format_roll_result_for_agent
+from api.session_access import get_owned_session, resolve_account_header
 from api.schemas import (
     BossDeathRequest,
     CampaignListResponse,
@@ -72,8 +77,11 @@ app.add_middleware(
 )
 
 app.include_router(onboarding_router)
+app.include_router(accounts_router)
 
 CAMPAIGNS_ROOT = Path(__file__).parent / "campaigns"
+
+AccountId = Annotated[str, Depends(require_account_id)]
 
 
 @app.get("/health")
@@ -85,15 +93,18 @@ def health():
 
 
 @app.get("/campaigns", response_model=CampaignListResponse)
-def get_campaigns():
-    return list_campaigns()
+def get_campaigns(account_id: AccountId):
+    return list_campaigns(owner_key=account_id)
 
 
 DEFAULT_CAMPAIGN_DIR = CAMPAIGNS_ROOT / "LostMineOfPhandelverAdapted"
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
-def create_session(body: CreateSessionRequest | None = None):
+def create_session(
+    body: CreateSessionRequest | None = None,
+    x_account_id: Annotated[str | None, Header(alias="X-Account-Id")] = None,
+):
     """Create a play session.
 
     Legacy: empty body → Aldric + Lost Mine (no playthrough / solo registry).
@@ -103,9 +114,18 @@ def create_session(body: CreateSessionRequest | None = None):
     """
     from catalog.playthrough_store import playthrough_store
     from catalog.character_factory import character_from_prebuilt as clone_prebuilt
+    from api.accounts import account_exists
 
     gs = GameState()
     if body is not None and body.campaign_template_slug:
+        if not x_account_id or not x_account_id.strip():
+            raise HTTPException(
+                status_code=401, detail="X-Account-Id header required"
+            )
+        account_id = x_account_id.strip()
+        if not account_exists(account_id):
+            raise HTTPException(status_code=401, detail="Unknown account")
+
         try:
             template = resolve_template_slug(body.campaign_template_slug)
         except ValueError as exc:
@@ -113,7 +133,9 @@ def create_session(body: CreateSessionRequest | None = None):
 
         solo = True if body.solo_mode is None else body.solo_mode
         if solo:
-            existing = playthrough_store.find_incomplete_solo(template["slug"])
+            existing = playthrough_store.find_incomplete_solo(
+                template["slug"], owner_key=account_id
+            )
             if existing is not None:
                 raise HTTPException(
                     status_code=409,
@@ -171,14 +193,17 @@ def create_session(body: CreateSessionRequest | None = None):
             role="system",
             content=f"Session started. You are {gs.pc.name}.",
         )
-        stored = playthrough_store.save_character(gs.pc, stored_meta)
+        stored = playthrough_store.save_character(
+            gs.pc, stored_meta, owner_id=account_id
+        )
         playthrough_store.create_playthrough(
-            owner_key="default",
+            owner_key=account_id,
             template=template,
             character=stored,
             solo_mode=solo,
             session_id=session.id,
             replace_existing_solo=False,
+            game_state=None,
         )
         logger.info(f"Created session {session.id} for {gs.pc.name} (playthrough)")
         return CreateSessionResponse(
@@ -215,10 +240,11 @@ def create_session(body: CreateSessionRequest | None = None):
 
 
 @app.get("/sessions/{session_id}/messages", response_model=MessagesResponse)
-def get_messages(session_id: str):
-    session = store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+def get_messages(
+    session_id: str,
+    account_id: Annotated[str | None, Depends(resolve_account_header)] = None,
+):
+    session = get_owned_session(session_id, account_id)
 
     entries: list[MessageEntry] = []
     for msg in session.message_history:
@@ -239,7 +265,10 @@ def get_messages(session_id: str):
 
 
 @app.get("/sessions/{session_id}/state")
-async def get_session_state(session_id: str):
+async def get_session_state(
+    session_id: str,
+    account_id: Annotated[str | None, Depends(resolve_account_header)] = None,
+):
     """Authoritative current game state — the single source of truth for clients.
 
     Clients call this after a `state_changed` SSE ping (and on resume) instead of
@@ -247,19 +276,24 @@ async def get_session_state(session_id: str):
     is cheap and self-healing — if it races a mid-turn mutation the client simply
     refetches on the next event.
     """
-    session = store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = get_owned_session(session_id, account_id)
     return {"game_state": game_state_snapshot(session.game_state).model_dump()}
 
 
 @app.post("/sessions/{session_id}/level-up")
-def submit_level_up(session_id: str, body: LevelUpRequest):
-    session = store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+def submit_level_up(
+    session_id: str,
+    body: LevelUpRequest,
+    account_id: Annotated[str | None, Depends(resolve_account_header)] = None,
+):
+    session = get_owned_session(session_id, account_id)
     if session.game_state.pc is None:
         raise HTTPException(status_code=400, detail="No character")
+    if session.game_state.in_combat:
+        raise HTTPException(
+            status_code=409,
+            detail="Level-up is not allowed during combat — finish the fight first",
+        )
 
     try:
         updated = apply_level_up(
@@ -273,20 +307,24 @@ def submit_level_up(session_id: str, body: LevelUpRequest):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     session.game_state.pc = updated
-    session.game_state.in_combat = False
     append_message(
         session,
         role="system",
-        content=f"Level up! Now Lv {updated.level}. Choice: {body.kind}.",
+        content=(
+            f"Level up! Now Lv {updated.level}. "
+            f"+{body.hp_amount} HP · bonus: {body.kind}."
+        ),
     )
     return {"game_state": game_state_snapshot(session.game_state).model_dump()}
 
 
 @app.post("/sessions/{session_id}/boss-death")
-def submit_boss_death(session_id: str, body: BossDeathRequest):
-    session = store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+def submit_boss_death(
+    session_id: str,
+    body: BossDeathRequest,
+    account_id: Annotated[str | None, Depends(resolve_account_header)] = None,
+):
+    session = get_owned_session(session_id, account_id)
 
     text = apply_boss_death(session.game_state, body.choice)
     append_message(session, role="system", content=text)
@@ -294,10 +332,12 @@ def submit_boss_death(session_id: str, body: BossDeathRequest):
 
 
 @app.post("/sessions/{session_id}/turns")
-async def submit_turn(session_id: str, body: TurnRequest):
-    session = store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+async def submit_turn(
+    session_id: str,
+    body: TurnRequest,
+    account_id: Annotated[str | None, Depends(resolve_account_header)] = None,
+):
+    session = get_owned_session(session_id, account_id)
 
     roll_result_event: dict | None = None
 
@@ -324,6 +364,8 @@ async def submit_turn(session_id: str, body: TurnRequest):
 
         if roll_payload is not None:
             roll_result_event = roll_payload.model_dump(by_alias=True)
+
+        autosave_session(session)
 
         async def action_sse():
             if roll_result_event:

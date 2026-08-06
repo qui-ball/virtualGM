@@ -69,6 +69,11 @@ class StartCampaignRequest(BaseModel):
     character: StartCharacterSelection
 
 
+class TranscriptArchive(BaseModel):
+    summaries: list[dict] = Field(default_factory=list)
+    entries: list[dict] = Field(default_factory=list)
+
+
 class StartCampaignResponse(BaseModel):
     active_campaign_id: str
     character_id: str
@@ -76,6 +81,7 @@ class StartCampaignResponse(BaseModel):
     character_name: str
     campaign_template_slug: str
     game_state: "GameStateSnapshot"
+    transcript_archive: TranscriptArchive | None = None
 
 
 class SaveCampaignResponse(BaseModel):
@@ -183,9 +189,11 @@ class TurnRequest(BaseModel):
 
 
 class LevelUpRequest(BaseModel):
-    kind: Literal["hp", "evasion", "ability"]
-    hp_mode: Literal["fixed", "roll"] | None = None
-    hp_amount: int | None = None
+    """Level-up always grants HP; ``kind`` is the secondary bonus."""
+
+    kind: Literal["evasion", "ability"]
+    hp_mode: Literal["fixed", "roll"]
+    hp_amount: int
     ability_id: str | None = None
 
 
@@ -241,6 +249,7 @@ class RollResultPayload(BaseModel):
 class GameStateSnapshot(BaseModel):
     character: CharacterState | None = None
     enemies: dict[str, EnemyState] = Field(default_factory=dict)
+    npcs: dict[str, dict] = Field(default_factory=dict)
     countdowns: dict[str, int] = Field(default_factory=dict)
     in_combat: bool = False
     boss_encounter: bool = False

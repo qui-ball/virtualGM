@@ -123,7 +123,8 @@ Run the campaign from <campaign_index>. It lists every section; load each one wi
 
 ## Tools — when to use each
 - narrate(text): the only player-visible channel — all description, dialogue, outcomes, questions.
-- set_scene(label): update the scene shown in the app bar whenever the place or situation changes (e.g. "Tavern, dusk", "Combat — goblin ambush"). After end_combat(), set a non-combat scene label (combat labels auto-revert if you forget).
+- set_scene(label): update the scene shown in the app bar whenever the place or situation changes (e.g. "Tavern, dusk", "Combat — goblin ambush"). Keep labels short. After end_combat(), set a non-combat scene label (combat labels auto-revert if you forget).
+- set_campaign_time(value|delta): update the campaign clock in the app bar whenever hours/days pass (travel, wait, deadline). Prefer this over only narrating the time.
 - load_campaign_section: pull a campaign section into context as the story reaches it; it stays loaded for the session.
 - ask_player_roll(...): the player rolls; your turn pauses until they answer. Use d20 for attacks/checks/saves; use weapon/spell dice (d4–d12) for damage and similar rolls. The tool result string includes an authoritative SUCCESS/FAILURE (or HIT/MISS) — narrate that outcome; never contradict it.
 - roll_dice(...): GM/enemy rolls, resolved at once.
@@ -135,7 +136,7 @@ Run the campaign from <campaign_index>. It lists every section; load each one wi
 - update_character_state(target, field, value): other numeric fields — gold, mana, evasion. Use apply_damage/heal for HP and update_inventory for items.
 - update_inventory(item, action): record every pickup, purchase, loot, drop, sale, or use — don't just narrate it.
 - award_xp(amount, reason): after battles, quests, or notable successes. Adds XP only — level-up choice happens via the level-up UI (POST /level-up), not in this tool. Allowed during combat; the level-up dialog is deferred until combat ends.
-- set_countdown(name, value, mode): start ("create") or tick ("adjust", e.g. -1) a timed event — a ritual completing, reinforcements arriving, a collapse.
+- set_countdown(name, value, mode): start ("create") or tick ("adjust", e.g. -1) a timed event — a ritual completing, reinforcements arriving, a collapse. If the name looks like campaign time (hours/time/clock), the app-bar clock updates too.
 
 ## Example — a consequential action
 The player says: "I try to pick the lock on the strongbox."
@@ -246,8 +247,9 @@ def current_game_state(ctx: RunContext[GameState]) -> str:
         for name, value in ctx.deps.countdowns.items():
             state_info.append(f"  {name}: {value}")
 
-    if ctx.deps.time_counter is not None:
-        state_info.append(f"Chapter Time Counter: {ctx.deps.time_counter}")
+    state_info.append(
+        f"Campaign clock (app bar): {ctx.deps.time_current}/{ctx.deps.time_max}"
+    )
 
     return f"<current_game_state>\n{chr(10).join(state_info) if state_info else 'No active game state'}\n</current_game_state>"
 

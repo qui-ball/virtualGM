@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { CombatantInspectPopover } from '@/components/play/CombatantInspectPopover';
 import { useHorizontalDragScroll } from '@/hooks/useHorizontalDragScroll';
+import { useInitiativeQueueFlip } from '@/hooks/useInitiativeQueueFlip';
 import {
-  activeCombatantName,
+  buildInitiativeSlots,
   turnIndicatorLabel,
+  type InitiativeSlot,
 } from '@/lib/play/initiativeHud';
 import type { CharacterState, EnemyState } from '@/types';
 import { cn } from '@/lib/utils';
@@ -21,8 +23,15 @@ export function InitiativeHud({
   character,
   enemies,
 }: InitiativeHudProps) {
-  const activeName = activeCombatantName(initiativeOrder, currentTurnIndex);
   const turnLabel = turnIndicatorLabel(initiativeOrder, currentTurnIndex);
+  const slots = buildInitiativeSlots(
+    initiativeOrder,
+    currentTurnIndex,
+    character,
+    enemies,
+  );
+  const orderKey = slots.map((s) => s.name).join('|');
+
   const {
     scrollRef,
     onPointerDown,
@@ -30,6 +39,15 @@ export function InitiativeHud({
     onPointerUp,
     consumeWasDrag,
   } = useHorizontalDragScroll();
+  const flipRef = useInitiativeQueueFlip(orderKey);
+
+  const setHudRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      scrollRef.current = el;
+      flipRef.current = el;
+    },
+    [scrollRef, flipRef],
+  );
 
   const [inspectName, setInspectName] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -37,60 +55,36 @@ export function InitiativeHud({
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   anchorRef.current = anchorEl;
 
-  if (initiativeOrder.length === 0) return null;
+  if (slots.length === 0) return null;
 
   return (
     <>
-      <div className="play-combat-strip-head">
-        <span className="play-lbl">Initiative order</span>
-        {turnLabel ? (
-          <span className="play-combat-turn-label play-mono">{turnLabel}</span>
-        ) : null}
-      </div>
       <div
-        ref={scrollRef}
+        ref={setHudRef}
         className="play-initiative-hud"
         role="list"
         aria-label={
-          turnLabel
-            ? `Initiative order, ${turnLabel}`
-            : 'Initiative order'
+          turnLabel ? `Initiative order, ${turnLabel}` : 'Initiative order'
         }
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        {initiativeOrder.map((name) => {
-          const isActive = name === activeName;
-          return (
-            <button
-              key={name}
-              type="button"
-              ref={(el) => {
-                chipRefs.current[name] = el;
-              }}
-              role="listitem"
-              aria-current={isActive ? 'step' : undefined}
-              className={cn(
-                'play-initiative-chip min-h-[36px]',
-                isActive && 'play-initiative-chip-active',
-              )}
-              onClick={() => {
-                if (consumeWasDrag()) return;
-                setInspectName(name);
-                setAnchorEl(chipRefs.current[name] ?? null);
-              }}
-            >
-              {isActive ? (
-                <span className="play-initiative-chip-turn-marker" aria-hidden>
-                  ▶
-                </span>
-              ) : null}
-              {name}
-            </button>
-          );
-        })}
+        {slots.map((slot) => (
+          <InitiativePortrait
+            key={slot.name}
+            slot={slot}
+            buttonRef={(el) => {
+              chipRefs.current[slot.name] = el;
+            }}
+            onOpen={() => {
+              if (consumeWasDrag()) return;
+              setInspectName(slot.name);
+              setAnchorEl(chipRefs.current[slot.name] ?? null);
+            }}
+          />
+        ))}
       </div>
 
       <CombatantInspectPopover
@@ -105,5 +99,47 @@ export function InitiativeHud({
         }}
       />
     </>
+  );
+}
+
+type InitiativePortraitProps = {
+  slot: InitiativeSlot;
+  buttonRef: (el: HTMLButtonElement | null) => void;
+  onOpen: () => void;
+};
+
+function InitiativePortrait({
+  slot,
+  buttonRef,
+  onOpen,
+}: InitiativePortraitProps) {
+  return (
+    <button
+      type="button"
+      ref={buttonRef}
+      role="listitem"
+      data-initiative-id={slot.name}
+      aria-current={slot.active ? 'step' : undefined}
+      aria-label={
+        slot.active ? `${slot.name}, current turn` : slot.name
+      }
+      title={slot.name}
+      className={cn(
+        'play-initiative-tile',
+        slot.active && 'play-initiative-tile-active',
+        slot.acted && 'play-initiative-tile-acted',
+        slot.kind === 'pc' && 'play-initiative-tile-pc',
+        slot.kind === 'enemy' && 'play-initiative-tile-enemy',
+      )}
+      onClick={onOpen}
+    >
+      <span className="play-initiative-thumb" aria-hidden>
+        <span className="play-initiative-monogram">{slot.monogram}</span>
+        {slot.active ? (
+          <span className="play-initiative-turn-pip" />
+        ) : null}
+      </span>
+      <span className="play-initiative-name">{slot.name}</span>
+    </button>
   );
 }

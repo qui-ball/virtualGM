@@ -31,7 +31,9 @@ export const SessionAppBar = forwardRef<HTMLElement, SessionAppBarProps>(
           <p className="play-lbl text-[var(--accent)]">
             {context.campaignTitle} · Ch {context.chapter}
           </p>
-          <h1 className="play-appbar-title truncate">{context.scene}</h1>
+          <h1 className="play-appbar-title" title={context.scene}>
+            {context.scene}
+          </h1>
           <p className="play-appbar-sub">
             time {context.timeCurrent}/{context.timeMax}
             {bossMode ? ' · BOSS' : ''}

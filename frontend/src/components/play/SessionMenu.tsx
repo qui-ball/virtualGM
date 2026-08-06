@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { enableAuth, isDev } from '@/config';
-import { useAuth } from '@/auth';
+import { isDev } from '@/config';
+import { useSoftAccount } from '@/auth';
 import { PLAY_ROUTES } from '@/lib/play/routes';
 import { PlayGlyph } from '@/components/play/PlayGlyph';
 import { PlayIcon } from '@/components/play/PlayIcon';
@@ -22,7 +22,7 @@ export function SessionMenu({
   className,
 }: SessionMenuProps) {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { clearAccount } = useSoftAccount();
 
   if (!open) return null;
 
@@ -63,19 +63,18 @@ export function SessionMenu({
           </span>
           Settings
         </button>
-        {enableAuth ? (
-          <button
-            type="button"
-            className="play-menu-item min-h-[44px]"
-            onClick={() => {
-              onClose();
-              void signOut();
-            }}
-          >
-            <PlayGlyph name="signout" className="play-menu-glyph" />
-            Sign out
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="play-menu-item min-h-[44px]"
+          onClick={() => {
+            onClose();
+            clearAccount();
+            navigate('/auth', { replace: true });
+          }}
+        >
+          <PlayGlyph name="signout" className="play-menu-glyph" />
+          Log out
+        </button>
         {isDev && onDebugConsoleToggle ? (
           <div className="play-session-menu-dev">
             <button

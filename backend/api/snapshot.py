@@ -13,6 +13,7 @@ def game_state_snapshot(gs: GameState) -> GameStateSnapshot:
     return GameStateSnapshot(
         character=gs.pc,
         enemies=gs.enemies,
+        npcs=dict(getattr(gs, "npcs", {}) or {}),
         countdowns=gs.countdowns,
         in_combat=gs.in_combat,
         boss_encounter=gs.is_boss_battle,

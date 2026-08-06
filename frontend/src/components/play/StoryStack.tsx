@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { prefersReducedMotion } from '@/lib/a11y/motion';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  nextFollowState,
+  tailScrollTop,
+} from '@/lib/play/transcriptScroll';
 import type { TranscriptEntry } from '@/lib/play/transcript';
 import { formatTranscriptTime } from '@/lib/play/transcript';
-import { hasStreamingNarration } from '@/lib/play/narrationStream';
+import { hasActiveNarrationPresentation } from '@/lib/play/narrationStream';
 import { GmNarrationBubble } from '@/components/play/GmNarrationBubble';
 import { NarrationBody } from '@/components/play/NarrationBody';
 import { RollPromptCard } from '@/components/play/RollPromptCard';
@@ -17,11 +20,9 @@ type StoryStackProps = {
   rolling?: boolean;
   showStubBanner?: boolean;
   onRollPrompt?: (promptId: string) => void;
+  onNarrationRevealComplete?: (entryId: string) => void;
   className?: string;
 };
-
-/** How far from the bottom the reader can be before auto-follow stops chasing the tail. */
-const FOLLOW_THRESHOLD_PX = 120;
 
 function monogram(name: string): string {
   const trimmed = name.trim();
@@ -35,9 +36,12 @@ export function StoryStack({
   rolling = false,
   showStubBanner = false,
   onRollPrompt,
+  onNarrationRevealComplete,
   className,
 }: StoryStackProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const followTailRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
 
   const visible = entries.filter(
     (e) => !(e.kind === 'message' && e.content === '__loading__'),
@@ -45,7 +49,7 @@ export function StoryStack({
 
   // Once narration is flowing — or a GM bubble just settled and may still be
   // typewriting — the text itself is the progress indicator.
-  const streaming = hasStreamingNarration(entries);
+  const presenting = hasActiveNarrationPresentation(entries);
   const lastVisible = visible[visible.length - 1];
   const lastIsGm =
     lastVisible?.kind === 'message' && lastVisible.role === 'gm';
@@ -57,32 +61,90 @@ export function StoryStack({
   const lastSettledNarration = useMemo(() => {
     for (let i = visible.length - 1; i >= 0; i--) {
       const e = visible[i];
-      if (e.kind === 'message' && e.role === 'gm' && !e.streaming) {
+      if (
+        e.kind === 'message' &&
+        e.role === 'gm' &&
+        !e.streaming &&
+        !e.reveal
+      ) {
         return e.content;
       }
     }
     return '';
   }, [visible]);
 
+  const scrollToTail = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !followTailRef.current) return;
+    const target = tailScrollTop(scroller);
+    if (target - scroller.scrollTop < 1) return;
+    // Jumps rather than animates: streaming delivers a new tail ~28 times a second and a
+    // smooth scroll restarted that often never finishes, so it reads as jitter.
+    scroller.scrollTop = target;
+    lastScrollTopRef.current = target;
+  }, []);
+
+  // Only a deliberate scroll up stops the follow — growing content never does, or a long
+  // narration would out-run the threshold mid-reveal and strand the reader.
   useEffect(() => {
-    const anchor = bottomRef.current;
-    const scroller = anchor?.parentElement;
-    // Streaming delivers a new entries array per token (~28/s). Following the tail is only
-    // wanted while the reader is already at the tail — otherwise every token would yank a
-    // reader who has scrolled up back to the bottom. And a smooth scroll restarted that
-    // often never finishes, so it reads as jitter rather than motion.
-    if (scroller) {
-      const distanceFromBottom =
-        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      if (distanceFromBottom > FOLLOW_THRESHOLD_PX) return;
-    }
-    anchor?.scrollIntoView({
-      behavior: prefersReducedMotion() || streaming ? 'auto' : 'smooth',
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const onScroll = () => {
+      followTailRef.current = nextFollowState({
+        following: followTailRef.current,
+        metrics: scroller,
+        lastScrollTop: lastScrollTopRef.current,
+      });
+      lastScrollTopRef.current = scroller.scrollTop;
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Narration typewrites for seconds after `entries` last changed, and the visible area
+  // shrinks when the sheet or the mobile keyboard opens — both push the tail out of view
+  // without a render, so it is chased from the DOM rather than from React state.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    let frame = 0;
+    const chase = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        scrollToTail();
+      });
+    };
+
+    const grown =
+      typeof MutationObserver === 'undefined'
+        ? null
+        : new MutationObserver(chase);
+    grown?.observe(scroller, {
+      childList: true,
+      subtree: true,
+      characterData: true,
     });
-  }, [entries, loading, streaming]);
+
+    const resized =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(chase);
+    resized?.observe(scroller);
+
+    return () => {
+      grown?.disconnect();
+      resized?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [scrollToTail]);
+
+  // Mount (resumed transcripts open at the newest line) and every transcript change.
+  useEffect(() => {
+    scrollToTail();
+  }, [entries, loading, presenting, scrollToTail]);
 
   return (
     <div
+      ref={scrollerRef}
       className={cn('play-story-stack min-h-0 flex-1', className)}
       role="log"
       aria-live="polite"
@@ -91,6 +153,24 @@ export function StoryStack({
     >
       {visible.map((entry) => {
         switch (entry.kind) {
+          case 'summary':
+            return (
+              <details
+                key={entry.id}
+                className="play-summary-block my-2 rounded-md border border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2"
+              >
+                <summary className="cursor-pointer text-sm font-medium text-[var(--ink-2)]">
+                  Earlier events
+                  {entry.segmentIndex > 0
+                    ? ` · part ${entry.segmentIndex}`
+                    : ''}
+                </summary>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ink-3)]">
+                  {entry.text}
+                </p>
+              </details>
+            );
+
           case 'scene':
           case 'combat_start':
           case 'combat_end':
@@ -182,7 +262,9 @@ export function StoryStack({
                   content={entry.content}
                   timestamp={entry.timestamp}
                   streaming={Boolean(entry.streaming)}
+                  reveal={Boolean(entry.reveal)}
                   ooc={entry.ooc}
+                  onRevealComplete={onNarrationRevealComplete}
                 />
               );
             }
@@ -223,7 +305,7 @@ export function StoryStack({
         {lastSettledNarration}
       </p>
 
-      {loading && !streaming && !lastIsGm ? (
+      {loading && !presenting && !lastIsGm ? (
         <p
           className="play-thinking px-1 text-sm text-[var(--ink-3)]"
           role="status"
@@ -232,7 +314,7 @@ export function StoryStack({
         </p>
       ) : null}
 
-      <div ref={bottomRef} className="h-px shrink-0" aria-hidden />
+      <div className="h-px shrink-0" aria-hidden />
     </div>
   );
 }

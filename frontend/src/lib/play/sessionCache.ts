@@ -56,3 +56,8 @@ export function clearSessionCache(campaignId?: string | null): void {
   delete map[key];
   writeMap(map);
 }
+
+/** Drop all play session caches (e.g. switch soft account). */
+export function clearAllSessionCaches(): void {
+  writeMap({});
+}

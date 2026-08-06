@@ -10,6 +10,7 @@ from pydantic_ai import DeferredToolRequests, DeferredToolResults
 
 from agent.compaction import maybe_compact
 from agent.runner import run_agent_iter
+from api.autosave import autosave_session
 from api.enrichment import build_pending_action
 from api.narration_sanitize import extract_leaked_ask_player_roll
 from api.snapshot import snapshot_dict
@@ -30,6 +31,52 @@ def _queue_run_event(queue: asyncio.Queue):
         queue.put_nowait((event_type, payload))
 
     return on_event
+
+
+#: Events that end a turn from the player's point of view.
+_TURN_TERMINAL = ("complete", "pending_action", "error")
+
+
+async def _drain_resolving_narrations(
+    queue: asyncio.Queue,
+) -> AsyncGenerator[tuple[str, dict]]:
+    """Yield queued events, guaranteeing every narration this turn painted is resolved.
+
+    A `narration_delta` paints provisional text in the client; only a `narration` (settle) or
+    `narration_discard` carrying the same ``tool_call_id`` can take it back. Everything
+    upstream is best-effort about that pairing: the deltas are keyed by the id captured when
+    the tool-call part started, while the settle is keyed by the id ``narrate()`` receives,
+    and a call the provider abandons before the tool runs is never resolved by anyone.
+
+    An unresolved bubble does not vanish — it stands next to the real narration until the
+    client's end-of-turn sweep, which is how one action ends up showing two GM narrations.
+    Closing the ids out here bounds that to the turn that opened them, whatever went wrong
+    upstream. A discard for a narration that did settle is a no-op in every client, so the
+    sweep is safe to run unconditionally.
+    """
+    # A dict, not a set, so the retractions and the warning follow the order the narrations
+    # were painted in.
+    open_ids: dict[str, None] = {}
+    while True:
+        event = await queue.get()
+        if event is None:
+            break
+        event_type, payload = event
+
+        if event_type == "narration_delta":
+            open_ids[payload.get("tool_call_id")] = None
+        elif event_type in ("narration", "narration_discard"):
+            open_ids.pop(payload.get("tool_call_id"), None)
+        elif event_type in _TURN_TERMINAL and open_ids:
+            logger.warning(
+                f"Narration never settled or discarded: {list(open_ids)} — "
+                "retracting before the turn ends"
+            )
+            for tool_call_id in open_ids:
+                yield ("narration_discard", {"tool_call_id": tool_call_id})
+            open_ids.clear()
+
+        yield event
 
 
 def _try_recover_leaked_roll(
@@ -124,6 +171,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
         internal_notes = result.output if isinstance(result.output, str) else None
         session.message_history = result.all_messages()
         session.pending_deferred = None
+        autosave_session(session)
         queue.put_nowait(
             (
                 "complete",
@@ -190,10 +238,7 @@ async def stream_turn(
 
     task = asyncio.create_task(run())
 
-    while True:
-        event = await queue.get()
-        if event is None:
-            break
+    async for event in _drain_resolving_narrations(queue):
         yield event
 
     await task
@@ -211,6 +256,9 @@ async def stream_deferred_response(
     gs.narrations.clear()
     gs._leaked_roll_args = None
     gs._event_queue = queue
+    # Same back-reference the fresh-turn path sets: tools append combat and roll rows to the
+    # transcript through it, and a deferred resume runs the same tools.
+    gs._session = session
 
     deferred_results = DeferredToolResults()
     for call_info in session.pending_deferred.deferred_calls:
@@ -255,10 +303,7 @@ async def stream_deferred_response(
 
     task = asyncio.create_task(run())
 
-    while True:
-        event = await queue.get()
-        if event is None:
-            break
+    async for event in _drain_resolving_narrations(queue):
         yield event
 
     await task

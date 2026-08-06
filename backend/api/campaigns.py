@@ -4,9 +4,9 @@ from api.schemas import CampaignListResponse, CampaignSummary
 from catalog.playthrough_store import playthrough_store
 
 
-def list_campaigns() -> CampaignListResponse:
-    """Return the player's playthroughs (empty until POST /active-campaigns)."""
-    rows = playthrough_store.list_playthroughs()
+def list_campaigns(owner_key: str = "default") -> CampaignListResponse:
+    """Return the player's playthroughs for this soft account (empty until start)."""
+    rows = playthrough_store.list_playthroughs(owner_key=owner_key)
     if not rows:
         return CampaignListResponse(campaigns=[])
 

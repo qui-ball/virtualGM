@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { NarrationBody } from '@/components/play/NarrationBody';
 import { NarrationSpeechButton } from '@/components/play/NarrationSpeechButton';
 import { useTypewriterReveal } from '@/hooks/useTypewriterReveal';
@@ -9,7 +10,10 @@ type GmNarrationBubbleProps = {
   content: string;
   timestamp: number;
   streaming?: boolean;
+  /** Typewrite full content that arrived without prior deltas. */
+  reveal?: boolean;
   ooc?: boolean;
+  onRevealComplete?: (entryId: string) => void;
 };
 
 /** GM story bubble with typewriter reveal + optional TTS control. */
@@ -18,12 +22,24 @@ export function GmNarrationBubble({
   content,
   timestamp,
   streaming = false,
+  reveal = false,
   ooc = false,
+  onRevealComplete,
 }: GmNarrationBubbleProps) {
   const { text, revealing } = useTypewriterReveal(content, {
     enabled: true,
     streaming,
+    reveal,
   });
+  const revealCompleted = useRef(false);
+
+  useEffect(() => {
+    if (!reveal || !onRevealComplete || revealCompleted.current) return;
+    if (!revealing) {
+      revealCompleted.current = true;
+      onRevealComplete(entryId);
+    }
+  }, [reveal, revealing, entryId, onRevealComplete]);
 
   return (
     <article

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyNarrationDelta,
+  clearNarrationReveal,
   clearStreamingNarrations,
   discardNarration,
+  hasActiveNarrationPresentation,
   hasStreamingNarration,
   narrationEntryId,
   settleNarration,
@@ -102,7 +104,7 @@ describe('settleNarration', () => {
     expect((gm as { streaming?: boolean }).streaming).toBeUndefined();
   });
 
-  it('appends a settled entry when no delta preceded it (AE5)', () => {
+  it('appends a reveal entry when no delta preceded it so typewriter still runs', () => {
     const entries = settleNarration([playerLine()], 'call-1', FULL, 5);
 
     expect(entries).toHaveLength(2);
@@ -110,6 +112,7 @@ describe('settleNarration', () => {
       kind: 'message',
       role: 'gm',
       content: FULL,
+      reveal: true,
     });
     expect((entries[1] as { streaming?: boolean }).streaming).toBeUndefined();
   });
@@ -117,7 +120,10 @@ describe('settleNarration', () => {
   it('appends when the settle carries no tool call id at all', () => {
     const entries = settleNarration([], undefined, FULL, 5);
 
-    expect(gmEntries(entries)[0]).toMatchObject({ content: FULL });
+    expect(gmEntries(entries)[0]).toMatchObject({
+      content: FULL,
+      reveal: true,
+    });
   });
 
   it('settles two concurrent narrations independently (R4)', () => {
@@ -244,6 +250,24 @@ describe('clearStreamingNarrations', () => {
 
     expect(clearStreamingNarrations(entries)).toBe(entries);
   });
+
+  it('sweeps only the narrations the finishing turn painted', () => {
+    // The previous turn's response body closes while the next turn is mid-narration.
+    let entries = stream([], 'previous-turn', ['Half a sen']);
+    entries = stream(entries, 'live-turn', ['The goblin lunges']);
+
+    const swept = clearStreamingNarrations(entries, ['previous-turn']);
+
+    expect(swept.map((e) => e.kind === 'message' && e.content)).toEqual([
+      'The goblin lunges',
+    ]);
+  });
+
+  it('is a no-op when the finishing turn painted nothing', () => {
+    const entries = stream([], 'live-turn', ['The goblin lunges']);
+
+    expect(clearStreamingNarrations(entries, [])).toBe(entries);
+  });
 });
 
 describe('hasStreamingNarration', () => {
@@ -256,5 +280,16 @@ describe('hasStreamingNarration', () => {
     expect(hasStreamingNarration(settleNarration(streamed, 'call-1', 'Alpha.', 3))).toBe(
       false,
     );
+  });
+});
+
+describe('atomic settle reveal', () => {
+  it('marks presentation active until reveal is cleared', () => {
+    const entries = settleNarration([], 'call-1', FULL, 5);
+    expect(hasActiveNarrationPresentation(entries)).toBe(true);
+    expect(hasStreamingNarration(entries)).toBe(false);
+
+    const cleared = clearNarrationReveal(entries, narrationEntryId('call-1'));
+    expect(hasActiveNarrationPresentation(cleared)).toBe(false);
   });
 });

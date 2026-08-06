@@ -11,21 +11,27 @@ type Options = {
   enabled?: boolean;
   /** True while the server is still streaming provisional text. */
   streaming?: boolean;
+  /**
+   * True when content arrived in one settle and should still typewrite from
+   * an empty cursor (same feel as streamed deltas).
+   */
+  reveal?: boolean;
 };
 
 /**
  * Reveal `target` letter-by-letter. Historical settled text snaps in full;
- * streaming / catch-up after settle animates toward the latest target.
+ * streaming / atomic-settle reveal / catch-up animates toward the latest target.
  */
 export function useTypewriterReveal(
   target: string,
-  { enabled = true, streaming = false }: Options = {},
+  { enabled = true, streaming = false, reveal = false }: Options = {},
 ): { text: string; revealing: boolean } {
   const reduced = prefersReducedMotion();
   const animate = enabled && !reduced;
+  const typewriteFromEmpty = streaming || reveal;
 
   const [cursor, setCursor] = useState(() =>
-    animate && streaming ? 0 : target.length,
+    animate && typewriteFromEmpty ? 0 : target.length,
   );
   const targetRef = useRef(target);
   const cursorRef = useRef(cursor);
@@ -81,7 +87,8 @@ export function useTypewriterReveal(
   }, [catchingUp, target]);
 
   const text = animate ? sliceRevealed(target, cursor) : target;
-  const revealing = animate && (streaming || cursor < target.length);
+  const revealing =
+    animate && (streaming || reveal || cursor < target.length);
 
   return { text, revealing };
 }

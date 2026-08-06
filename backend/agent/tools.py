@@ -1,6 +1,7 @@
 """Agent tool definitions — all @gm_agent.tool and @gm_agent.tool_plain functions."""
 
 import random
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -45,6 +46,21 @@ def _notify_state_changed(gs: GameState, *fields: str) -> None:
     back by the client via GET /sessions/{id}/state.
     """
     gs.emit("state_changed", {"fields": list(fields)})
+
+
+# Campaign clock shown in the session app bar (time_current / time_max).
+_CLOCK_COUNTDOWN_RE = re.compile(
+    r"time|hour|hours|clock|deadline|daylight|days?\b",
+    re.IGNORECASE,
+)
+
+
+def _sync_campaign_clock_from_countdown(gs: GameState, name: str, value: int) -> bool:
+    """If ``name`` looks like the campaign clock, mirror it onto ``time_current``."""
+    if not _CLOCK_COUNTDOWN_RE.search(name):
+        return False
+    gs.time_current = max(0, int(value))
+    return True
 
 
 def _discard_narration(ctx: RunContext[GameState]) -> None:
@@ -179,12 +195,45 @@ def set_scene(ctx: RunContext[GameState], scene_label: str) -> str:
     """Update the current scene label shown in the session app bar.
 
     Args:
-        scene_label: Short scene name (e.g. "Tavern, dusk", "Combat — Goblin ambush")
+        scene_label: Short scene name (e.g. "Tavern, dusk", "Combat — Goblin ambush").
+            Keep it concise — long labels overflow the app bar.
     """
-    ctx.deps.scene_label = scene_label
-    ctx.deps.emit("scene", {"text": f"Scene · {scene_label}"})
+    ctx.deps.scene_label = scene_label.strip()
+    ctx.deps.emit("scene", {"text": f"Scene · {ctx.deps.scene_label}"})
     _notify_state_changed(ctx.deps, "scene_label")
-    return f"Scene set to {scene_label}"
+    return f"Scene set to {ctx.deps.scene_label}"
+
+
+@gm_agent.tool
+def set_campaign_time(
+    ctx: RunContext[GameState],
+    value: int | None = None,
+    delta: int | None = None,
+) -> str:
+    """Update the campaign clock shown in the session app bar (time remaining).
+
+    Use this whenever hours/days of campaign time pass — travel, rests, waiting,
+    or a deadline ticking down. Prefer this over only narrating the time change.
+
+    Args:
+        value: Absolute remaining time to set (e.g. 32). Mutually exclusive with delta.
+        delta: Amount to add (positive) or subtract (negative), e.g. -1 after an hour passes.
+    """
+    if (value is None) == (delta is None):
+        raise ModelRetry("Provide exactly one of value= or delta= for set_campaign_time.")
+
+    old = ctx.deps.time_current
+    if value is not None:
+        if value < 0:
+            raise ModelRetry(f"Campaign time must be >= 0, got {value}")
+        ctx.deps.time_current = int(value)
+    else:
+        assert delta is not None
+        ctx.deps.time_current = max(0, old + int(delta))
+
+    _notify_state_changed(ctx.deps, "time_current")
+    logger.info(f"⏳ Campaign time: {old} → {ctx.deps.time_current}")
+    return f"Campaign time: {old} → {ctx.deps.time_current}/{ctx.deps.time_max}"
 
 
 @gm_agent.tool
@@ -599,7 +648,10 @@ def set_countdown(
             raise ModelRetry(f"Countdown initial value must be >= 0, got {value}")
 
         ctx.deps.countdowns[name] = value
-        _notify_state_changed(ctx.deps, "countdowns")
+        fields = ["countdowns"]
+        if _sync_campaign_clock_from_countdown(ctx.deps, name, value):
+            fields.append("time_current")
+        _notify_state_changed(ctx.deps, *fields)
         logger.info(f"⏱️ Created countdown '{name}' with value {value}")
         if value == 0:
             return f"Created countdown '{name}' at 0 (TRIGGERS IMMEDIATELY!)"
@@ -614,7 +666,10 @@ def set_countdown(
     old_value = ctx.deps.countdowns[name]
     new_value = max(0, old_value + value)
     ctx.deps.countdowns[name] = new_value
-    _notify_state_changed(ctx.deps, "countdowns")
+    fields = ["countdowns"]
+    if _sync_campaign_clock_from_countdown(ctx.deps, name, new_value):
+        fields.append("time_current")
+    _notify_state_changed(ctx.deps, *fields)
     logger.info(f"⏱️ Countdown '{name}': {old_value} → {new_value}")
 
     if new_value == 0 and old_value > 0:

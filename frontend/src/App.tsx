@@ -6,6 +6,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { CampaignPage } from '@/pages/CampaignPage';
 import { SessionPage } from '@/pages/SessionPage';
 import { ResponsiveTestPage } from '@/pages/ResponsiveTestPage';
+import { AccountGatePage } from '@/pages/AccountGatePage';
 import { AuthPage } from '@/pages/AuthPage';
 import { enableAuth, isDev } from '@/config';
 import './styles/App.css';
@@ -25,7 +26,7 @@ function App() {
         <Route path="/" element={<Navigate to="/campaign" replace />} />
         <Route
           path="/auth"
-          element={enableAuth ? <AuthPage /> : <Navigate to="/campaign" replace />}
+          element={enableAuth ? <AuthPage /> : <AccountGatePage />}
         />
         <Route
           path="/campaign"

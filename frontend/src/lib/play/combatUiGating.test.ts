@@ -4,6 +4,7 @@ import { shouldBlockForLevelUp } from '@/lib/play/levelUp';
 import {
   BOSS_DEATH_Z_INDEX,
   COMBAT_SPLASH_Z_INDEX,
+  canStartLevelUpCelebration,
   combatSplashInCombatInput,
   combatStripVisible,
   shouldShowLevelUpDialog,
@@ -27,15 +28,12 @@ describe('combatStripVisible (WS-7.1)', () => {
   });
 });
 
-describe('shouldShowLevelUpDialog (WS-7.1)', () => {
-  it('defers level-up until combat exit splash is dismissed', () => {
-    expect(shouldShowLevelUpDialog(true, 'exit')).toBe(false);
-    expect(shouldShowLevelUpDialog(true, 'enter')).toBe(false);
-    expect(shouldShowLevelUpDialog(true, 'idle')).toBe(true);
-  });
-
-  it('does not open when level-up is not pending', () => {
-    expect(shouldShowLevelUpDialog(false, 'idle')).toBe(false);
+describe('canStartLevelUpCelebration', () => {
+  it('waits for combat splash idle and quiet narration', () => {
+    expect(canStartLevelUpCelebration(true, 'exit', true)).toBe(false);
+    expect(canStartLevelUpCelebration(true, 'idle', false)).toBe(false);
+    expect(canStartLevelUpCelebration(true, 'idle', true)).toBe(true);
+    expect(canStartLevelUpCelebration(false, 'idle', true)).toBe(false);
   });
 });
 

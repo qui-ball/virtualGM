@@ -21,6 +21,7 @@ class StoredCharacter:
     pc: CharacterState
     meta: dict[str, Any]
     created_at: str = field(default_factory=_now)
+    owner_id: str = "default"
 
 
 @dataclass
@@ -48,6 +49,8 @@ class Playthrough:
     completed: bool = False
     created_at: str = field(default_factory=_now)
     pc_snapshot: dict[str, Any] | None = None
+    owner_id: str = "default"
+    game_state: dict[str, Any] | None = None
 
 
 class PlaythroughStore:
@@ -92,6 +95,11 @@ class PlaythroughStore:
                 pc=pc,
                 meta=dict(crow.get("meta") or {}),
                 created_at=str(crow.get("created_at") or _now()),
+                owner_id=str(
+                    crow.get("owner_id")
+                    or (crow.get("meta") or {}).get("owner_id")
+                    or "default"
+                ),
             )
 
         for pid, prow in (blob.get("playthroughs") or {}).items():
@@ -121,6 +129,8 @@ class PlaythroughStore:
                 completed=bool(prow.get("completed")),
                 created_at=str(prow.get("created_at") or _now()),
                 pc_snapshot=prow.get("pc_snapshot"),
+                owner_id=str(prow.get("owner_id") or "default"),
+                game_state=prow.get("game_state"),
             )
 
         for owner, value in (blob.get("incomplete_solo") or {}).items():
@@ -141,7 +151,7 @@ class PlaythroughStore:
         if not self._incomplete_solo:
             for pt in self._playthroughs.values():
                 if pt.solo_mode and not pt.completed:
-                    self._incomplete_solo.setdefault("default", {})[
+                    self._incomplete_solo.setdefault(pt.owner_id or "default", {})[
                         pt.campaign_template_slug
                     ] = pt.id
 
@@ -161,13 +171,15 @@ class PlaythroughStore:
                 continue
             blob["characters"][cid] = {
                 "id": cid,
+                "owner_id": crow.owner_id,
                 "pc": crow.pc.model_dump(),
-                "meta": crow.meta,
+                "meta": {**crow.meta, "owner_id": crow.owner_id},
                 "created_at": crow.created_at,
             }
         for pid, pt in self._playthroughs.items():
             blob["playthroughs"][pid] = {
                 "id": pt.id,
+                "owner_id": pt.owner_id,
                 "campaign_template_slug": pt.campaign_template_slug,
                 "campaign_template_id": pt.campaign_template_id,
                 "campaign_name": pt.campaign_name,
@@ -195,15 +207,26 @@ class PlaythroughStore:
                     if pt.character_id in self._characters
                     else None
                 ),
+                "game_state": pt.game_state,
             }
         persist.save_all(blob)
 
     def save_character(
-        self, pc: CharacterState, meta: dict[str, Any], character_id: str | None = None
+        self,
+        pc: CharacterState,
+        meta: dict[str, Any],
+        character_id: str | None = None,
+        owner_id: str = "default",
     ) -> StoredCharacter:
         self.ensure_hydrated()
         cid = character_id or str(uuid.uuid4())
-        row = StoredCharacter(id=cid, pc=pc.model_copy(deep=True), meta=dict(meta))
+        meta = {**dict(meta), "owner_id": owner_id}
+        row = StoredCharacter(
+            id=cid,
+            pc=pc.model_copy(deep=True),
+            meta=meta,
+            owner_id=owner_id,
+        )
         self._characters[cid] = row
         self._flush()
         return row
@@ -229,6 +252,16 @@ class PlaythroughStore:
         self.ensure_hydrated()
         return self._playthroughs.get(playthrough_id)
 
+    def find_by_session_id(self, session_id: str) -> Playthrough | None:
+        """Return the playthrough whose live session_id matches, if any."""
+        self.ensure_hydrated()
+        if not session_id:
+            return None
+        for pt in self._playthroughs.values():
+            if pt.session_id == session_id and not pt.completed:
+                return pt
+        return None
+
     def delete_playthrough(
         self, playthrough_id: str, owner_key: str = "default"
     ) -> Playthrough | None:
@@ -236,14 +269,14 @@ class PlaythroughStore:
         pt = self._playthroughs.pop(playthrough_id, None)
         if pt is None:
             return None
-        by_slug = self._incomplete_solo.get(owner_key)
+        owner = pt.owner_id or owner_key
+        by_slug = self._incomplete_solo.get(owner)
         if by_slug:
             for slug, pid in list(by_slug.items()):
                 if pid == playthrough_id:
                     del by_slug[slug]
             if not by_slug:
-                del self._incomplete_solo[owner_key]
-        # Drop orphan character if only used by this playthrough
+                del self._incomplete_solo[owner]
         still_used = any(
             p.character_id == pt.character_id for p in self._playthroughs.values()
         )
@@ -261,6 +294,7 @@ class PlaythroughStore:
         solo_mode: bool,
         session_id: str,
         replace_existing_solo: bool = False,
+        game_state: dict[str, Any] | None = None,
     ) -> Playthrough:
         self.ensure_hydrated()
         slug = str(template["slug"])
@@ -273,6 +307,8 @@ class PlaythroughStore:
                 self.delete_playthrough(existing_id, owner_key)
 
         pc = character.pc
+        character.owner_id = owner_key
+        character.meta["owner_id"] = owner_key
         pt = Playthrough(
             id=str(uuid.uuid4()),
             campaign_template_slug=slug,
@@ -300,6 +336,8 @@ class PlaythroughStore:
             recommended_players=int(template.get("recommended_players") or 4),
             completed=False,
             pc_snapshot=pc.model_dump(),
+            owner_id=owner_key,
+            game_state=game_state,
         )
         self._playthroughs[pt.id] = pt
         if solo_mode:
@@ -325,6 +363,7 @@ class PlaythroughStore:
         time_max: int,
         last_scene: str,
         session_id: str | None = None,
+        game_state: dict[str, Any] | None = None,
     ) -> Playthrough:
         self.ensure_hydrated()
         pt = self._playthroughs.get(playthrough_id)
@@ -339,6 +378,8 @@ class PlaythroughStore:
         pt.level = pc.level
         pt.xp = pc.xp
         pt.pc_snapshot = pc.model_dump()
+        if game_state is not None:
+            pt.game_state = game_state
         if session_id is not None:
             pt.session_id = session_id
         stored = self._characters.get(pt.character_id)
@@ -349,8 +390,11 @@ class PlaythroughStore:
 
     def list_playthroughs(self, owner_key: str = "default") -> list[Playthrough]:
         self.ensure_hydrated()
-        _ = owner_key
-        rows = [p for p in self._playthroughs.values() if not p.completed]
+        rows = [
+            p
+            for p in self._playthroughs.values()
+            if not p.completed and p.owner_id == owner_key
+        ]
         rows.sort(key=lambda p: p.created_at, reverse=True)
         return rows
 

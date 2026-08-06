@@ -48,6 +48,13 @@ export type RollResultFields = {
 export type TranscriptEntry =
   | { kind: 'scene'; id: string; text: string; timestamp: number }
   | {
+      kind: 'summary';
+      id: string;
+      text: string;
+      segmentIndex: number;
+      timestamp: number;
+    }
+  | {
       kind: 'message';
       id: string;
       role: 'gm' | 'player' | 'system';
@@ -57,6 +64,11 @@ export type TranscriptEntry =
       error?: boolean;
       /** Narration still arriving from the model; content is provisional until it settles. */
       streaming?: boolean;
+      /**
+       * Client should typewrite from an empty cursor even though content arrived
+       * in one settle (no prior deltas). Cleared when the reveal finishes.
+       */
+      reveal?: boolean;
     }
   | {
       kind: 'roll_prompt';

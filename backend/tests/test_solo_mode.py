@@ -34,9 +34,10 @@ def test_create_session_solo_mode_on_explicit():
 
 def test_campaign_list_empty_until_start():
     from catalog.playthrough_store import playthrough_store
+    from tests.conftest import ACCOUNT_HEADERS
 
     playthrough_store.clear()
-    res = client.get("/campaigns")
+    res = client.get("/campaigns", headers=ACCOUNT_HEADERS)
     assert res.status_code == 200
     assert res.json()["campaigns"] == []
 

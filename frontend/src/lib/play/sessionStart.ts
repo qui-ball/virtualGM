@@ -17,7 +17,7 @@ import {
 import { createEntryId, type TranscriptEntry } from '@/lib/play/transcript';
 import { hydrateTranscript, stripSpuriousSystemErrors } from '@/lib/play/transcriptHydrate';
 import { recoverLeakedRollPrompts } from '@/lib/play/transcriptRecover';
-import type { GameStateSnapshot } from '@/types';
+import type { GameStateSnapshot, TranscriptArchive } from '@/types';
 
 export type PlaySessionStartOptions = {
   campaignId?: string;
@@ -37,14 +37,49 @@ export type PlaySessionBootstrap = {
   resumedFromCache: boolean;
 };
 
-/** Rebuild transcript from API or minimal fallback when messages fail. */
+/** Collapsible summary blocks prepended above recent raw entries. */
+export function archiveSummariesToEntries(
+  archive: TranscriptArchive | null | undefined,
+): TranscriptEntry[] {
+  const summaries = archive?.summaries ?? [];
+  if (!summaries.length) return [];
+  return [...summaries]
+    .sort(
+      (a, b) =>
+        (a.segment_index ?? 0) - (b.segment_index ?? 0),
+    )
+    .map((s, i) => ({
+      kind: 'summary' as const,
+      id: `summary-${s.segment_index ?? i + 1}`,
+      text: String(s.summary_text || '').trim() || 'Earlier events.',
+      segmentIndex: Number(s.segment_index ?? i + 1),
+      timestamp: i,
+    }));
+}
+
+/** Prefer archive raw entries when present; otherwise load from session messages. */
 export async function loadPlayTranscript(
   sessionId: string,
   fallbackState: GameStateSnapshot | null,
+  archive?: TranscriptArchive | null,
 ): Promise<TranscriptEntry[]> {
+  const summaryEntries = archiveSummariesToEntries(archive);
+
+  if (archive?.entries?.length) {
+    const hydrated = stripSpuriousSystemErrors(
+      recoverLeakedRollPrompts(
+        hydrateTranscript(
+          archive.entries,
+          fallbackState?.character ?? null,
+        ),
+      ),
+    );
+    return [...summaryEntries, ...hydrated];
+  }
+
   try {
     const history = await getSessionMessages(sessionId);
-    return stripSpuriousSystemErrors(
+    const hydrated = stripSpuriousSystemErrors(
       recoverLeakedRollPrompts(
         hydrateTranscript(
           history.transcript,
@@ -52,10 +87,12 @@ export async function loadPlayTranscript(
         ),
       ),
     );
+    return [...summaryEntries, ...hydrated];
   } catch {
     const ctx = toSessionContext(fallbackState);
     const now = Date.now();
     return [
+      ...summaryEntries,
       {
         kind: 'scene',
         id: createEntryId(),
@@ -124,6 +161,7 @@ export async function bootstrapPlaySession(
     const transcript = await loadPlayTranscript(
       res.session_id,
       res.game_state ?? null,
+      res.transcript_archive,
     );
     return {
       sessionId: res.session_id,

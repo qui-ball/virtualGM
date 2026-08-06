@@ -175,6 +175,9 @@ class GameState:
         self.solo_mode: bool = True
         self.recommended_players: int = 4
 
+        # Optional NPC registry (Feature 07 snapshot; tools may populate later)
+        self.npcs: dict[str, dict] = {}
+
         # Campaign context management
         self.campaign_dir: str | None = None  # Path to campaign directory
         self.loaded_sections: dict[str, str] = {}  # section_path -> content (phased, additive)
