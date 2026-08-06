@@ -227,7 +227,9 @@ def test_cleanup_trims_oldest_first_toward_the_size_budget(monkeypatch):
     assert paths[3].exists()
 
 
-def test_cleanup_ignores_temp_files_and_a_missing_directory(monkeypatch, tmp_path):
+def test_cleanup_ignores_in_flight_temp_files_and_a_missing_directory(
+    monkeypatch, tmp_path
+):
     monkeypatch.setenv("TTS_CACHE_DIR", str(tmp_path / "never-created"))
     cleanup()  # must not raise
 
@@ -237,6 +239,19 @@ def test_cleanup_ignores_temp_files_and_a_missing_directory(monkeypatch, tmp_pat
     cleanup()
     assert writer.temp_path.exists()
     writer.abandon()
+
+
+def test_cleanup_removes_temp_files_orphaned_by_a_crash():
+    """A killed process leaves its `.part` behind; nothing else would ever reap it."""
+    writer = open_writer(cache_key(TEXT, MODEL, VOICE), TEXT)
+    writer.write(plausible_audio())
+    orphan = writer.temp_path
+    old = time.time() - 8 * 86400
+    os.utime(orphan, (old, old))
+
+    cleanup()
+
+    assert not orphan.exists()
 
 
 def test_quiet_cleanup_is_safe_to_call_repeatedly():

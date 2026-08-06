@@ -173,6 +173,16 @@ def cleanup() -> None:
     entries: list[tuple[float, int, Path]] = []
     cutoff = time.time() - max_age_seconds()
 
+    # A crashed process never runs its writer's `abandon`, so its `.part` file would
+    # otherwise survive forever — old ones are orphans by definition, since no real
+    # stream outlives TTS_STREAM_TIMEOUT_SECONDS.
+    for path in directory.glob(f"*{_TEMP_SUFFIX}"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+        except OSError:
+            continue
+
     for path in directory.glob(f"*{_ENTRY_SUFFIX}"):
         try:
             info = path.stat()

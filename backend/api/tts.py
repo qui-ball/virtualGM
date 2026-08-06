@@ -18,6 +18,7 @@ are not a public-deployment security boundary.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import OrderedDict, deque
@@ -51,6 +52,12 @@ DEFAULT_STREAM_TIMEOUT_SECONDS = 180.0
 #: Registered narrations kept in memory. Bounded so a long session cannot grow it
 #: without limit; eviction only costs the player one extra registration round-trip.
 REGISTRY_MAX_ENTRIES = 512
+
+#: Content ids index the cache directory by filename. Routing already keeps path
+#: separators out of a single segment, but pinning the id to the exact SHA-256 shape
+#: `cache_key` produces keeps that safety local to this module instead of resting on
+#: the router's segment semantics.
+_CONTENT_ID_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def max_input_chars() -> int:
@@ -171,6 +178,9 @@ def register_narration_audio(body: NarrationAudioRequest) -> NarrationAudioRespo
 @router.get("/narration-audio/{content_id}")
 async def stream_narration_audio(content_id: str):
     """Serve a cache hit, or open and relay exactly one provider stream."""
+    if not _CONTENT_ID_PATTERN.match(content_id):
+        raise HTTPException(status_code=404, detail="Unknown narration audio id")
+
     cached = get_cached_path(content_id)
     if cached is not None:
         return FileResponse(cached, media_type=MP3_MEDIA_TYPE)

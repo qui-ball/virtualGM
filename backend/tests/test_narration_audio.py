@@ -188,8 +188,41 @@ def test_registry_evicts_oldest_first(client, monkeypatch):
 def test_unknown_id_returns_404_without_provider_contact(client, monkeypatch):
     provider = FakeProvider(monkeypatch)
 
-    assert client.get("/narration-audio/deadbeef").status_code == 404
+    assert client.get(f"/narration-audio/{'0' * 64}").status_code == 404
     assert provider.calls == []
+
+
+@pytest.mark.parametrize(
+    "bad_id",
+    [
+        "deadbeef",  # right alphabet, wrong length
+        "..",
+        "..%2F..%2Fetc%2Fpasswd",
+        "%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+        "A" * 64,  # uppercase is not our key alphabet
+        "z" * 64,
+        "../secret",
+    ],
+)
+def test_malformed_ids_are_rejected_before_any_filesystem_or_provider_use(
+    client, monkeypatch, bad_id
+):
+    """Ids index the cache directory, so only real key shapes may reach the disk."""
+    provider = FakeProvider(monkeypatch)
+
+    response = client.get(f"/narration-audio/{bad_id}")
+
+    assert response.status_code == 404
+    assert provider.calls == []
+
+
+def test_a_traversal_id_cannot_serve_a_file_outside_the_cache(client, tmp_path):
+    outside = tmp_path / "secret.mp3"
+    outside.write_bytes(b"\xff\xfbtop secret")
+
+    assert client.get("/narration-audio/..%2Fsecret").status_code == 404
+    assert client.get("/narration-audio/../secret").status_code == 404
+    assert outside.exists()
 
 
 def test_cache_miss_streams_mp3_and_caches_it(client, monkeypatch):
@@ -392,7 +425,9 @@ def test_two_simultaneous_cold_gets_never_expose_a_partial_cache_file(monkeypatc
         async with httpx.AsyncClient(
             transport=transport, base_url="http://testserver"
         ) as async_client:
-            registered = await async_client.post("/narration-audio", json={"text": TEXT})
+            registered = await async_client.post(
+                "/narration-audio", json={"text": TEXT}
+            )
             audio_id = registered.json()["audio_id"]
             return audio_id, await asyncio.gather(
                 async_client.get(f"/narration-audio/{audio_id}"),
@@ -423,7 +458,9 @@ def test_client_disconnect_closes_upstream_and_leaves_no_cache_file(monkeypatch)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://testserver"
         ) as async_client:
-            registered = await async_client.post("/narration-audio", json={"text": TEXT})
+            registered = await async_client.post(
+                "/narration-audio", json={"text": TEXT}
+            )
             audio_id = registered.json()["audio_id"]
 
         received: list[bytes] = []
