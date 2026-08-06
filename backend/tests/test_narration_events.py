@@ -456,6 +456,127 @@ def test_accepted_narration_reaches_the_wire_as_deltas_then_a_settle(monkeypatch
     assert "narration_discard" not in [t for t, _ in events]
 
 
+# --------------------------------------------------------------------------- #
+# Turn-end resolution guarantee (no orphaned provisional bubbles)
+# --------------------------------------------------------------------------- #
+def _stub_events_only(events):
+    """Emit raw (event_type, payload) frames, then end the turn cleanly."""
+
+    async def fake(deps, message_history, user_prompt=None, deferred_tool_results=None, on_event=None):
+        if on_event is not None:
+            for event_type, payload in events:
+                on_event(event_type, payload)
+        return SimpleNamespace(all_messages=lambda: [], output="notes")
+
+    return fake
+
+
+def _run_turn(monkeypatch, events) -> list[tuple[str, dict]]:
+    monkeypatch.setattr(turn_engine, "run_agent_iter", _stub_events_only(events))
+    session = Session(id="guard", game_state=GameState())
+    return asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I attack")))
+
+
+def test_narration_that_never_resolves_is_retracted_before_the_turn_ends(monkeypatch):
+    """The orphan that puts two GM narrations on screen at once.
+
+    Deltas paint text, then nothing ever settles or discards them — a call the provider
+    abandoned before narrate() ran. It must not survive the turn that opened it.
+    """
+    events = _run_turn(
+        monkeypatch,
+        [("narration_delta", {"tool_call_id": "call-1", "text": "The goblin attacks"})],
+    )
+    types = [t for t, _ in events]
+
+    assert ("narration_discard", {"tool_call_id": "call-1"}) in events
+    assert types.index("narration_discard") < types.index("complete")
+
+
+def test_a_settle_under_a_different_id_still_retracts_the_painted_bubble(monkeypatch):
+    """The deltas' id and narrate()'s id are captured from different places.
+
+    When they disagree the settle appends its own bubble, so the painted one has to go or the
+    player reads the same beat twice and one copy later vanishes.
+    """
+    events = _run_turn(
+        monkeypatch,
+        [
+            ("narration_delta", {"tool_call_id": "streamed", "text": "The goblin"}),
+            ("narration", {"tool_call_id": "executed", "text": NARRATION}),
+        ],
+    )
+
+    assert ("narration_discard", {"tool_call_id": "streamed"}) in events
+    assert ("narration_discard", {"tool_call_id": "executed"}) not in events
+
+
+def test_a_resolved_narration_is_not_swept_again(monkeypatch):
+    """The happy path stays exactly as it was — no spurious discard per turn."""
+    events = _run_turn(monkeypatch, STREAMED)
+
+    assert [t for t, _ in events if t == "narration_discard"] == []
+
+
+def test_a_narration_already_discarded_is_not_discarded_twice(monkeypatch):
+    events = _run_turn(
+        monkeypatch,
+        [
+            ("narration_delta", {"tool_call_id": "call-1", "text": "Half a sen"}),
+            ("narration_discard", {"tool_call_id": "call-1"}),
+        ],
+    )
+
+    assert [p for t, p in events if t == "narration_discard"] == [
+        {"tool_call_id": "call-1"}
+    ]
+
+
+def test_the_sweep_also_guards_a_turn_that_ends_in_a_roll_prompt(monkeypatch):
+    """A turn ending in `pending_action` unlocks the UI, so orphans must be gone by then."""
+    monkeypatch.setattr(
+        turn_engine,
+        "run_agent_iter",
+        _stub_events_only(
+            [("narration_delta", {"tool_call_id": "call-1", "text": "You swing"})]
+        ),
+    )
+
+    def fake_handle_result(session, result, queue):
+        queue.put_nowait(("pending_action", {"pending_action": {}, "game_state": {}}))
+
+    monkeypatch.setattr(turn_engine, "_handle_result", fake_handle_result)
+    session = Session(id="guard-pending", game_state=GameState())
+
+    events = asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I attack")))
+    types = [t for t, _ in events]
+
+    assert ("narration_discard", {"tool_call_id": "call-1"}) in events
+    assert types.index("narration_discard") < types.index("pending_action")
+
+
+def test_deferred_resume_binds_the_session_for_transcript_appends(monkeypatch):
+    """Tools append combat / roll rows through `gs._session`; a resume runs the same tools."""
+    seen: dict[str, object] = {}
+
+    async def fake(deps, message_history, user_prompt=None, deferred_tool_results=None, on_event=None):
+        seen["session"] = getattr(deps, "_session", None)
+        return SimpleNamespace(all_messages=lambda: [], output="notes")
+
+    monkeypatch.setattr(turn_engine, "run_agent_iter", fake)
+    session = Session(id="deferred", game_state=GameState())
+    session.pending_deferred = PendingDeferred(
+        messages_snapshot=[],
+        deferred_calls=[{"tool_call_id": "roll-1", "tool_name": "ask_player_roll", "args": {}}],
+    )
+
+    asyncio.run(
+        _drain_stream(turn_engine.stream_deferred_response(session, "🎲 [1d20] → 17"))
+    )
+
+    assert seen["session"] is session
+
+
 def test_replayed_first_tool_call_batch_does_not_re_emit_narration():
     """Covers R3's second half.
 

@@ -11,6 +11,7 @@ import type { CampaignListItem } from '@/lib/play/campaignLobby';
 import { PLAY_ROUTES } from '@/lib/play/routes';
 import { clearSessionCache, storeSessionCache } from '@/lib/play/sessionCache';
 import { abandonActiveCampaign } from '@/api/client';
+import { useSoftAccount } from '@/auth';
 import { ThemeSelect } from '@/theme';
 import { useIsTabletOrUp } from '@/hooks';
 
@@ -18,6 +19,7 @@ import { useIsTabletOrUp } from '@/hooks';
 export function CampaignPage() {
   const navigate = useNavigate();
   const isTabletOrUp = useIsTabletOrUp();
+  const { account, clearAccount } = useSoftAccount();
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -45,13 +47,31 @@ export function CampaignPage() {
     loadCampaigns();
   }, [loadCampaigns]);
 
+  const logOut = useCallback(() => {
+    clearAccount();
+    navigate('/auth', { replace: true });
+  }, [clearAccount, navigate]);
+
   return (
     <PlayShell>
-      {!isTabletOrUp ? (
-        <div className="flex min-h-[44px] shrink-0 items-center justify-end border-b border-[var(--panel-edge)] px-4 py-2">
-          <ThemeSelect compact />
+      <div className="play-appbar shrink-0">
+        <div className="min-w-0">
+          <div className="play-lbl">Playing as</div>
+          <div className="play-appbar-title">
+            {account?.displayName ?? 'Unknown'}
+          </div>
         </div>
-      ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {!isTabletOrUp ? <ThemeSelect compact /> : null}
+          <button
+            type="button"
+            className="play-btn-ghost min-h-[44px] px-3 py-2 text-sm"
+            onClick={logOut}
+          >
+            Log out
+          </button>
+        </div>
+      </div>
 
       {loaded ? (
         <CampaignLobby

@@ -13,14 +13,16 @@ import type { LevelUpSelection } from '@/lib/play/levelUp';
 import type { CastTrayResult } from '@/lib/play/castFlow';
 import { usePullSheet } from '@/hooks/usePullSheet';
 import { useCombatMode } from '@/hooks/useCombatMode';
+import { useLevelUpCelebration } from '@/hooks/useLevelUpCelebration';
 import {
   combatSplashInCombatInput,
   combatStripVisible,
-  shouldShowLevelUpDialog,
 } from '@/lib/play/combatUiGating';
+import { hasActiveNarrationPresentation } from '@/lib/play/narrationStream';
 import { buildSessionMainPullMeasure } from '@/lib/play/sessionPullLayout';
 import { BossDeathModal } from '@/components/play/BossDeathModal';
 import { CombatModeSplash } from '@/components/play/CombatModeSplash';
+import { LevelUpSplash } from '@/components/play/LevelUpSplash';
 import { DiceRollOverlay } from '@/components/play/DiceRollOverlay';
 import { CombatStrip } from '@/components/play/CombatStrip';
 import { CastTray } from '@/components/play/CastTray';
@@ -59,6 +61,7 @@ type SessionLayoutProps = {
   ) => void | Promise<boolean>;
   onBossDeath: (action: 'blaze' | 'risk') => void;
   onCast: (cast: CastTrayResult) => void;
+  onNarrationRevealComplete?: (entryId: string) => void;
   onRunDebugAction: (id: DevDebugActionId) => void;
   debugStatus?: string;
   /** Dev-only GM reasoning, surfaced behind the debug console toggle. */
@@ -77,7 +80,7 @@ export function SessionLayout({
   mustResolveLevelUp,
   levelUpError = null,
   mustResolveBossDeath,
-  sessionBlocked,
+  sessionBlocked: _sessionBlocked,
   onSend,
   onRollPrompt,
   onPlusAction,
@@ -85,6 +88,7 @@ export function SessionLayout({
   onConfirmLevelUp,
   onBossDeath,
   onCast,
+  onNarrationRevealComplete,
   onRunDebugAction,
   debugStatus = '',
   thinking = [],
@@ -146,7 +150,6 @@ export function SessionLayout({
   } = usePullSheet(sessionMainRef, { measureAnchors });
 
   const hideStory = sheetOpen;
-  const sheetLocked = sessionBlocked;
   const characterState = gameState?.character ?? null;
   const inCombat = gameState?.in_combat ?? false;
   const splashInCombat = combatSplashInCombatInput(
@@ -155,10 +158,24 @@ export function SessionLayout({
   );
   const { splashPhase, dismissSplash } = useCombatMode(splashInCombat);
   const showCombatStrip = combatStripVisible(inCombat);
-  const showLevelUpDialog = shouldShowLevelUpDialog(
+  const narrationQuiet =
+    !loading && !hasActiveNarrationPresentation(transcript);
+  const {
+    showSplash: showLevelUpSplash,
+    showDialog: showLevelUpDialog,
+    dismissSplash: dismissLevelUpSplash,
+  } = useLevelUpCelebration(
     mustResolveLevelUp,
     splashPhase,
+    narrationQuiet,
   );
+  // Freeze chrome under boss / level-up overlays — but keep the story visible
+  // while we wait for narration to finish before the celebration starts.
+  const overlayBlocking =
+    mustResolveBossDeath || showLevelUpSplash || showLevelUpDialog;
+  const sheetLocked = overlayBlocking;
+  const inputLocked =
+    loading || mustResolveLevelUp || mustResolveBossDeath;
 
   const primaryCastMod =
     character.stats.find((s) => s.key === 'wit')?.mod ??
@@ -230,9 +247,9 @@ export function SessionLayout({
         ref={sessionMainRef}
         className={cn(
           'session-main flex min-h-0 flex-col overflow-hidden',
-          sessionBlocked && 'pointer-events-none',
+          overlayBlocking && 'pointer-events-none',
         )}
-        aria-hidden={sessionBlocked || undefined}
+        aria-hidden={overlayBlocking || undefined}
       >
         <SessionAppBar
           ref={appBarRef}
@@ -294,27 +311,27 @@ export function SessionLayout({
           rolling={rolling}
           showStubBanner={showStubBanner}
           onRollPrompt={onRollPrompt}
+          onNarrationRevealComplete={onNarrationRevealComplete}
           className={cn(
             'min-h-0 flex-1 overflow-hidden',
-            (hideStory || sessionBlocked) && 'pointer-events-none opacity-0',
+            (hideStory || overlayBlocking) && 'pointer-events-none opacity-0',
           )}
-          aria-hidden={hideStory || sessionBlocked || undefined}
         />
       </div>
 
       <div
         className={cn(
           'session-footer relative z-[2] shrink-0',
-          sessionBlocked && 'pointer-events-none opacity-40',
+          inputLocked && 'pointer-events-none opacity-40',
         )}
-        aria-hidden={sessionBlocked || undefined}
+        aria-hidden={inputLocked || undefined}
       >
         <Composer
           ref={composerRef}
           onSend={handleSend}
           plusOpen={plusOpen}
           onPlusToggle={() => setPlusOpen((v) => !v)}
-          disabled={loading || sessionBlocked}
+          disabled={inputLocked}
           placeholder={
             oocMode ? 'OOC note (not sent to GM)…' : 'Say or do something…'
           }
@@ -322,7 +339,7 @@ export function SessionLayout({
       </div>
 
       <PlusMenu
-        open={plusOpen && !sessionBlocked}
+        open={plusOpen && !inputLocked}
         character={character}
         inCombat={inCombat}
         onAction={handlePlusAction}
@@ -330,7 +347,7 @@ export function SessionLayout({
       />
 
       <RollTray
-        open={trayOpen && !sessionBlocked}
+        open={trayOpen && !inputLocked}
         config={trayConfig}
         rolling={rolling}
         onRoll={(config) => {
@@ -345,7 +362,7 @@ export function SessionLayout({
       />
 
       <CastTray
-        open={castOpen && !sessionBlocked}
+        open={castOpen && !inputLocked}
         character={character}
         characterState={
           characterState ?? {
@@ -383,14 +400,14 @@ export function SessionLayout({
       />
 
       <ConditionsPopover
-        open={conditionsOpen && !sessionBlocked}
+        open={conditionsOpen && !inputLocked}
         anchorRef={conditionsBtnRef}
         active={character.conditions.map((c) => c.id)}
         onClose={() => setConditionsOpen(false)}
       />
 
       <SessionMenu
-        open={menuOpen && !sessionBlocked}
+        open={menuOpen && !inputLocked}
         onClose={() => setMenuOpen(false)}
         debugConsoleOpen={debugConsoleOpen}
         onDebugConsoleToggle={() =>
@@ -406,6 +423,16 @@ export function SessionLayout({
           status={debugStatus}
           thinking={thinking}
           showThinking={showThinking}
+        />
+      ) : null}
+
+      {showLevelUpSplash && characterState ? (
+        <LevelUpSplash
+          open
+          characterName={character.name}
+          fromLevel={characterState.level}
+          toLevel={characterState.level + 1}
+          onDismiss={dismissLevelUpSplash}
         />
       ) : null}
 

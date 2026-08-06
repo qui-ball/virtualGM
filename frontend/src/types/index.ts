@@ -73,6 +73,7 @@ export interface EnemyState {
 export interface GameStateSnapshot {
   character: CharacterState | null;
   enemies: Record<string, EnemyState>;
+  npcs?: Record<string, Record<string, unknown>>;
   countdowns: Record<string, number>;
   in_combat: boolean;
   boss_encounter?: boolean;
@@ -85,6 +86,23 @@ export interface GameStateSnapshot {
   solo_mode?: boolean;
   initiative_order?: string[];
   current_turn_index?: number;
+}
+
+export interface SoftAccountSummary {
+  id: string;
+  display_name: string;
+  created_at?: string | null;
+}
+
+export interface TranscriptArchive {
+  summaries: Array<{
+    segment_index?: number;
+    summary_text?: string;
+    covered_entry_id_from?: string | null;
+    covered_entry_id_to?: string | null;
+    created_at?: string | null;
+  }>;
+  entries: TranscriptEntryDto[];
 }
 
 export interface PendingAction {
@@ -180,6 +198,7 @@ export interface StartCampaignResponse {
   character_name: string;
   campaign_template_slug: string;
   game_state: GameStateSnapshot;
+  transcript_archive?: TranscriptArchive | null;
 }
 
 export interface CampaignTemplateSummary {
@@ -257,9 +276,10 @@ export interface TurnRequest {
 }
 
 export interface LevelUpRequest {
-  kind: 'hp' | 'evasion' | 'ability';
-  hp_mode?: 'fixed' | 'roll';
-  hp_amount?: number;
+  /** Secondary bonus after HP (HP is always applied via hp_mode / hp_amount). */
+  kind: 'evasion' | 'ability';
+  hp_mode: 'fixed' | 'roll';
+  hp_amount: number;
   ability_id?: string;
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MenuIcon } from 'lucide-react';
 import {
   Sheet,
@@ -11,8 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Navigation, type NavLink } from './Navigation';
 import { useIsTabletOrUp } from '@/hooks';
-import { useAuth } from '@/auth';
+import { useAuth, useSoftAccount } from '@/auth';
 import { enableAuth } from '@/config';
+import { isPlayPath } from '@/lib/play/routes';
 import { ThemeSelect } from '@/theme';
 
 type HeaderProps = {
@@ -30,7 +31,20 @@ type HeaderProps = {
 export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
   const isTabletOrUp = useIsTabletOrUp();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const navigate = useNavigate();
   const { user, isLoading: authLoading, signOut } = useAuth();
+  const { account, clearAccount } = useSoftAccount();
+  const { pathname } = useLocation();
+
+  // The lobby, the session menu and the gate each carry their own account control,
+  // so the global one would only sit a few pixels above a duplicate.
+  const showAccountControls =
+    !isPlayPath(pathname) && !pathname.startsWith('/auth');
+
+  function logOut() {
+    clearAccount();
+    navigate('/auth', { replace: true });
+  }
 
   return (
     <header className="sticky top-0 z-40 flex min-h-[56px] items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-sm md:px-6">
@@ -41,14 +55,31 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
       <div className="flex min-h-[44px] flex-1 items-center justify-end gap-2 md:gap-3">
         <ThemeSelect compact className="shrink-0" />
 
-        {enableAuth && !authLoading && user ? (
+        {showAccountControls && account ? (
           <span
-            className="hidden max-w-[160px] truncate text-xs text-muted-foreground md:inline"
-            title={user.email ?? ''}
+            className="hidden max-w-[120px] truncate text-xs text-muted-foreground md:inline"
+            title={account.displayName}
           >
-            {user.email}
+            {account.displayName}
           </span>
         ) : null}
+        {showAccountControls ? (
+          account ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={logOut}
+            >
+              Log out
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="shrink-0" asChild>
+              <Link to="/auth">Choose account</Link>
+            </Button>
+          )
+        ) : null}
+
         {enableAuth && !authLoading && user ? (
           <Button
             variant="outline"
@@ -57,10 +88,6 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
             onClick={() => void signOut()}
           >
             Sign out
-          </Button>
-        ) : enableAuth && !authLoading ? (
-          <Button variant="outline" size="sm" className="shrink-0" asChild>
-            <Link to="/auth">Sign in</Link>
           </Button>
         ) : null}
 
@@ -93,9 +120,14 @@ export function Header({ title = 'Virtual GM', navLinks = [] }: HeaderProps) {
                   onLinkClick={() => setSheetOpen(false)}
                 />
               </div>
+              {account ? (
+                <p className="mt-4 truncate border-t border-border pt-4 text-xs text-muted-foreground">
+                  Playing as {account.displayName}
+                </p>
+              ) : null}
               {!authLoading && user ? (
                 <p
-                  className="mt-4 truncate border-t border-border pt-4 text-xs text-muted-foreground"
+                  className="mt-2 truncate text-xs text-muted-foreground"
                   title={user.email ?? ''}
                 >
                   {user.email}

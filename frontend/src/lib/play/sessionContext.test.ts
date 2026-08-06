@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { toSessionContext } from '@/lib/play/sessionContext';
+import {
+  resolveCampaignTimeCurrent,
+  toSessionContext,
+} from '@/lib/play/sessionContext';
 import type { GameStateSnapshot } from '@/types';
 
 describe('toSessionContext', () => {
@@ -39,5 +42,46 @@ describe('toSessionContext', () => {
       in_combat: true,
     });
     expect(ctx.scene).toBe('Combat');
+  });
+});
+
+describe('resolveCampaignTimeCurrent', () => {
+  it('prefers a clock-like countdown over stale time_current', () => {
+    expect(
+      resolveCampaignTimeCurrent({
+        character: null,
+        enemies: {},
+        countdowns: { 'Hours remaining': 32 },
+        in_combat: false,
+        time_current: 35,
+        time_max: 35,
+      }),
+    ).toBe(32);
+  });
+
+  it('uses a single countdown under max when time_current is still at opening', () => {
+    expect(
+      resolveCampaignTimeCurrent({
+        character: null,
+        enemies: {},
+        countdowns: { ritual: 33 },
+        in_combat: false,
+        time_current: 35,
+        time_max: 35,
+      }),
+    ).toBe(33);
+  });
+
+  it('uses time_current when no useful countdown exists', () => {
+    expect(
+      resolveCampaignTimeCurrent({
+        character: null,
+        enemies: {},
+        countdowns: {},
+        in_combat: false,
+        time_current: 28,
+        time_max: 50,
+      }),
+    ).toBe(28);
   });
 });

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
+from api.accounts import require_account_id
 from api.schemas import (
     CampaignTemplateSummary,
     CampaignTemplatesResponse,
@@ -20,6 +22,7 @@ from api.schemas import (
     SaveCampaignResponse,
     StartCampaignRequest,
     StartCampaignResponse,
+    TranscriptArchive,
 )
 from api.snapshot import game_state_snapshot
 from api.transcript_log import append_message, append_scene
@@ -33,12 +36,16 @@ from catalog.character_factory import (
 )
 from catalog.playthrough_store import SoloConflictError, playthrough_store
 from catalog.service import list_packages_for_slug, list_prebuilts_for_slug, list_templates
+from catalog import transcript_archive as transcript_arch
 from game.models import CharacterState, GameState
 from game.session import store
+from game.state_codec import game_state_from_dict, game_state_to_dict
 
 router = APIRouter(tags=["onboarding"])
 
 CAMPAIGNS_ROOT = Path(__file__).resolve().parent.parent / "campaigns"
+
+AccountId = Annotated[str, Depends(require_account_id)]
 
 
 @router.get("/campaign-templates", response_model=CampaignTemplatesResponse)
@@ -134,7 +141,7 @@ def get_starting_packages(slug: str, class_id: str | None = None):
 
 
 @router.post("/characters", response_model=CreateCharacterResponse)
-def create_character(body: CreateCharacterRequest):
+def create_character(body: CreateCharacterRequest, account_id: AccountId):
     try:
         if body.source == "prebuilt":
             if not body.prebuilt_character_id or not body.gender:
@@ -148,8 +155,8 @@ def create_character(body: CreateCharacterRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    stored = playthrough_store.save_character(pc, meta)
-    logger.info(f"Created character {stored.id} ({pc.name})")
+    stored = playthrough_store.save_character(pc, meta, owner_id=account_id)
+    logger.info(f"Created character {stored.id} ({pc.name}) owner={account_id}")
     return CreateCharacterResponse(
         character_id=stored.id,
         name=pc.name,
@@ -162,7 +169,7 @@ def create_character(body: CreateCharacterRequest):
 
 
 @router.post("/active-campaigns", response_model=StartCampaignResponse)
-def start_active_campaign(body: StartCampaignRequest):
+def start_active_campaign(body: StartCampaignRequest, account_id: AccountId):
     try:
         template = resolve_template_slug(body.campaign_template_slug)
     except ValueError as exc:
@@ -170,7 +177,7 @@ def start_active_campaign(body: StartCampaignRequest):
 
     # Solo conflict before creating a session (one incomplete solo per template)
     if body.solo_mode and not body.replace_existing_solo:
-        existing = playthrough_store.find_incomplete_solo(template["slug"])
+        existing = playthrough_store.find_incomplete_solo(template["slug"], owner_key=account_id)
         if existing is not None:
             raise HTTPException(
                 status_code=409,
@@ -178,13 +185,15 @@ def start_active_campaign(body: StartCampaignRequest):
             )
 
     try:
-        stored = _resolve_character(body, template)
+        stored = _resolve_character(body, template, account_id=account_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     replaced_session_id = None
     if body.solo_mode and body.replace_existing_solo:
-        existing = playthrough_store.find_incomplete_solo(template["slug"])
+        existing = playthrough_store.find_incomplete_solo(
+            template["slug"], owner_key=account_id
+        )
         if existing is not None:
             replaced_session_id = existing.session_id
 
@@ -194,12 +203,13 @@ def start_active_campaign(body: StartCampaignRequest):
 
     try:
         playthrough = playthrough_store.create_playthrough(
-            owner_key="default",
+            owner_key=account_id,
             template=template,
             character=stored,
             solo_mode=body.solo_mode,
             session_id=session.id,
             replace_existing_solo=bool(body.replace_existing_solo),
+            game_state=game_state_to_dict(gs),
         )
     except SoloConflictError as exc:
         store.delete(session.id)
@@ -215,6 +225,11 @@ def start_active_campaign(body: StartCampaignRequest):
         f"Started playthrough {playthrough.id} "
         f"({template['slug']}) session={session.id}"
     )
+    raw_entries = [
+        e.model_dump() if hasattr(e, "model_dump") else e for e in session.transcript
+    ]
+    transcript_arch.replace_live_transcript(playthrough.id, raw_entries)
+    archive = transcript_arch.load_archive(playthrough.id)
     return StartCampaignResponse(
         active_campaign_id=playthrough.id,
         character_id=stored.id,
@@ -222,6 +237,7 @@ def start_active_campaign(body: StartCampaignRequest):
         character_name=gs.pc.name if gs.pc else stored.pc.name,
         campaign_template_slug=template["slug"],
         game_state=game_state_snapshot(gs),
+        transcript_archive=TranscriptArchive(**archive),
     )
 
 
@@ -229,11 +245,13 @@ def start_active_campaign(body: StartCampaignRequest):
     "/active-campaigns/{active_campaign_id}/continue",
     response_model=StartCampaignResponse,
 )
-def continue_active_campaign(active_campaign_id: str):
+def continue_active_campaign(active_campaign_id: str, account_id: AccountId):
     """Resume a saved playthrough — reuse live session or recreate from snapshot."""
     pt = playthrough_store.get_playthrough(active_campaign_id)
-    if pt is None or pt.completed:
+    if pt is None or pt.completed or pt.owner_id != account_id:
         raise HTTPException(status_code=404, detail="Playthrough not found")
+
+    archive = transcript_arch.load_archive(pt.id)
 
     if pt.session_id:
         live = store.get(pt.session_id)
@@ -246,6 +264,7 @@ def continue_active_campaign(active_campaign_id: str):
                 character_name=gs.pc.name if gs.pc else pt.character_name,
                 campaign_template_slug=pt.campaign_template_slug,
                 game_state=game_state_snapshot(gs),
+                transcript_archive=TranscriptArchive(**archive),
             )
 
     try:
@@ -254,14 +273,33 @@ def continue_active_campaign(active_campaign_id: str):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     pc = _pc_for_playthrough(pt)
-    gs = _game_state_from_template(template, pc, pt.solo_mode)
-    gs.chapter = pt.chapter
-    gs.scene_label = pt.last_scene or gs.scene_label
-    gs.time_current = pt.time_current
-    gs.time_max = pt.time_max
+    if pt.game_state:
+        gs = game_state_from_dict(pt.game_state)
+        if gs.pc is None:
+            gs.pc = pc
+        if not gs.campaign_dir:
+            apply_template_to_game_state(gs, template, CAMPAIGNS_ROOT)
+    else:
+        gs = _game_state_from_template(template, pc, pt.solo_mode)
+        gs.chapter = pt.chapter
+        gs.scene_label = pt.last_scene or gs.scene_label
+        gs.time_current = pt.time_current
+        gs.time_max = pt.time_max
 
     session = store.create(game_state=gs)
-    _seed_transcript(session, gs, resumed=True)
+    if archive.get("entries"):
+        from api.schemas import TranscriptEntry as TE
+
+        session.transcript = []
+        for raw in archive.get("entries") or []:
+            try:
+                session.transcript.append(TE.model_validate(raw))
+            except Exception:
+                continue
+        if not session.transcript:
+            _seed_transcript(session, gs, resumed=True)
+    else:
+        _seed_transcript(session, gs, resumed=True)
     playthrough_store.update_session_id(pt.id, session.id)
 
     logger.info(f"Continued playthrough {pt.id} as session={session.id}")
@@ -272,6 +310,7 @@ def continue_active_campaign(active_campaign_id: str):
         character_name=pc.name,
         campaign_template_slug=pt.campaign_template_slug,
         game_state=game_state_snapshot(gs),
+        transcript_archive=TranscriptArchive(**archive),
     )
 
 
@@ -279,7 +318,7 @@ def continue_active_campaign(active_campaign_id: str):
     "/active-campaigns/{active_campaign_id}/save",
     response_model=SaveCampaignResponse,
 )
-def save_active_campaign(active_campaign_id: str):
+def save_active_campaign(active_campaign_id: str, account_id: AccountId):
     """Snapshot the live session into durable playthrough storage.
 
     If the live in-memory session is gone (backend restart), return the last
@@ -287,7 +326,7 @@ def save_active_campaign(active_campaign_id: str):
     400 and so clients are not told to invent a new campaign.
     """
     pt = playthrough_store.get_playthrough(active_campaign_id)
-    if pt is None:
+    if pt is None or pt.owner_id != account_id:
         raise HTTPException(status_code=404, detail="Playthrough not found")
 
     session = store.get(pt.session_id) if pt.session_id else None
@@ -314,7 +353,12 @@ def save_active_campaign(active_campaign_id: str):
         time_max=gs.time_max,
         last_scene=gs.scene_label,
         session_id=session.id,
+        game_state=game_state_to_dict(gs),
     )
+    raw_entries = [
+        e.model_dump() if hasattr(e, "model_dump") else e for e in session.transcript
+    ]
+    transcript_arch.replace_live_transcript(active_campaign_id, raw_entries)
     logger.info(f"Saved playthrough {active_campaign_id}")
     return SaveCampaignResponse(
         active_campaign_id=updated.id,
@@ -326,14 +370,14 @@ def save_active_campaign(active_campaign_id: str):
 
 
 @router.delete("/active-campaigns/{active_campaign_id}")
-def abandon_active_campaign(active_campaign_id: str):
+def abandon_active_campaign(active_campaign_id: str, account_id: AccountId):
     """End/leave a playthrough — removes it from the lobby permanently."""
     pt = playthrough_store.get_playthrough(active_campaign_id)
-    if pt is None:
+    if pt is None or pt.owner_id != account_id:
         raise HTTPException(status_code=404, detail="Playthrough not found")
 
     session_id = pt.session_id
-    deleted = playthrough_store.delete_playthrough(active_campaign_id)
+    deleted = playthrough_store.delete_playthrough(active_campaign_id, account_id)
     if deleted is None:
         raise HTTPException(status_code=404, detail="Playthrough not found")
     if session_id:
@@ -405,7 +449,7 @@ def _pc_for_playthrough(pt) -> CharacterState:
     raise HTTPException(status_code=500, detail="Playthrough has no character snapshot")
 
 
-def _resolve_character(body: StartCampaignRequest, template: dict):
+def _resolve_character(body: StartCampaignRequest, template: dict, account_id: str = "default"):
     char = body.character
     if char.source == "prebuilt":
         if not char.prebuilt_character_id or not char.gender:
@@ -413,13 +457,15 @@ def _resolve_character(body: StartCampaignRequest, template: dict):
         pc, meta = character_from_prebuilt(char.prebuilt_character_id, char.gender)
         if meta.get("campaign_template_id") != template["id"]:
             raise ValueError("Prebuilt does not belong to this campaign template")
-        return playthrough_store.save_character(pc, meta)
+        return playthrough_store.save_character(pc, meta, owner_id=account_id)
 
     if char.source == "created":
         if not char.character_id:
             raise ValueError("created requires character_id")
         stored = playthrough_store.get_character(char.character_id)
         if stored is None:
+            raise ValueError(f"Unknown character_id: {char.character_id}")
+        if stored.owner_id != account_id and stored.meta.get("owner_id") != account_id:
             raise ValueError(f"Unknown character_id: {char.character_id}")
         if stored.meta.get("campaign_template_id") != template["id"]:
             raise ValueError("Character does not belong to this campaign template")
@@ -433,6 +479,6 @@ def _resolve_character(body: StartCampaignRequest, template: dict):
         if draft.get("campaign_template_id") != template["id"]:
             raise ValueError("Draft campaign_template_id does not match start slug")
         pc, meta = character_from_draft(draft)
-        return playthrough_store.save_character(pc, meta)
+        return playthrough_store.save_character(pc, meta, owner_id=account_id)
 
     raise ValueError(f"Unknown character source: {char.source}")

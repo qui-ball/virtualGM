@@ -3,6 +3,7 @@
  */
 
 import { apiBaseUrl } from '@/config';
+import { readStoredAccount } from '@/auth/accountStorage';
 import type {
   BossDeathRequest,
   CampaignListResponse,
@@ -17,15 +18,29 @@ import type {
   PendingAction,
   PrebuiltCharacterSummary,
   RollResultPayload,
+  SoftAccountSummary,
   StartCampaignRequest,
   StartCampaignResponse,
   TurnRequest,
 } from '@/types';
 
+function accountHeaders(): Record<string, string> {
+  const account = readStoredAccount();
+  if (!account?.id) return {};
+  return { 'X-Account-Id': account.id };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...accountHeaders(),
+  };
+  if (init?.headers) {
+    Object.assign(headers, init.headers);
+  }
   const res = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers,
   });
   if (!res.ok) {
     const body = await res.text();
@@ -36,6 +51,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>('/health');
+}
+
+export function listAccounts(): Promise<{ accounts: SoftAccountSummary[] }> {
+  return request('/accounts');
+}
+
+export function createAccount(
+  displayName: string,
+): Promise<SoftAccountSummary> {
+  return request('/accounts', {
+    method: 'POST',
+    body: JSON.stringify({ display_name: displayName }),
+  });
 }
 
 export function createSession(
@@ -200,7 +228,10 @@ export async function* streamTurn(
   // until the thinking part ends. Backend TURN_TIMEOUT_SECONDS owns hung turns.
   const res = await fetch(`${apiBaseUrl}/sessions/${sessionId}/turns`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...accountHeaders(),
+    },
     body: JSON.stringify(body),
   });
 

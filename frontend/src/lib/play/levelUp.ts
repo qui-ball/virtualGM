@@ -3,13 +3,16 @@ import { isPendingLevelUp } from '@/lib/play/xp';
 import type { CharacterState, LevelUpRequest } from '@/types';
 import type { DiceType } from '@/types';
 
-export type LevelUpChoiceKind = 'hp' | 'evasion' | 'ability';
 export type HpGainMode = 'fixed' | 'roll';
+export type LevelUpBonusKind = 'evasion' | 'ability';
 
-export type LevelUpSelection =
-  | { kind: 'hp'; mode: HpGainMode; amount: number }
-  | { kind: 'evasion' }
-  | { kind: 'ability'; abilityId: string };
+/** Two-step level-up: HP is always granted, then evasion or ability. */
+export type LevelUpSelection = {
+  hp: { mode: HpGainMode; amount: number };
+  bonus:
+    | { kind: 'evasion' }
+    | { kind: 'ability'; abilityId: string };
+};
 
 const CLASS_HIT_DICE: Record<string, DiceType> = {
   warrior: 'd10',
@@ -77,43 +80,40 @@ export function applyLevelUp(
   selection: LevelUpSelection,
 ): CharacterState {
   const nextLevel = character.level + 1;
-  const base = { ...character, level: nextLevel };
+  let next: CharacterState = {
+    ...character,
+    level: nextLevel,
+    hp_max: character.hp_max + selection.hp.amount,
+    hp: character.hp + selection.hp.amount,
+  };
 
-  if (selection.kind === 'hp') {
-    return {
-      ...base,
-      hp_max: base.hp_max + selection.amount,
-      hp: base.hp + selection.amount,
-    };
+  if (selection.bonus.kind === 'evasion') {
+    next = { ...next, evasion: next.evasion + 1 };
+  } else {
+    const ids = next.class_abilities.includes(selection.bonus.abilityId)
+      ? next.class_abilities
+      : [...next.class_abilities, selection.bonus.abilityId];
+    next = { ...next, class_abilities: ids };
   }
 
-  if (selection.kind === 'evasion') {
-    return { ...base, evasion: base.evasion + 1 };
-  }
-
-  if (selection.kind === 'ability') {
-    const ids = base.class_abilities.includes(selection.abilityId)
-      ? base.class_abilities
-      : [...base.class_abilities, selection.abilityId];
-    return { ...base, class_abilities: ids };
-  }
-
-  return base;
+  return next;
 }
 
-/** Map UI selection → API level-up request (G7). */
+/** Map UI selection → API level-up request (HP always + bonus). */
 export function levelUpSelectionToRequest(
   selection: LevelUpSelection,
 ): LevelUpRequest {
-  if (selection.kind === 'hp') {
+  if (selection.bonus.kind === 'ability') {
     return {
-      kind: 'hp',
-      hp_mode: selection.mode,
-      hp_amount: selection.amount,
+      kind: 'ability',
+      hp_mode: selection.hp.mode,
+      hp_amount: selection.hp.amount,
+      ability_id: selection.bonus.abilityId,
     };
   }
-  if (selection.kind === 'ability') {
-    return { kind: 'ability', ability_id: selection.abilityId };
-  }
-  return { kind: 'evasion' };
+  return {
+    kind: 'evasion',
+    hp_mode: selection.hp.mode,
+    hp_amount: selection.hp.amount,
+  };
 }

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app import app
 from catalog.playthrough_store import playthrough_store
 from game.session import store as session_store
+from tests.conftest import ACCOUNT_HEADERS
 
 client = TestClient(app)
 
@@ -30,7 +31,7 @@ def _start(slug: str, prebuilt: str, gender: str, *, solo: bool = True, replace:
     }
     if replace:
         body["replace_existing_solo"] = True
-    return client.post("/active-campaigns", json=body)
+    return client.post("/active-campaigns", json=body, headers=ACCOUNT_HEADERS)
 
 
 def test_list_campaign_templates():
@@ -73,6 +74,7 @@ def test_list_packages_filtered_by_class():
 def test_clone_prebuilt_female_name():
     res = client.post(
         "/characters",
+        headers=ACCOUNT_HEADERS,
         json={
             "source": "prebuilt",
             "prebuilt_character_id": LM_WARRIOR,
@@ -86,6 +88,7 @@ def test_clone_prebuilt_female_name():
 def test_create_character_rejects_bad_stats_and_empty_name():
     bad_stats = client.post(
         "/characters",
+        headers=ACCOUNT_HEADERS,
         json={
             "source": "created",
             "payload": {
@@ -103,6 +106,7 @@ def test_create_character_rejects_bad_stats_and_empty_name():
 
     empty_name = client.post(
         "/characters",
+        headers=ACCOUNT_HEADERS,
         json={
             "source": "created",
             "payload": {
@@ -122,6 +126,7 @@ def test_create_character_rejects_bad_stats_and_empty_name():
 def test_create_character_from_wizard_draft():
     res = client.post(
         "/characters",
+        headers=ACCOUNT_HEADERS,
         json={
             "source": "created",
             "payload": {
@@ -159,7 +164,7 @@ def test_start_and_lobby_and_continue_and_save():
     playthrough_id = body["active_campaign_id"]
     session_id = body["session_id"]
 
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     assert len(lobby) == 1
     assert lobby[0]["id"] == playthrough_id
     assert lobby[0]["character_name"] == body["character_name"]
@@ -175,20 +180,20 @@ def test_start_and_lobby_and_continue_and_save():
     session.game_state.scene_label = "Cragmaw Cave"
     session.game_state.time_current = 40
 
-    saved = client.post(f"/active-campaigns/{playthrough_id}/save")
+    saved = client.post(f"/active-campaigns/{playthrough_id}/save", headers=ACCOUNT_HEADERS)
     assert saved.status_code == 200
     assert saved.json()["chapter"] == 2
     assert saved.json()["last_scene"] == "Cragmaw Cave"
 
     # Continue reuses live session
-    cont = client.post(f"/active-campaigns/{playthrough_id}/continue")
+    cont = client.post(f"/active-campaigns/{playthrough_id}/continue", headers=ACCOUNT_HEADERS)
     assert cont.status_code == 200
     assert cont.json()["session_id"] == session_id
     assert cont.json()["game_state"]["chapter"] == 2
 
     # Drop live session — continue recreates from snapshot
     session_store.delete(session_id)
-    cont2 = client.post(f"/active-campaigns/{playthrough_id}/continue")
+    cont2 = client.post(f"/active-campaigns/{playthrough_id}/continue", headers=ACCOUNT_HEADERS)
     assert cont2.status_code == 200
     assert cont2.json()["session_id"] != session_id
     assert cont2.json()["game_state"]["chapter"] == 2
@@ -231,7 +236,7 @@ def test_solo_conflict_same_template_only_allows_continue_or_replace():
     assert detail["continue_path"].endswith(f"/{existing_id}/continue")
 
     # Continue existing instead of replacing
-    cont = client.post(detail["continue_path"])
+    cont = client.post(detail["continue_path"], headers=ACCOUNT_HEADERS)
     assert cont.status_code == 200
     assert cont.json()["active_campaign_id"] == existing_id
 
@@ -244,7 +249,7 @@ def test_solo_conflict_same_template_only_allows_continue_or_replace():
     )
     assert replaced.status_code == 200
     assert session_store.get(old_session) is None
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     slugs = {c["campaign_template_slug"] for c in lobby}
     assert "fantasy-lost-mine" in slugs
     assert "fantasy-touch-of-the-necromancer" in slugs
@@ -257,7 +262,7 @@ def test_multiple_different_templates_solo_allowed():
     b = _start("fantasy-touch-of-the-necromancer", TN_MAGE, "female", solo=True)
     assert a.status_code == 200
     assert b.status_code == 200
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     assert len(lobby) == 2
     assert {c["campaign_template_slug"] for c in lobby} == {
         "fantasy-lost-mine",
@@ -268,6 +273,7 @@ def test_multiple_different_templates_solo_allowed():
 def test_created_character_wrong_template_rejected():
     created = client.post(
         "/characters",
+        headers=ACCOUNT_HEADERS,
         json={
             "source": "created",
             "payload": {
@@ -285,6 +291,7 @@ def test_created_character_wrong_template_rejected():
     cid = created.json()["character_id"]
     bad = client.post(
         "/active-campaigns",
+        headers=ACCOUNT_HEADERS,
         json={
             "campaign_template_slug": "fantasy-touch-of-the-necromancer",
             "solo_mode": False,
@@ -299,6 +306,7 @@ def test_session_with_template_enforces_solo_conflict():
     assert first.status_code == 200
     res = client.post(
         "/sessions",
+        headers=ACCOUNT_HEADERS,
         json={
             "campaign_template_slug": "fantasy-lost-mine",
             "prebuilt_character_id": LM_RANGER,
@@ -317,7 +325,7 @@ def test_multiple_non_solo_playthroughs_allowed():
     ):
         res = _start(slug, prebuilt, gender, solo=False)
         assert res.status_code == 200, res.text
-    assert len(client.get("/campaigns").json()["campaigns"]) == 3
+    assert len(client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]) == 3
 
 
 def test_abandon_playthrough_removes_from_lobby():
@@ -325,11 +333,11 @@ def test_abandon_playthrough_removes_from_lobby():
     assert start.status_code == 200
     pid = start.json()["active_campaign_id"]
     sid = start.json()["session_id"]
-    assert len(client.get("/campaigns").json()["campaigns"]) == 1
+    assert len(client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]) == 1
 
-    gone = client.delete(f"/active-campaigns/{pid}")
+    gone = client.delete(f"/active-campaigns/{pid}", headers=ACCOUNT_HEADERS)
     assert gone.status_code == 200
-    assert client.get("/campaigns").json()["campaigns"] == []
+    assert client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"] == []
     assert session_store.get(sid) is None
 
 
@@ -354,6 +362,6 @@ def test_file_persistence_survives_store_rehydrate(tmp_path, monkeypatch):
     playthrough_store._incomplete_solo.clear()  # noqa: SLF001
     playthrough_store._hydrated = False  # noqa: SLF001
 
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     assert len(lobby) == 1
     assert lobby[0]["id"] == pid

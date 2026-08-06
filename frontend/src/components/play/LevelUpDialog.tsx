@@ -7,7 +7,7 @@ import {
   hitDieSides,
   rollHpGain,
   type HpGainMode,
-  type LevelUpChoiceKind,
+  type LevelUpBonusKind,
   type LevelUpSelection,
 } from '@/lib/play/levelUp';
 import { formatSignedModifier } from '@/lib/play/stats';
@@ -32,7 +32,7 @@ type LevelUpOptionProps = {
   children: ReactNode;
 };
 
-/** Selectable card without nested `<button>` (HP segment + ability picks use inner buttons). */
+/** Selectable card without nested `<button>` (ability picks use inner buttons). */
 function LevelUpOption({ selected, onSelect, children }: LevelUpOptionProps) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -68,9 +68,10 @@ export function LevelUpDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, open);
 
-  const [choice, setChoice] = useState<LevelUpChoiceKind | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
   const [hpMode, setHpMode] = useState<HpGainMode>('fixed');
   const [rolledHp, setRolledHp] = useState<number | null>(null);
+  const [bonus, setBonus] = useState<LevelUpBonusKind | null>(null);
   const [abilityId, setAbilityId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,45 +83,44 @@ export function LevelUpDialog({
     () => abilitiesForLevelPick(characterState),
     [characterState],
   );
+  const hasAbilities = abilities.length > 0;
 
   const xpThreshold = xpToReachLevel(nextLevel);
   const migSigned = formatSignedModifier(mightMod);
 
   if (!open) return null;
 
-  const buildSelection = (): LevelUpSelection | null => {
-    if (choice === 'hp') {
-      const amount =
-        hpMode === 'fixed'
-          ? fixedHp
-          : (rolledHp ?? rollHpGain(hitSides, mightMod));
-      return { kind: 'hp', mode: hpMode, amount };
-    }
-    if (choice === 'evasion') {
-      return { kind: 'evasion' };
-    }
-    if (choice === 'ability' && abilityId) {
-      return { kind: 'ability', abilityId };
-    }
-    return null;
+  const hpAmount =
+    hpMode === 'fixed' ? fixedHp : (rolledHp ?? null);
+  const canAdvanceHp =
+    hpMode === 'fixed' || (hpMode === 'roll' && rolledHp != null);
+
+  const canConfirmBonus =
+    bonus === 'evasion' || (bonus === 'ability' && abilityId != null);
+
+  const resetLocal = () => {
+    setStep(1);
+    setHpMode('fixed');
+    setRolledHp(null);
+    setBonus(null);
+    setAbilityId(null);
   };
 
-  const selection = buildSelection();
-  const canConfirm =
-    choice === 'evasion' ||
-    (choice === 'hp' && (hpMode === 'fixed' || rolledHp != null)) ||
-    (choice === 'ability' && abilityId != null);
-
   const handleConfirm = async () => {
-    if (!selection || submitting) return;
+    if (hpAmount == null || !bonus || submitting) return;
+    if (bonus === 'ability' && !abilityId) return;
+    const selection: LevelUpSelection = {
+      hp: { mode: hpMode, amount: hpAmount },
+      bonus:
+        bonus === 'ability' && abilityId
+          ? { kind: 'ability', abilityId }
+          : { kind: 'evasion' },
+    };
     setSubmitting(true);
     try {
       const ok = await onConfirm(selection);
       if (ok === false) return;
-      setChoice(null);
-      setHpMode('fixed');
-      setRolledHp(null);
-      setAbilityId(null);
+      resetLocal();
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +136,9 @@ export function LevelUpDialog({
         aria-labelledby="level-up-title"
       >
         <header className="play-level-up-banner shrink-0">
-          <p className="play-lbl">Level-up · pick one</p>
+          <p className="play-lbl">
+            Celebration · step {step} of 2
+          </p>
           <h1 id="level-up-title" className="play-h-display text-lg">
             {character.name} · Lv {characterState.level} → {nextLevel}
           </h1>
@@ -145,6 +147,13 @@ export function LevelUpDialog({
               XP {characterState.xp} / {xpThreshold} ✓
             </p>
           ) : null}
+          <p className="mt-2 text-sm text-[var(--ink-2)]">
+            {step === 1
+              ? 'First, choose how your hit points increase (fixed average or roll).'
+              : 'Next, pick your bonus: +1 Evasion' +
+                (hasAbilities ? ' or a class ability' : '') +
+                '.'}
+          </p>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -157,21 +166,18 @@ export function LevelUpDialog({
             </p>
           ) : null}
 
-          <div className="space-y-3" role="radiogroup" aria-label="Level-up choice">
-            <LevelUpOption selected={choice === 'hp'} onSelect={() => setChoice('hp')}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sm">① HP</span>
-                <Pill variant="tint">{migSigned} Mig</Pill>
-              </div>
-              <p className="mt-1 text-sm text-[var(--ink-2)]">
-                Choose Fixed or Roll.
+          {step === 1 ? (
+            <div className="space-y-3">
+              <p className="rounded-md border border-[var(--good)]/35 bg-[var(--good)]/10 px-3 py-2 text-sm text-[var(--ink)]">
+                Every level-up includes an HP increase. Choose Fixed or Roll,
+                then continue.
               </p>
-              {choice === 'hp' ? (
-                <div
-                  className="mt-2 space-y-2"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
+              <div className="play-level-up-option play-level-up-option-on">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm">① Hit points</span>
+                  <Pill variant="tint">{migSigned} Mig</Pill>
+                </div>
+                <div className="mt-2 space-y-2">
                   <SegmentedControl
                     options={[
                       {
@@ -202,83 +208,124 @@ export function LevelUpDialog({
                         ? `Rolled +${rolledHp} HP`
                         : 'Roll hit die + Mig'}
                     </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </LevelUpOption>
-
-            <LevelUpOption
-              selected={choice === 'evasion'}
-              onSelect={() => setChoice('evasion')}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sm">② Evasion</span>
-                <Pill variant="tint">+1</Pill>
-              </div>
-              <p className="mt-1 text-sm text-[var(--ink-2)]">
-                {characterState.evasion} → {characterState.evasion + 1}
-              </p>
-            </LevelUpOption>
-
-            <LevelUpOption
-              selected={choice === 'ability'}
-              onSelect={() => setChoice('ability')}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sm">③ Class ability</span>
-                <span className="play-mono text-[0.5625rem] text-[var(--ink-3)]">
-                  {abilities.length} at Lv {nextLevel}
-                </span>
-              </div>
-              {choice === 'ability' ? (
-                <div
-                  className="mt-2 space-y-1.5"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {abilities.length === 0 ? (
-                    <p className="text-sm text-[var(--ink-3)]">
-                      No catalog abilities at this level — confirm another
-                      choice or pick from sheet when API ships.
-                    </p>
                   ) : (
-                    abilities.map((a) => (
-                      <button
-                        key={a.id}
-                        type="button"
-                        className={cn(
-                          'play-level-up-ability-pick w-full text-left',
-                          abilityId === a.id && 'play-level-up-ability-pick-on',
-                        )}
-                        onClick={() => setAbilityId(a.id)}
-                      >
-                        <span className="font-medium text-sm">{a.name}</span>
-                        <p className="mt-0.5 text-xs text-[var(--ink-3)]">
-                          {a.description}
-                        </p>
-                      </button>
-                    ))
+                    <p className="text-sm text-[var(--ink-2)]">
+                      You will gain <strong>+{fixedHp} HP</strong>.
+                    </p>
                   )}
                 </div>
-              ) : (
-                <p className="mt-1 text-sm text-[var(--ink-2)]">
-                  Pick from your class table at Lv {nextLevel}.
-                </p>
-              )}
-            </LevelUpOption>
-          </div>
+              </div>
 
-          <button
-            type="button"
-            className="play-btn-primary mt-4 w-full min-h-[48px]"
-            disabled={!canConfirm || submitting}
-            onClick={() => void handleConfirm()}
-          >
-            {submitting ? 'Confirming…' : 'Confirm choice'}
-          </button>
-          <p className="play-lbl mt-3 text-center text-[var(--ink-4)]">
-            Level-ups happen outside battle · confirm required
-          </p>
+              <button
+                type="button"
+                className="play-btn-primary mt-2 w-full min-h-[48px]"
+                disabled={!canAdvanceHp}
+                onClick={() => setStep(2)}
+              >
+                Continue to bonus
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="rounded-md border border-[var(--good)]/35 bg-[var(--good)]/10 px-3 py-2 text-sm text-[var(--ink)]">
+                HP locked in: <strong>+{hpAmount} HP</strong> (
+                {hpMode === 'fixed' ? 'fixed' : 'rolled'}). Now choose{' '}
+                <strong>one</strong> bonus below, then confirm.
+              </p>
+
+              <div
+                className="space-y-3"
+                role="radiogroup"
+                aria-label="Level-up bonus — pick exactly one"
+              >
+                <LevelUpOption
+                  selected={bonus === 'evasion'}
+                  onSelect={() => {
+                    setBonus('evasion');
+                    setAbilityId(null);
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-sm">② Evasion</span>
+                    <Pill variant="tint">+1</Pill>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--ink-2)]">
+                    {characterState.evasion} → {characterState.evasion + 1}
+                  </p>
+                </LevelUpOption>
+
+                {hasAbilities ? (
+                  <LevelUpOption
+                    selected={bonus === 'ability'}
+                    onSelect={() => setBonus('ability')}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm">
+                        ② Class ability
+                      </span>
+                      <span className="play-mono text-[0.5625rem] text-[var(--ink-3)]">
+                        {abilities.length} at Lv {nextLevel}
+                      </span>
+                    </div>
+                    {bonus === 'ability' ? (
+                      <div
+                        className="mt-2 space-y-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        {abilities.map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            className={cn(
+                              'play-level-up-ability-pick w-full text-left',
+                              abilityId === a.id &&
+                                'play-level-up-ability-pick-on',
+                            )}
+                            onClick={() => setAbilityId(a.id)}
+                          >
+                            <span className="font-medium text-sm">{a.name}</span>
+                            <p className="mt-0.5 text-xs text-[var(--ink-3)]">
+                              {a.description}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm text-[var(--ink-2)]">
+                        Pick from your class table at Lv {nextLevel}.
+                      </p>
+                    )}
+                  </LevelUpOption>
+                ) : null}
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  className="play-sheet-rest-btn min-h-[48px] flex-1 justify-center"
+                  onClick={() => {
+                    setStep(1);
+                    setBonus(null);
+                    setAbilityId(null);
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="play-btn-primary min-h-[48px] flex-[1.4]"
+                  disabled={!canConfirmBonus || submitting}
+                  onClick={() => void handleConfirm()}
+                >
+                  {submitting ? 'Confirming…' : 'Confirm level-up'}
+                </button>
+              </div>
+              <p className="play-lbl mt-2 text-center text-[var(--ink-4)]">
+                Level-ups resolve after combat · HP + one bonus
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

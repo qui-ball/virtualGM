@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app import app
 from game.session import store as session_store
 
+from tests.conftest import ACCOUNT_HEADERS
 client = TestClient(app)
 
 LM = "fantasy-lost-mine"
@@ -43,7 +44,7 @@ def _start_prebuilt(slug: str, prebuilt: str, gender: str, *, solo: bool = False
     }
     if replace:
         body["replace_existing_solo"] = True
-    return client.post("/active-campaigns", json=body)
+    return client.post("/active-campaigns", json=body, headers=ACCOUNT_HEADERS)
 
 
 def _start_inline(
@@ -59,6 +60,7 @@ def _start_inline(
 ):
     return client.post(
         "/active-campaigns",
+        headers=ACCOUNT_HEADERS,
         json={
             "campaign_template_slug": slug,
             "solo_mode": solo,
@@ -189,7 +191,7 @@ def test_ws6_solo_continue_then_replace_warned_path():
     assert detail["existing_campaign_id"] == existing_id
     assert detail["campaign_template_slug"] == LM
 
-    cont = client.post(detail["continue_path"])
+    cont = client.post(detail["continue_path"], headers=ACCOUNT_HEADERS)
     assert cont.status_code == 200
     assert cont.json()["active_campaign_id"] == existing_id
 
@@ -198,7 +200,7 @@ def test_ws6_solo_continue_then_replace_warned_path():
     )
     assert replaced.status_code == 200
     assert session_store.get(old_session) is None
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     assert len(lobby) == 2
     lm = next(c for c in lobby if c["campaign_template_slug"] == LM)
     assert lm["character_name"] == "Mira Bramblefoot"
@@ -212,7 +214,7 @@ def test_ws6_multiple_non_solo_instances_in_lobby():
     b = _start_prebuilt(TN, TN_PREBUILTS[0][0], "female", solo=False)
     assert a.status_code == 200
     assert b.status_code == 200
-    lobby = client.get("/campaigns").json()["campaigns"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     ids = {c["id"] for c in lobby}
     assert a.json()["active_campaign_id"] in ids
     assert b.json()["active_campaign_id"] in ids
@@ -234,11 +236,11 @@ def test_ws6_resume_after_save():
     session.game_state.scene_label = "Phandalin"
     session.game_state.time_current = 30
 
-    saved = client.post(f"/active-campaigns/{playthrough_id}/save")
+    saved = client.post(f"/active-campaigns/{playthrough_id}/save", headers=ACCOUNT_HEADERS)
     assert saved.status_code == 200
 
     session_store.delete(session_id)
-    cont = client.post(f"/active-campaigns/{playthrough_id}/continue")
+    cont = client.post(f"/active-campaigns/{playthrough_id}/continue", headers=ACCOUNT_HEADERS)
     assert cont.status_code == 200
     assert cont.json()["session_id"] != session_id
     assert cont.json()["game_state"]["chapter"] == 2

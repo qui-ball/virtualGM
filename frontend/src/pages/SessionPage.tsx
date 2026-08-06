@@ -37,6 +37,7 @@ export function SessionPage() {
     performFreeRoll,
     submitPlayerAction,
     confirmLevelUp,
+    completeNarrationReveal,
     levelUpError,
     resolveBossDeath,
     performCast,
@@ -150,6 +151,7 @@ export function SessionPage() {
           onConfirmLevelUp={(selection) => confirmLevelUp(selection)}
           onBossDeath={resolveBossDeath}
           onCast={(cast) => void performCast(cast)}
+          onNarrationRevealComplete={completeNarrationReveal}
           onRunDebugAction={runDebugAction}
           debugStatus={debugStatus}
           thinking={thinking}

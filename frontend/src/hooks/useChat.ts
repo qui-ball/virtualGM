@@ -33,6 +33,7 @@ import {
 } from '@/lib/play/levelUp';
 import {
   applyNarrationDelta,
+  clearNarrationReveal,
   clearStreamingNarrations,
   discardNarration,
   settleNarration,
@@ -227,10 +228,15 @@ export function useChat() {
   const processTurnStream = useCallback(async (body: TurnRequest) => {
     if (!sessionIdRef.current) return;
     setLoading(true);
+    // Bubbles this turn painted. The UI unlocks as soon as a roll prompt arrives, so the
+    // next turn can be streaming by the time this one's response body closes — its
+    // end-of-turn sweep must not reach into narration it never opened.
+    const ownedNarrations = new Set<string>();
     try {
       for await (const event of streamTurn(sessionIdRef.current, body)) {
         switch (event.type) {
           case 'narration_delta':
+            ownedNarrations.add(event.tool_call_id);
             scheduleNarrationDelta(event.tool_call_id, event.text);
             break;
           case 'narration': {
@@ -361,7 +367,9 @@ export function useChat() {
             break;
           }
           case 'error':
-            setTranscript(clearStreamingNarrations);
+            setTranscript((prev) =>
+              clearStreamingNarrations(prev, ownedNarrations),
+            );
             appendEntry(
               chatMessageToTranscriptEntry({
                 role: 'system',
@@ -401,8 +409,10 @@ export function useChat() {
       // A turn that ends without resolving its narrations — dropped connection, mid-turn
       // crash — must not leave half a sentence standing. Settled bubbles are untouched.
       cancelNarrationFlush();
-      pendingNarrationDeltas.current.clear();
-      setTranscript(clearStreamingNarrations);
+      for (const toolCallId of ownedNarrations) {
+        pendingNarrationDeltas.current.delete(toolCallId);
+      }
+      setTranscript((prev) => clearStreamingNarrations(prev, ownedNarrations));
       setLoading(false);
     }
   }, [
@@ -614,6 +624,10 @@ export function useChat() {
     });
   }, [appendEntry]);
 
+  const completeNarrationReveal = useCallback((entryId: string) => {
+    setTranscript((prev) => clearNarrationReveal(prev, entryId));
+  }, []);
+
   const confirmLevelUp = useCallback(
     async (selection: LevelUpSelection): Promise<boolean> => {
       if (!sessionIdRef.current || !gameState?.character) return false;
@@ -626,11 +640,15 @@ export function useChat() {
         setGameState(syncGameStateFlags(res.game_state));
         persistSession(sessionIdRef.current, res.game_state);
         const lv = res.game_state.character?.level ?? '?';
+        const bonusLabel =
+          selection.bonus.kind === 'ability'
+            ? `ability (${selection.bonus.abilityId})`
+            : 'evasion';
         appendEntry({
           kind: 'message',
           id: createEntryId(),
           role: 'system',
-          content: `Level up! Now Lv ${lv}. Choice: ${selection.kind}.`,
+          content: `Level up! Now Lv ${lv}. +${selection.hp.amount} HP · bonus: ${bonusLabel}.`,
           timestamp: Date.now(),
         });
         return true;
@@ -886,6 +904,7 @@ export function useChat() {
     addRestEntry,
     addItemEntry,
     confirmLevelUp,
+    completeNarrationReveal,
     levelUpError,
     resolveBossDeath,
     performCast,

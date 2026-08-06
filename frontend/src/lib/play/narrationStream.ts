@@ -80,7 +80,11 @@ export function applyNarrationDelta(
  * Resolve a streaming bubble against the authoritative text `narrate()` recorded.
  *
  * With no matching bubble — an atomic provider, or a client that missed the deltas — this
- * appends a settled entry, which is exactly the pre-streaming behavior.
+ * appends a full-text entry with `reveal: true` so the typewriter still runs for consistency.
+ *
+ * Nothing here touches *other* open bubbles. Narrations of one response stream in parallel and
+ * may settle in any order, so an unsettled bubble is not evidence of a lost frame; the backend
+ * retracts the ones that really were abandoned before the turn ends.
  */
 export function settleNarration(
   entries: TranscriptEntry[],
@@ -89,22 +93,57 @@ export function settleNarration(
   timestamp: number = Date.now(),
 ): TranscriptEntry[] {
   const id = toolCallId ? narrationEntryId(toolCallId) : null;
+  const content = sanitizeNarrationText(text);
 
   if (id && entries.some((e) => isNarrationEntry(e, id))) {
     return entries.map((e) =>
       isNarrationEntry(e, id)
-        ? { ...e, content: sanitizeNarrationText(text), streaming: undefined }
+        ? {
+            ...e,
+            content,
+            streaming: undefined,
+            reveal: undefined,
+          }
         : e,
     );
   }
 
+  const entryId = id ?? createEntryId();
+  const base = chatMessageToTranscriptEntry(
+    { role: 'gm', content: text, timestamp },
+    entryId,
+  );
+  if (base.kind !== 'message') {
+    return [...entries, base];
+  }
   return [
     ...entries,
-    chatMessageToTranscriptEntry(
-      { role: 'gm', content: text, timestamp },
-      id ?? createEntryId(),
-    ),
+    {
+      ...base,
+      content,
+      // Atomic settle: still typewrite for visual consistency with streamed narrations.
+      reveal: true,
+    },
   ];
+}
+
+/** Clear the client-only typewriter flag once the bubble has finished revealing. */
+export function clearNarrationReveal(
+  entries: TranscriptEntry[],
+  entryId: string,
+): TranscriptEntry[] {
+  if (
+    !entries.some(
+      (e) => e.kind === 'message' && e.id === entryId && e.reveal === true,
+    )
+  ) {
+    return entries;
+  }
+  return entries.map((e) =>
+    e.kind === 'message' && e.id === entryId
+      ? { ...e, reveal: undefined }
+      : e,
+  );
 }
 
 /**
@@ -131,21 +170,51 @@ export function discardNarration(
 }
 
 /**
- * Drop every bubble still streaming.
+ * Drop the bubbles still streaming for `toolCallIds`.
  *
  * The safety net for a turn that ends without resolving its narrations — a dropped
  * connection, a crash mid-turn — so half a sentence cannot be left standing.
+ *
+ * The sweep is scoped to the ids the finishing turn actually painted. Turns overlap: the UI
+ * unlocks as soon as a roll prompt arrives, so the player's next action can be streaming
+ * narration while the previous turn's response body is still closing. An unscoped sweep run
+ * from that tail would erase the live narration of the turn that followed it.
  */
 export function clearStreamingNarrations(
   entries: TranscriptEntry[],
+  toolCallIds?: Iterable<string>,
 ): TranscriptEntry[] {
-  if (!entries.some((e) => e.kind === 'message' && e.streaming)) {
+  const owned =
+    toolCallIds === undefined
+      ? null
+      : new Set(Array.from(toolCallIds, narrationEntryId));
+
+  const sweepable = (e: TranscriptEntry) =>
+    e.kind === 'message' &&
+    e.streaming === true &&
+    (owned === null || owned.has(e.id));
+
+  if (!entries.some(sweepable)) {
     return entries;
   }
-  return entries.filter((e) => !(e.kind === 'message' && e.streaming));
+  return entries.filter((e) => !sweepable(e));
 }
 
 /** True when any narration is still being written. */
 export function hasStreamingNarration(entries: TranscriptEntry[]): boolean {
   return entries.some((e) => e.kind === 'message' && e.streaming === true);
+}
+
+/**
+ * True while narration is streaming from the server or still typewriting a
+ * full-payload settle (`reveal`).
+ */
+export function hasActiveNarrationPresentation(
+  entries: TranscriptEntry[],
+): boolean {
+  return entries.some(
+    (e) =>
+      e.kind === 'message' &&
+      (e.streaming === true || e.reveal === true),
+  );
 }

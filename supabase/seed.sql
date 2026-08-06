@@ -595,52 +595,68 @@ on conflict (campaign_template_id, class_id) do update set
   hook = excluded.hook,
   sort_order = excluded.sort_order;
 
--- ---------- POC owner (no login UI) — backend service-role writes ----------
--- Fixed auth id b0000001-...; public.users looked up by supabase_user_id.
+-- ---------- Soft accounts (Feature 07) — Qui + Bilun; no credentials ----------
+-- Replaces former single POC owner. ./launch.sh up --reset-db wipes old playthrough rows.
+-- Runtime-created accounts are NOT seeded here (POST /accounts).
+
 do $$
 begin
   insert into auth.users (
-    instance_id,
-    id,
-    aud,
-    role,
-    email,
-    encrypted_password,
-    email_confirmed_at,
-    raw_app_meta_data,
-    raw_user_meta_data,
-    created_at,
-    updated_at
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   )
-  values (
-    '00000000-0000-0000-0000-000000000000',
-    'b0000001-0000-4000-8000-000000000001',
-    'authenticated',
-    'authenticated',
-    'poc-owner@virtualgm.local',
-    crypt('poc-not-for-login', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}',
-    '{"display_name":"POC Owner"}',
-    now(),
-    now()
-  )
+  values
+    (
+      '00000000-0000-0000-0000-000000000000',
+      'c0000001-0000-4000-8000-000000000001',
+      'authenticated', 'authenticated', 'qui@virtualgm.local',
+      crypt('soft-account-not-for-login', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}',
+      '{"display_name":"Qui"}',
+      now(), now()
+    ),
+    (
+      '00000000-0000-0000-0000-000000000000',
+      'c0000001-0000-4000-8000-000000000002',
+      'authenticated', 'authenticated', 'bilun@virtualgm.local',
+      crypt('soft-account-not-for-login', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}',
+      '{"display_name":"Bilun"}',
+      now(), now()
+    )
   on conflict (id) do update set
     email = excluded.email,
+    raw_user_meta_data = excluded.raw_user_meta_data,
     updated_at = now();
 exception
   when others then
-    raise notice 'POC auth.users seed skipped: %', SQLERRM;
+    raise notice 'Soft-account auth.users seed skipped: %', SQLERRM;
 end $$;
 
 insert into public.users (id, supabase_user_id, email, display_name)
 select
-  'b0000002-0000-4000-8000-000000000001',
-  'b0000001-0000-4000-8000-000000000001',
-  'poc-owner@virtualgm.local',
-  'POC Owner'
+  'c0000002-0000-4000-8000-000000000001',
+  'c0000001-0000-4000-8000-000000000001',
+  'qui@virtualgm.local',
+  'Qui'
 where exists (
-  select 1 from auth.users where id = 'b0000001-0000-4000-8000-000000000001'
+  select 1 from auth.users where id = 'c0000001-0000-4000-8000-000000000001'
+)
+on conflict (supabase_user_id) do update set
+  email = excluded.email,
+  display_name = excluded.display_name,
+  updated_at = now();
+
+insert into public.users (id, supabase_user_id, email, display_name)
+select
+  'c0000002-0000-4000-8000-000000000002',
+  'c0000001-0000-4000-8000-000000000002',
+  'bilun@virtualgm.local',
+  'Bilun'
+where exists (
+  select 1 from auth.users where id = 'c0000001-0000-4000-8000-000000000002'
 )
 on conflict (supabase_user_id) do update set
   email = excluded.email,

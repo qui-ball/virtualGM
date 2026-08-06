@@ -13,7 +13,24 @@ export function combatStripVisible(inCombat: boolean): boolean {
   return inCombat;
 }
 
-/** Level-up dialog waits until combat exit splash finishes (WS-6.3 / WS-7.1). */
+/**
+ * Level-up celebration may begin only when pending, combat splash is idle,
+ * and the turn/narration presentation is quiet (no loading / streaming / reveal).
+ */
+export function canStartLevelUpCelebration(
+  mustResolveLevelUp: boolean,
+  splashPhase: CombatSplashPhase,
+  narrationQuiet: boolean,
+): boolean {
+  return (
+    mustResolveLevelUp && splashPhase === 'idle' && narrationQuiet
+  );
+}
+
+/**
+ * @deprecated Prefer canStartLevelUpCelebration + splash→dialog sequence.
+ * Kept for tests that only check combat-splash gating.
+ */
 export function shouldShowLevelUpDialog(
   mustResolveLevelUp: boolean,
   splashPhase: CombatSplashPhase,
@@ -23,4 +40,5 @@ export function shouldShowLevelUpDialog(
 
 /** Z-index layering for modal stack (WS-7.3). Boss death must sit above combat splash. */
 export const COMBAT_SPLASH_Z_INDEX = 9990;
+export const LEVEL_UP_SPLASH_Z_INDEX = 9995;
 export const BOSS_DEATH_Z_INDEX = 10000;
