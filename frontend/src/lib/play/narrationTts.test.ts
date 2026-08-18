@@ -14,16 +14,13 @@ const TEXT = 'The lantern gutters. Something large shifts beyond the door.';
 const AUDIO_ID = 'a'.repeat(64);
 
 class FakeAudio {
-  src: string;
+  /** Built sourceless, exactly like the real element; `src` arrives after registration. */
+  src = '';
   pauseCount = 0;
   loadCount = 0;
   playCount = 0;
   playError: Error | null = null;
   private listeners: Record<string, Array<() => void>> = {};
-
-  constructor(src: string) {
-    this.src = src;
-  }
 
   play(): Promise<void> {
     this.playCount += 1;
@@ -62,8 +59,8 @@ class FakeAudio {
 
 function audioHarness(configure?: (audio: FakeAudio) => void) {
   const created: FakeAudio[] = [];
-  const audioFactory = (src: string) => {
-    const audio = new FakeAudio(src);
+  const audioFactory = () => {
+    const audio = new FakeAudio();
     configure?.(audio);
     created.push(audio);
     return audio;
@@ -256,6 +253,29 @@ describe('registration request', () => {
 describe('playback lifecycle', () => {
   beforeEach(accept);
 
+  /**
+   * Regression: the element used to be built only after registration resolved, so
+   * `play()` landed a network round-trip past the click and browsers refused it —
+   * the media request was then torn down before it ever left, and the player heard
+   * nothing. Priming must happen synchronously, before any await.
+   */
+  it('builds and primes the element before registration is awaited', () => {
+    const { impl } = pendingFetch();
+    const { created, audioFactory } = audioHarness();
+
+    // No flush: this is what has run by the time the click handler returns.
+    const attempt = startNarrationSpeech(
+      { entryId: 'e1', text: TEXT },
+      { fetchImpl: impl, audioFactory },
+    );
+
+    expect(created).toHaveLength(1);
+    expect(created[0].loadCount).toBe(1);
+    expect(created[0].src).toBe('');
+
+    attempt.stop();
+  });
+
   it("resolves 'ended' when playback finishes and detaches listeners", async () => {
     const { created, audioFactory } = audioHarness();
     const attempt = startNarrationSpeech(
@@ -270,7 +290,8 @@ describe('playback lifecycle', () => {
     await expect(attempt.done).resolves.toBe('ended');
     expect(created[0].listenerCount).toBe(0);
     expect(created[0].src).toBe('');
-    expect(created[0].loadCount).toBe(1);
+    // Priming at creation, then the teardown reload that releases the media request.
+    expect(created[0].loadCount).toBe(2);
   });
 
   it('reports playback start through onPlaying', async () => {
@@ -302,7 +323,7 @@ describe('playback lifecycle', () => {
     await expect(attempt.done).resolves.toBe('stopped');
     expect(created[0].pauseCount).toBe(1);
     expect(created[0].src).toBe('');
-    expect(created[0].loadCount).toBe(1);
+    expect(created[0].loadCount).toBe(2);
     expect(created[0].listenerCount).toBe(0);
   });
 
@@ -362,7 +383,7 @@ describe('playback lifecycle', () => {
 describe('cancellation before playback', () => {
   beforeEach(accept);
 
-  it('stop during pending registration aborts and creates no audio element', async () => {
+  it('stop during pending registration aborts and never sources the element', async () => {
     const { impl, spy } = pendingFetch();
     const { created, audioFactory } = audioHarness();
 
@@ -373,12 +394,16 @@ describe('cancellation before playback', () => {
     attempt.stop();
 
     await expect(attempt.done).resolves.toBe('stopped');
-    expect(created).toEqual([]);
+    // The element is primed during the click, so it exists — but a cancelled
+    // attempt must still leave it sourceless and silent, with no media request.
+    expect(created).toHaveLength(1);
+    expect(created[0].src).toBe('');
+    expect(created[0].playCount).toBe(0);
     const init = spy.mock.calls[0][1] as { signal?: AbortSignal };
     expect(init.signal?.aborted).toBe(true);
   });
 
-  it('a stale registration completion after stop creates no audio element', async () => {
+  it('a stale registration completion after stop never sources the element', async () => {
     const { impl, calls } = pendingFetch();
     const { created, audioFactory } = audioHarness();
 
@@ -396,7 +421,9 @@ describe('cancellation before playback', () => {
     await flush();
 
     await expect(attempt.done).resolves.toBe('stopped');
-    expect(created).toEqual([]);
+    expect(created).toHaveLength(1);
+    expect(created[0].src).toBe('');
+    expect(created[0].playCount).toBe(0);
   });
 });
 
@@ -417,7 +444,10 @@ describe('failures', () => {
     );
 
     await expect(attempt.done).rejects.toThrow(/429/);
-    expect(created).toEqual([]);
+    // A rejected registration leaves the primed element sourceless and silent.
+    expect(created).toHaveLength(1);
+    expect(created[0].src).toBe('');
+    expect(created[0].playCount).toBe(0);
   });
 
   it('rejects when registration returns no audio id', async () => {

@@ -81,7 +81,7 @@ export function NarrationSpeechButton({
             setPhase('playing');
           }
         },
-      },
+      }
     );
     attemptRef.current = attempt;
 
@@ -106,7 +106,7 @@ export function NarrationSpeechButton({
           unavailableTimer.current = null;
           if (mounted.current) setPhase('idle');
         }, UNAVAILABLE_MS);
-      },
+      }
     );
   }, [entryId, text]);
 
@@ -164,7 +164,9 @@ export function NarrationSpeechButton({
         )}
       </button>
       <span role="status" className="sr-only">
-        {phase === 'unavailable' ? 'Narration audio unavailable. Try again.' : ''}
+        {phase === 'unavailable'
+          ? 'Narration audio unavailable. Try again.'
+          : ''}
       </span>
       <NarrationTtsDisclosureDialog
         open={disclosureOpen}

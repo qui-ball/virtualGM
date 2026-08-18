@@ -51,8 +51,10 @@ export function readNarrationTtsDisclosure(): NarrationTtsDisclosureRecord | nul
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null) return null;
-    const { version, acceptedAt } = parsed as Partial<NarrationTtsDisclosureRecord>;
-    if (typeof version !== 'number' || typeof acceptedAt !== 'number') return null;
+    const { version, acceptedAt } =
+      parsed as Partial<NarrationTtsDisclosureRecord>;
+    if (typeof version !== 'number' || typeof acceptedAt !== 'number')
+      return null;
     return { version, acceptedAt };
   } catch {
     return null;
@@ -71,7 +73,10 @@ export function acceptNarrationTtsDisclosure(): NarrationTtsDisclosureRecord {
     acceptedAt: Date.now(),
   };
   try {
-    disclosureStorage()?.setItem(DISCLOSURE_STORAGE_KEY, JSON.stringify(record));
+    disclosureStorage()?.setItem(
+      DISCLOSURE_STORAGE_KEY,
+      JSON.stringify(record)
+    );
   } catch {
     // A blocked write only costs the player another disclosure next time.
   }
@@ -104,7 +109,12 @@ export interface NarrationAudio {
   removeEventListener(type: string, listener: () => void): void;
 }
 
-export type NarrationAudioFactory = (src: string) => NarrationAudio;
+/**
+ * Builds the element with no source. The URL is unknown until registration returns,
+ * so the source is assigned later — see `createAttempt` for why the element itself
+ * has to exist before then.
+ */
+export type NarrationAudioFactory = () => NarrationAudio;
 
 export type NarrationSpeechOptions = {
   fetchImpl?: typeof fetch;
@@ -123,10 +133,9 @@ export type NarrationSpeechAttempt = {
   stop: () => void;
 };
 
-function defaultAudioFactory(src: string): NarrationAudio {
+function defaultAudioFactory(): NarrationAudio {
   const element = new Audio();
   element.preload = 'auto';
-  element.src = src;
   return element;
 }
 
@@ -148,7 +157,7 @@ export function stopCurrentNarrationSpeech(): void {
  */
 export function startNarrationSpeech(
   request: NarrationSpeechRequest,
-  options: NarrationSpeechOptions = {},
+  options: NarrationSpeechOptions = {}
 ): NarrationSpeechAttempt {
   if (narrationTtsDisclosureNeeded()) {
     // Nothing leaves the browser until the current disclosure version is accepted.
@@ -172,7 +181,7 @@ export function startNarrationSpeech(
 
 function createAttempt(
   request: NarrationSpeechRequest,
-  options: NarrationSpeechOptions,
+  options: NarrationSpeechOptions
 ): NarrationSpeechAttempt {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const audioFactory = options.audioFactory ?? defaultAudioFactory;
@@ -223,6 +232,16 @@ function createAttempt(
     finish('stopped');
   };
 
+  // Built and primed here, still inside the click's own task. Registration is a
+  // network round-trip, so by the time it resolves the user activation that
+  // authorised playback is spent and `play()` below would be refused outright —
+  // silently, since the rejection only reaches the button's error glyph. Calling
+  // `load()` while the gesture is live is what keeps that activation attached to
+  // this element, so assigning `src` after registration still plays.
+  const element = audioFactory();
+  audio = element;
+  element.load();
+
   const run = async () => {
     try {
       const response = await fetchImpl(`${baseUrl}/narration-audio`, {
@@ -233,7 +252,9 @@ function createAttempt(
       });
       if (settled) return;
       if (!response.ok) {
-        throw new Error(`Narration audio registration failed: ${response.status}`);
+        throw new Error(
+          `Narration audio registration failed: ${response.status}`
+        );
       }
 
       const payload = (await response.json()) as { audio_id?: string };
@@ -243,11 +264,8 @@ function createAttempt(
         throw new Error('Narration audio registration returned no id');
       }
 
-      const element = audioFactory(
-        `${baseUrl}/narration-audio/${encodeURIComponent(audioId)}`,
-      );
-      audio = element;
-
+      // Listeners go on before the source, so the first media task can already
+      // find them; media events are queued, never fired synchronously.
       const onEnded = () => finish('ended');
       const onError = () => fail(new Error('Narration audio playback failed'));
       element.addEventListener('ended', onEnded);
@@ -256,6 +274,10 @@ function createAttempt(
         element.removeEventListener('ended', onEnded);
         element.removeEventListener('error', onError);
       };
+
+      // Assigning `src` re-runs the media load algorithm on its own — this is the
+      // point where the GET for the audio is finally issued.
+      element.src = `${baseUrl}/narration-audio/${encodeURIComponent(audioId)}`;
 
       await element.play();
       if (settled) return;
@@ -266,7 +288,9 @@ function createAttempt(
         finish('stopped');
         return;
       }
-      fail(error instanceof Error ? error : new Error('Narration audio failed'));
+      fail(
+        error instanceof Error ? error : new Error('Narration audio failed')
+      );
     }
   };
 
