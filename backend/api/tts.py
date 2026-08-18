@@ -18,12 +18,13 @@ are not a public-deployment security boundary.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import threading
 import time
 from collections import OrderedDict, deque
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -32,6 +33,7 @@ from loguru import logger
 from api.schemas import NarrationAudioRequest, NarrationAudioResponse
 from tts_client import TtsError, open_speech_stream, tts_model, tts_voice
 from utils.audio_cache import (
+    CacheWriter,
     cache_key,
     cleanup_quietly,
     get_cached_path,
@@ -204,42 +206,130 @@ async def stream_narration_audio(content_id: str):
             status_code=502, detail="Narration speech provider unavailable"
         ) from exc
 
-    return StreamingResponse(
-        _relay(stream, content_id, entry.text), media_type=MP3_MEDIA_TYPE
-    )
+    queue = _start_download(stream, content_id, entry.text)
+    return StreamingResponse(_relay(queue), media_type=MP3_MEDIA_TYPE)
 
 
-async def _relay(stream, content_id: str, text: str) -> AsyncIterator[bytes]:
-    """Relay provider bytes to the browser while writing the cache entry.
+#: Sentinel closing a download's chunk queue.
+_END = object()
 
-    Every unsuccessful path — failure, disconnect, timeout, oversize — abandons the
-    temp file and closes the provider handle, so no partial entry is ever published.
+#: In-flight downloads. Held in a module-level set because a bare `create_task`
+#: reference is weak — the loop could otherwise collect one mid-download and
+#: silently lose the cache write.
+_downloads: set[asyncio.Task] = set()
+
+
+@dataclass
+class _Drain:
+    """One provider stream being written to the cache, with its budgets."""
+
+    writer: CacheWriter
+    deadline: float
+    size_cap: int
+    total: int = field(default=0)
+
+    def accept(self, chunk: bytes) -> bool:
+        """Write ``chunk``, or return False when a budget says to stop."""
+        if time.monotonic() > self.deadline:
+            logger.warning("Narration audio stream exceeded its time budget")
+            return False
+        if self.total + len(chunk) > self.size_cap:
+            logger.warning("Narration audio stream exceeded its size budget")
+            return False
+        self.total += len(chunk)
+        self.writer.write(chunk)
+        return True
+
+
+def _start_download(stream, content_id: str, text: str) -> asyncio.Queue:
+    """Begin draining the provider into the cache, and return the listener's queue.
+
+    The download deliberately does not belong to the request task. A listener who
+    stops playback cancels only `_relay`; cancelling that mid-read would otherwise
+    tear down the provider read itself and throw away audio already paid for, so
+    replaying the same narration would buy it a second time.
     """
-    deadline = time.monotonic() + stream_timeout_seconds()
-    size_cap = max_stream_bytes()
-    writer = open_writer(content_id, text)
-    total = 0
-    committed = False
-    published = None
+    drain = _Drain(
+        writer=open_writer(content_id, text),
+        deadline=time.monotonic() + stream_timeout_seconds(),
+        size_cap=max_stream_bytes(),
+    )
+    queue: asyncio.Queue = asyncio.Queue()
+    _reap_finished_downloads()
+    _downloads.add(asyncio.create_task(_download_to_cache(stream, drain, queue)))
+    return queue
+
+
+def _reap_finished_downloads() -> None:
+    """Drop settled downloads, keeping the live set from growing without bound."""
+    for task in [task for task in _downloads if task.done()]:
+        _downloads.discard(task)
+
+
+async def _download_to_cache(stream, drain: _Drain, queue: asyncio.Queue) -> None:
+    """Read the provider to completion, publish it, then release the listener.
+
+    A truncated download is never published: failure, timeout, and oversize all
+    abandon the temp file. Publishing happens *before* the queue is closed so that a
+    listener who reads to the end can rely on the cache entry already being there.
+    """
+    completed = False
+    failure: BaseException | None = None
 
     try:
         async for chunk in stream.iter_bytes():
-            if time.monotonic() > deadline:
-                logger.warning("Narration audio stream exceeded its time budget")
+            if not drain.accept(chunk):
                 break
-            total += len(chunk)
-            if total > size_cap:
-                logger.warning("Narration audio stream exceeded its size budget")
-                break
-            writer.write(chunk)
-            yield chunk
+            # Unbounded on purpose: a listener who hung up must never stall the
+            # download. The size budget already caps how much can pile up here.
+            queue.put_nowait(chunk)
         else:
-            published = writer.commit()
-            committed = True
+            completed = True
+    except Exception as exc:
+        failure = exc
+        logger.warning(f"Narration audio download failed: {type(exc).__name__}")
+
+    if completed:
+        await _publish(stream, drain)
+    else:
+        drain.writer.abandon()
+        await stream.aclose()
+
+    queue.put_nowait(failure if failure is not None else _END)
+
+
+async def _publish(stream, drain: _Drain) -> None:
+    """Commit a fully received download and release the provider handle."""
+    published = None
+    try:
+        published = drain.writer.commit()
     finally:
-        if not committed:
-            writer.abandon()
+        if published is None:
+            # Either the output was implausibly short — commit already dropped the
+            # temp file — or commit raised and left one behind. Both end here.
+            drain.writer.abandon()
         await stream.aclose()
 
     if published is not None:
         cleanup_quietly()
+
+
+async def _relay(queue: asyncio.Queue) -> AsyncIterator[bytes]:
+    """Mirror a download to one listener. Cancelling this cannot stop the download."""
+    while True:
+        item = await queue.get()
+        if item is _END:
+            return
+        if isinstance(item, BaseException):
+            raise item
+        yield item
+
+
+async def wait_for_background_downloads() -> None:
+    """Let in-flight downloads settle. For tests and orderly shutdown."""
+    while True:
+        _reap_finished_downloads()
+        pending = tuple(_downloads)
+        if not pending:
+            return
+        await asyncio.gather(*pending, return_exceptions=True)

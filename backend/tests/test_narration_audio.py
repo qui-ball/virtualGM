@@ -25,6 +25,16 @@ def audio_for(text: str = TEXT) -> bytes:
     return b"\xff\xfb" + b"a" * min_plausible_bytes(text)
 
 
+def drip(text: str = TEXT, count: int = 20) -> list[bytes]:
+    """Audio split into enough chunks to hang up mid-stream.
+
+    Sized to roughly twice `min_plausible_bytes` in total, so a complete download
+    still clears the plausibility floor and reaches the cache.
+    """
+    body = b"a" * (min_plausible_bytes(text) // (count // 2) + 8)
+    return [b"\xff\xfb" + body] * count
+
+
 @pytest.fixture(autouse=True)
 def _isolated_tts(tmp_path, monkeypatch):
     monkeypatch.setenv("TTS_CACHE_DIR", str(tmp_path / "tts"))
@@ -446,11 +456,15 @@ def test_two_simultaneous_cold_gets_never_expose_a_partial_cache_file(monkeypatc
     assert (audio_cache.cache_dir() / f"{audio_id}.mp3").read_bytes() == expected
 
 
-def test_client_disconnect_closes_upstream_and_leaves_no_cache_file(monkeypatch):
-    """Drives the ASGI app directly — TestClient cannot hang up mid-body."""
+def test_client_disconnect_finishes_the_download_and_caches_it(monkeypatch):
+    """Drives the ASGI app directly — TestClient cannot hang up mid-body.
+
+    Stopping playback must not throw away audio the provider was already paid for:
+    the next play of the same narration has to be a cache hit, not a second call.
+    """
     provider = FakeProvider(
         monkeypatch,
-        factory=lambda text: FakeStream([b"\xff\xfb" + b"a" * 64] * 20, gap=0.01),
+        factory=lambda text: FakeStream(drip(text), gap=0.01),
     )
 
     async def run():
@@ -494,12 +508,74 @@ def test_client_disconnect_closes_upstream_and_leaves_no_cache_file(monkeypatch)
         }
         await app(scope, receive, send)
         assert disconnected.is_set()
-        return received
+        # The drain outlives the request, so it must settle before the loop closes.
+        await tts_api.wait_for_background_downloads()
+        return audio_id, received
 
-    received = asyncio.run(run())
+    audio_id, received = asyncio.run(run())
 
     assert received  # some audio reached the client before hangup
-    assert len(received) < 20
+    assert len(received) < 20  # ...but not all of it
     assert provider.streams[0].closed
-    assert cache_files() == []
+    # The whole stream lands on disk even though the listener only heard part of it.
+    assert cache_files() == [f"{audio_id}.mp3"]
     assert cache_files(".part") == []
+    expected = b"".join(drip(TEXT))
+    assert (audio_cache.cache_dir() / f"{audio_id}.mp3").read_bytes() == expected
+
+
+def test_replay_after_a_stop_makes_no_second_provider_call(monkeypatch):
+    """The point of finishing an interrupted download: pressing play again is free."""
+    provider = FakeProvider(
+        monkeypatch,
+        factory=lambda text: FakeStream(drip(text), gap=0.01),
+    )
+
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as async_client:
+            registered = await async_client.post(
+                "/narration-audio", json={"text": TEXT}
+            )
+            audio_id = registered.json()["audio_id"]
+
+        first_chunk = asyncio.Event()
+
+        async def receive():
+            await first_chunk.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            if message["type"] == "http.response.body" and message.get("body"):
+                first_chunk.set()
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": f"/narration-audio/{audio_id}",
+            "raw_path": f"/narration-audio/{audio_id}".encode(),
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"host", b"testserver")],
+            "client": ("127.0.0.1", 4321),
+            "server": ("testserver", 80),
+        }
+        await app(scope, receive, send)
+        await tts_api.wait_for_background_downloads()
+
+        # Second press of play, now that the interrupted download has landed.
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as async_client:
+            return await async_client.get(f"/narration-audio/{audio_id}")
+
+    replay = asyncio.run(run())
+
+    assert replay.status_code == 200
+    assert replay.content == b"".join(drip(TEXT))
+    assert len(provider.calls) == 1  # the stop did not cost a regeneration
