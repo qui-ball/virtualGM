@@ -23,8 +23,8 @@ from utils.audio_cache import (
 )
 
 TEXT = "The lantern gutters. Something large shifts beyond the door."
-MODEL = "deepgram/aura-2"
-VOICE = "aura-2-orion-en"
+MODEL = "eleven_multilingual_v2"
+VOICE = "NNl6r8mD7vthiJatiJt1"
 
 
 @pytest.fixture(autouse=True)
@@ -59,8 +59,8 @@ def test_key_is_stable_for_identical_inputs():
 def test_key_changes_with_text_model_or_voice():
     base = cache_key(TEXT, MODEL, VOICE)
     assert cache_key(TEXT + "!", MODEL, VOICE) != base
-    assert cache_key(TEXT, "deepgram/aura-2-other", VOICE) != base
-    assert cache_key(TEXT, MODEL, "aura-2-thalia-en") != base
+    assert cache_key(TEXT, "eleven_turbo_v2_5", VOICE) != base
+    assert cache_key(TEXT, MODEL, "G17SuINrv2H9FC6nvetn") != base
 
 
 def test_key_separates_fields_that_could_otherwise_concatenate():

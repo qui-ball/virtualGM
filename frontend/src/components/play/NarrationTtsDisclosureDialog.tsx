@@ -73,60 +73,40 @@ export function NarrationTtsDisclosureDialog({
             <strong className="text-[var(--ink)]">
               only the text of the bubble you tap
             </strong>{' '}
-            to <strong className="text-[var(--ink)]">OpenRouter</strong>, which
-            routes it to <strong className="text-[var(--ink)]">Deepgram</strong>{' '}
-            for speech synthesis.
+            to <strong className="text-[var(--ink)]">ElevenLabs</strong> for
+            speech synthesis.
           </p>
           <p>
             Nothing else goes with it — no account, session, character, dice, or
             game state. Narration you never play is never sent.
           </p>
           <p>
-            Those companies decide how long they keep what you send. Read their
-            current terms before accepting:
+            ElevenLabs keeps a history of what it generates for this account by
+            default. Read their current terms before accepting:
           </p>
           <ul className="space-y-2">
             <li>
               <a
                 className="text-[var(--accent)] underline"
-                href="https://openrouter.ai/privacy"
+                href="https://elevenlabs.io/privacy-policy"
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                OpenRouter privacy policy
+                ElevenLabs privacy policy
               </a>{' '}
               ·{' '}
               <a
                 className="text-[var(--accent)] underline"
-                href="https://openrouter.ai/terms"
+                href="https://elevenlabs.io/terms-of-use"
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                terms of service
-              </a>
-            </li>
-            <li>
-              <a
-                className="text-[var(--accent)] underline"
-                href="https://deepgram.com/privacy"
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                Deepgram privacy policy
-              </a>{' '}
-              ·{' '}
-              <a
-                className="text-[var(--accent)] underline"
-                href="https://deepgram.com/terms"
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                terms of service
+                terms of use
               </a>
             </li>
           </ul>
           <p className="text-xs">
-            Processor list and links last reviewed 2026-08-05. If they change
+            Processor list and links last reviewed 2026-08-18. If they change
             materially, this notice appears again.
           </p>
         </div>

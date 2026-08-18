@@ -16,7 +16,7 @@ import { apiBaseUrl } from '@/config';
  * Bump whenever the processors, what is sent, or the disclosure copy change
  * materially. A stored acceptance below this version behaves as unaccepted (R11).
  */
-export const NARRATION_TTS_DISCLOSURE_VERSION = 1;
+export const NARRATION_TTS_DISCLOSURE_VERSION = 2;
 
 const DISCLOSURE_STORAGE_KEY = 'virtualgm.narrationTts.disclosure';
 

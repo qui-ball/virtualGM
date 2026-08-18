@@ -27,8 +27,10 @@ from loguru import logger
 
 from utils.env_config import positive_int
 
-#: Rough MP3 bytes produced per character of narration at the configured bitrate.
-BYTES_PER_CHARACTER = 375
+#: Rough MP3 bytes produced per character of narration at the pinned output format.
+#: 128 kbps is 16,000 B/s and narration runs near 16 characters a second. Only ever
+#: used as a floor (see `MIN_PLAUSIBLE_FRACTION`), so erring low is the safe side.
+BYTES_PER_CHARACTER = 1000
 
 #: Output below this fraction of the estimate is treated as implausible (R9).
 MIN_PLAUSIBLE_FRACTION = 0.3

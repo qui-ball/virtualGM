@@ -38,9 +38,9 @@ def drip(text: str = TEXT, count: int = 20) -> list[bytes]:
 @pytest.fixture(autouse=True)
 def _isolated_tts(tmp_path, monkeypatch):
     monkeypatch.setenv("TTS_CACHE_DIR", str(tmp_path / "tts"))
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("TTS_MODEL", "deepgram/aura-2")
-    monkeypatch.setenv("TTS_VOICE", "aura-2-orion-en")
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    monkeypatch.setenv("TTS_MODEL", "eleven_multilingual_v2")
+    monkeypatch.setenv("TTS_VOICE", "NNl6r8mD7vthiJatiJt1")
     for name in (
         "TTS_CACHE_MAX_AGE_DAYS",
         "TTS_MAX_CACHE_BYTES",
@@ -133,11 +133,11 @@ def test_identical_text_and_config_returns_the_same_id(client):
 def test_changing_model_or_voice_changes_the_id(client, monkeypatch):
     baseline = register(client)
 
-    monkeypatch.setenv("TTS_MODEL", "deepgram/aura-2-other")
+    monkeypatch.setenv("TTS_MODEL", "eleven_turbo_v2_5")
     assert register(client) != baseline
 
-    monkeypatch.setenv("TTS_MODEL", "deepgram/aura-2")
-    monkeypatch.setenv("TTS_VOICE", "aura-2-thalia-en")
+    monkeypatch.setenv("TTS_MODEL", "eleven_multilingual_v2")
+    monkeypatch.setenv("TTS_VOICE", "G17SuINrv2H9FC6nvetn")
     assert register(client) != baseline
 
 
@@ -295,7 +295,7 @@ def test_short_output_streams_but_is_not_cached(client, monkeypatch):
     [
         TtsProviderError("provider returned status 500"),
         TtsFormatError("expected audio/mpeg"),
-        TtsConfigError("OPENROUTER_API_KEY is not set"),
+        TtsConfigError("ELEVENLABS_API_KEY is not set"),
     ],
 )
 def test_provider_setup_errors_become_502_before_streaming(client, monkeypatch, error):

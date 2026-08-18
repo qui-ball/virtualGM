@@ -1,4 +1,4 @@
-"""Tests for the OpenRouter speech client. Mocked transport only — no live network."""
+"""Tests for the ElevenLabs speech client. Mocked transport only — no live network."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ import httpx
 import pytest
 
 from tts_client import (
-    OPENROUTER_SPEECH_URL,
+    OUTPUT_FORMAT,
     TtsConfigError,
     TtsFormatError,
     TtsInputError,
     TtsProviderError,
     open_speech_stream,
+    speech_url,
     tts_model,
     tts_voice,
 )
@@ -23,12 +24,15 @@ from tts_client import (
 TEXT = "The lantern gutters. Something large shifts beyond the door."
 MP3_CHUNKS = [b"\xff\xfb\x90d", b"first-audio-frame", b"second-audio-frame"]
 
+VOICE = "NNl6r8mD7vthiJatiJt1"
+MODEL = "eleven_multilingual_v2"
+
 
 @pytest.fixture(autouse=True)
 def _server_config(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("TTS_MODEL", "deepgram/aura-2")
-    monkeypatch.setenv("TTS_VOICE", "aura-2-orion-en")
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    monkeypatch.setenv("TTS_MODEL", MODEL)
+    monkeypatch.setenv("TTS_VOICE", VOICE)
 
 
 class _TrackedStream(httpx.AsyncByteStream):
@@ -72,7 +76,7 @@ def _capturing_transport(response_factory):
 # -- Request shape --
 
 
-def test_posts_bearer_key_model_and_voice_to_openrouter():
+def test_posts_key_model_and_voice_to_elevenlabs():
     transport, seen = _capturing_transport(_mp3_response)
 
     async def run():
@@ -84,19 +88,19 @@ def test_posts_bearer_key_model_and_voice_to_openrouter():
     assert len(seen) == 1
     request = seen[0]
     assert request.method == "POST"
-    assert str(request.url) == OPENROUTER_SPEECH_URL
-    assert request.headers["authorization"] == "Bearer test-key"
-    assert json.loads(request.content) == {
-        "model": "deepgram/aura-2",
-        "voice": "aura-2-orion-en",
-        "input": TEXT,
-        "response_format": "mp3",
-    }
+    # The voice id rides in the path, not the body — that is the ElevenLabs shape.
+    assert request.url.path == f"/v1/text-to-speech/{VOICE}/stream"
+    assert request.url.host == "api.elevenlabs.io"
+    assert request.url.params["output_format"] == OUTPUT_FORMAT
+    assert request.headers["xi-api-key"] == "test-key"
+    # A bearer header would silently authenticate as nobody; assert it is absent.
+    assert "authorization" not in request.headers
+    assert json.loads(request.content) == {"text": TEXT, "model_id": MODEL}
 
 
 def test_model_and_voice_come_from_server_config(monkeypatch):
-    monkeypatch.setenv("TTS_MODEL", "deepgram/aura-2-other")
-    monkeypatch.setenv("TTS_VOICE", "aura-2-thalia-en")
+    monkeypatch.setenv("TTS_MODEL", "eleven_turbo_v2_5")
+    monkeypatch.setenv("TTS_VOICE", "G17SuINrv2H9FC6nvetn")
     transport, seen = _capturing_transport(_mp3_response)
 
     async def run():
@@ -105,9 +109,9 @@ def test_model_and_voice_come_from_server_config(monkeypatch):
 
     asyncio.run(run())
 
-    payload = json.loads(seen[0].content)
-    assert payload["model"] == "deepgram/aura-2-other" == tts_model()
-    assert payload["voice"] == "aura-2-thalia-en" == tts_voice()
+    assert json.loads(seen[0].content)["model_id"] == "eleven_turbo_v2_5" == tts_model()
+    assert seen[0].url.path == "/v1/text-to-speech/G17SuINrv2H9FC6nvetn/stream"
+    assert tts_voice() == "G17SuINrv2H9FC6nvetn"
 
 
 def test_caller_cannot_override_model_or_voice():
@@ -123,6 +127,26 @@ def test_caller_cannot_override_model_or_voice():
                 TEXT, model="evil/model", voice="evil-voice", transport=transport
             )
         )
+
+
+@pytest.mark.parametrize(
+    "voice",
+    ["../../secrets", "voice id", "a/b", "x" * 65, "voice?x=1", "voice#frag"],
+)
+def test_unusable_voice_id_never_reaches_the_network(monkeypatch, voice):
+    """The voice id is interpolated into the path, so its shape is pinned here."""
+    monkeypatch.setenv("TTS_VOICE", voice)
+    transport, seen = _capturing_transport(_mp3_response)
+
+    with pytest.raises(TtsConfigError):
+        asyncio.run(open_speech_stream(TEXT, transport=transport))
+    assert seen == []
+
+
+def test_blank_voice_config_falls_back_to_the_default_voice(monkeypatch):
+    """A blank value is "unset", not a bad id — `tts_voice` already defaults it."""
+    monkeypatch.delenv("TTS_VOICE", raising=False)
+    assert speech_url(tts_voice()).endswith(f"/{VOICE}/stream")
 
 
 # -- Streaming --
@@ -145,7 +169,7 @@ def test_chunks_pass_through_unchanged():
 
 
 def test_missing_key_raises_config_error(monkeypatch):
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     transport, seen = _capturing_transport(_mp3_response)
 
     with pytest.raises(TtsConfigError):
@@ -161,7 +185,7 @@ def test_blank_text_raises_input_error():
     assert seen == []
 
 
-@pytest.mark.parametrize("status", [401, 429, 500])
+@pytest.mark.parametrize("status", [401, 422, 429, 500])
 def test_non_200_raises_provider_error_without_echoing_body(status):
     secret_body = b"upstream said: " + TEXT.encode()
 
