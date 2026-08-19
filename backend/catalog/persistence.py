@@ -48,7 +48,17 @@ def load_all() -> dict[str, Any]:
         return _empty_blob()
     if mode == "supabase":
         try:
-            return _load_from_supabase()
+            blob = _load_from_supabase()
+            from catalog.demo_playthroughs import merge_qui_demo
+            from catalog.demo_playthroughs import QUI_OWNER_ID
+
+            owner_id = _resolve_qui_owner_id() or QUI_OWNER_ID
+            if merge_qui_demo(blob, owner_id=owner_id):
+                try:
+                    _save_to_supabase(blob)
+                except Exception as save_exc:  # noqa: BLE001
+                    logger.warning(f"Qui demo playthrough save failed: {save_exc}")
+            return blob
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Supabase playthrough load failed, trying file: {exc}")
             return _load_from_file()
@@ -69,6 +79,37 @@ def save_all(blob: dict[str, Any]) -> None:
             _save_to_file(blob)
             return
     _save_to_file(blob)
+
+
+def _resolve_qui_owner_id() -> str | None:
+    """Seed Qui UUID if present; otherwise the live ``display_name = Qui`` row."""
+    from catalog.demo_playthroughs import QUI_OWNER_ID
+
+    if not is_supabase_configured():
+        return QUI_OWNER_ID
+    try:
+        client = get_supabase_service_client()
+        by_id = (
+            client.table("users")
+            .select("id")
+            .eq("id", QUI_OWNER_ID)
+            .limit(1)
+            .execute()
+        )
+        if by_id.data:
+            return QUI_OWNER_ID
+        by_name = (
+            client.table("users")
+            .select("id")
+            .eq("display_name", "Qui")
+            .limit(1)
+            .execute()
+        )
+        if by_name.data:
+            return str(by_name.data[0]["id"])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Qui owner lookup failed: {exc}")
+    return None
 
 
 def resolve_poc_owner_id() -> str | None:
@@ -144,6 +185,7 @@ def _playthrough_from_camp_row(row: dict[str, Any]) -> dict[str, Any]:
         "avg_level": state.get("avg_level"),
         "recommended_players": int(state.get("recommended_players") or 4),
         "completed": bool(row.get("is_completed")),
+        "end_reason": state.get("end_reason"),
         "created_at": row.get("created_at") or row.get("started_at"),
         "pc_snapshot": state.get("pc_snapshot"),
         "game_state": state.get("game_state"),
@@ -151,7 +193,7 @@ def _playthrough_from_camp_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _load_from_supabase() -> dict[str, Any]:
-    """Load incomplete playthroughs + characters for all soft accounts."""
+    """Load playthroughs (including completed) + characters for all soft accounts."""
     client = get_supabase_service_client()
     camps = (
         client.table("active_campaigns")
@@ -159,7 +201,6 @@ def _load_from_supabase() -> dict[str, Any]:
             "id,owner_id,campaign_template_id,solo_mode,is_completed,campaign_state,"
             "started_at,last_played_at,created_at"
         )
-        .eq("is_completed", False)
         .order("last_played_at", desc=True)
         .execute()
     )
@@ -267,6 +308,7 @@ def _save_to_supabase(blob: dict[str, Any]) -> None:
             "avg_level": pt.get("avg_level"),
             "recommended_players": pt.get("recommended_players"),
             "pc_snapshot": pt.get("pc_snapshot"),
+            "end_reason": pt.get("end_reason"),
             "game_state": pt.get("game_state"),
         }
         row = {

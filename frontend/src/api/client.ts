@@ -148,6 +148,16 @@ export function abandonActiveCampaign(
   );
 }
 
+/** Permanently delete an archived inactive character. */
+export function deleteInactivePlaythrough(
+  activeCampaignId: string,
+): Promise<{ ok: boolean; active_campaign_id: string }> {
+  return request(
+    `/active-campaigns/${encodeURIComponent(activeCampaignId)}/permanent`,
+    { method: 'DELETE' },
+  );
+}
+
 export function getSessionMessages(
   sessionId: string,
 ): Promise<MessagesResponse> {

@@ -1,7 +1,22 @@
-import type { CampaignListItem } from '@/lib/play/campaignLobby';
+import { useState } from 'react';
+import {
+  activeCampaigns,
+  type CampaignListItem,
+} from '@/lib/play/campaignLobby';
 import { ActiveCampaignCard } from '@/components/play/campaign/ActiveCampaignCard';
+import { CharacterDossier } from '@/components/play/campaign/CharacterDossier';
+import { CharacterGallery } from '@/components/play/campaign/CharacterGallery';
+import { DeleteCharacterDialog } from '@/components/play/campaign/DeleteCharacterDialog';
 import { ThemePickerRpg } from '@/theme';
+import { SegmentedControl } from '@/components/play/SegmentedControl';
 import { cn } from '@/lib/utils';
+
+type LobbyTab = 'campaigns' | 'characters';
+
+const LOBBY_TABS: { id: LobbyTab; label: string }[] = [
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'characters', label: 'Characters' },
+];
 
 type CampaignLobbyProps = {
   campaigns: CampaignListItem[];
@@ -9,6 +24,7 @@ type CampaignLobbyProps = {
   onNewCampaign: () => void;
   onRetry?: () => void;
   onAbandonCampaign?: (campaignId: string) => Promise<void>;
+  onDeleteCharacter?: (campaignId: string) => Promise<void>;
   className?: string;
 };
 
@@ -18,14 +34,39 @@ export function CampaignLobby({
   onNewCampaign,
   onRetry,
   onAbandonCampaign,
+  onDeleteCharacter,
   className,
 }: CampaignLobbyProps) {
-  const empty = !error && campaigns.length === 0;
+  const inProgress = activeCampaigns(campaigns);
+  const emptyCampaigns = !error && inProgress.length === 0;
+  const [tab, setTab] = useState<LobbyTab>('campaigns');
+  const [inspecting, setInspecting] = useState<CampaignListItem | null>(null);
+  const [deleting, setDeleting] = useState<CampaignListItem | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!deleting || !onDeleteCharacter) return;
+    setDeleteBusy(true);
+    try {
+      await onDeleteCharacter(deleting.id);
+      setInspecting((current) =>
+        current?.id === deleting.id ? null : current,
+      );
+      setDeleting(null);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   return (
     <div className={cn('relative flex min-h-0 flex-1 flex-col', className)}>
-      <div className="flex min-h-[52px] items-center border-b border-[var(--panel-edge)] px-4">
-        <span className="play-lbl">Campaigns</span>
+      <div className="shrink-0 border-b border-[var(--panel-edge)] px-4 py-2">
+        <SegmentedControl
+          options={LOBBY_TABS}
+          value={tab}
+          onChange={setTab}
+          aria-label="Lobby sections"
+        />
       </div>
 
       <div className="play-lobby-scroll min-h-0 flex-1">
@@ -50,16 +91,21 @@ export function CampaignLobby({
           </section>
         ) : null}
 
-        {empty ? (
+        {emptyCampaigns && tab === 'campaigns' ? (
           <section
             className="play-panel play-panel-glow space-y-3 p-4"
             aria-label="No campaigns"
           >
             <span className="play-lbl">Your playthroughs</span>
-            <h2 className="play-h-display text-xl">No campaigns yet</h2>
+            <h2 className="play-h-display text-xl">
+              {campaigns.length > 0
+                ? 'No active campaigns'
+                : 'No campaigns yet'}
+            </h2>
             <p className="text-sm text-[var(--ink-3)]">
-              Start a campaign to begin play. Your progress saves so you can
-              continue later.
+              {campaigns.length > 0
+                ? 'Past heroes stay under Characters. Start a new campaign to play again.'
+                : 'Start a campaign to begin play. Your progress saves so you can continue later.'}
             </p>
             <button
               type="button"
@@ -71,13 +117,14 @@ export function CampaignLobby({
           </section>
         ) : null}
 
-        {!error && campaigns.length > 0 ? (
+        {!error && inProgress.length > 0 && tab === 'campaigns' ? (
           <div className="flex flex-col gap-3">
-            {campaigns.map((c) => (
+            {inProgress.map((c) => (
               <ActiveCampaignCard
                 key={c.id}
                 campaign={c}
                 onAbandon={onAbandonCampaign}
+                onInspectCharacter={() => setInspecting(c)}
               />
             ))}
             <button
@@ -90,6 +137,14 @@ export function CampaignLobby({
           </div>
         ) : null}
 
+        {!error && tab === 'characters' ? (
+          <CharacterGallery
+            campaigns={campaigns}
+            onInspect={setInspecting}
+            onRequestDelete={onDeleteCharacter ? setDeleting : undefined}
+          />
+        ) : null}
+
         <div className="hidden" aria-hidden>
           <div className="play-rune-divider">
             <span>Theme</span>
@@ -98,6 +153,26 @@ export function CampaignLobby({
           <ThemePickerRpg variant="play" />
         </div>
       </div>
+
+      {inspecting ? (
+        <CharacterDossier
+          campaign={inspecting}
+          onClose={() => setInspecting(null)}
+          onRequestDelete={
+            onDeleteCharacter ? () => setDeleting(inspecting) : undefined
+          }
+          suppressEscape={deleting != null}
+        />
+      ) : null}
+
+      <DeleteCharacterDialog
+        campaign={deleting}
+        busy={deleteBusy}
+        onCancel={() => {
+          if (!deleteBusy) setDeleting(null);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   );
 }

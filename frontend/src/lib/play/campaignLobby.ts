@@ -11,8 +11,14 @@ import {
 } from '@/lib/play/stats';
 import { statDisplayLabel } from '@/lib/play/statLabels';
 import { soloModeToParam } from '@/lib/play/campaignMeta';
-import type { CharacterView, StatEntryView } from '@/lib/play/characterView';
+import {
+  toCharacterView,
+  type CharacterView,
+  type StatEntryView,
+} from '@/lib/play/characterView';
 import { isPendingLevelUp, xpToReachLevel } from '@/lib/play/xp';
+import type { PortraitGender } from '@/lib/play/portraitPlaceholder';
+import type { CharacterState } from '@/types';
 
 export type CampaignListItem = {
   id: string;
@@ -26,6 +32,8 @@ export type CampaignListItem = {
   level: number;
   lastScene: string;
   active?: boolean;
+  completed?: boolean;
+  endReason?: 'fallen' | 'completed' | 'ended' | null;
   pendingLevelUp?: boolean;
   recommendedPlayers: number;
   levelMin: number;
@@ -35,6 +43,8 @@ export type CampaignListItem = {
   campaignTemplateSlug?: string;
   sessionId?: string;
   characterId?: string;
+  gender: PortraitGender;
+  character: CharacterState | null;
   /** Lobby vitals from GET /campaigns PC snapshot. */
   xp: number;
   hp: number;
@@ -68,13 +78,22 @@ export function monogramFromName(name: string): string {
   return t ? t.charAt(0).toUpperCase() : '?';
 }
 
+export function portraitGenderFromCampaign(
+  campaign: Pick<CampaignListItem, 'gender'>,
+): PortraitGender {
+  return campaign.gender === 'female' ? 'female' : 'male';
+}
+
 /**
  * Build lobby CharacterView from a playthrough list item.
- * Full sheet stats are not required for lobby cards.
+ * Prefers the full PC snapshot when the API included one.
  */
 export function characterViewFromListItem(
   campaign: CampaignListItem,
 ): CharacterView {
+  if (campaign.character) {
+    return toCharacterView(campaign.character);
+  }
   const showMana = isCaster(campaign.characterClass);
   const xpNext = xpToReachLevel(campaign.level + 1);
   return {
@@ -123,4 +142,75 @@ export function playSearchParamsFromCampaign(
     params.set('sessionId', campaign.sessionId);
   }
   return params.toString();
+}
+
+export type CharacterRosterStatus =
+  | 'active'
+  | 'fallen'
+  | 'completed'
+  | 'ended';
+
+export type CharacterInactiveLabel = 'Fallen' | 'Completed' | 'Ended';
+
+/** Playthrough still in progress (Campaigns tab). */
+export function isActiveCampaign(
+  campaign: Pick<CampaignListItem, 'completed'>,
+): boolean {
+  return !campaign.completed;
+}
+
+/**
+ * Hero currently adventuring: incomplete campaign and still alive.
+ * Completed runs and fallen PCs are listed as inactive.
+ */
+export function isActiveCharacter(
+  campaign: Pick<CampaignListItem, 'completed' | 'hp' | 'endReason'>,
+): boolean {
+  return characterRosterStatus(campaign) === 'active';
+}
+
+export function characterRosterStatus(
+  campaign: Pick<CampaignListItem, 'completed' | 'hp' | 'endReason'>,
+): CharacterRosterStatus {
+  if (campaign.endReason === 'fallen') return 'fallen';
+  if (campaign.endReason === 'completed') return 'completed';
+  if (campaign.endReason === 'ended') return 'ended';
+  if (campaign.hp <= 0) return 'fallen';
+  if (campaign.completed) return 'ended';
+  return 'active';
+}
+
+export function characterInactiveLabel(
+  campaign: Pick<CampaignListItem, 'completed' | 'hp' | 'endReason'>,
+): CharacterInactiveLabel {
+  const status = characterRosterStatus(campaign);
+  if (status === 'fallen') return 'Fallen';
+  if (status === 'completed') return 'Completed';
+  return 'Ended';
+}
+
+/** Archived playthroughs can be removed from the roster. */
+export function canDeleteInactiveCharacter(
+  campaign: Pick<CampaignListItem, 'completed'>,
+): boolean {
+  return Boolean(campaign.completed);
+}
+
+export function partitionCharacterRoster(campaigns: CampaignListItem[]): {
+  active: CampaignListItem[];
+  inactive: CampaignListItem[];
+} {
+  const active: CampaignListItem[] = [];
+  const inactive: CampaignListItem[] = [];
+  for (const c of campaigns) {
+    if (isActiveCharacter(c)) active.push(c);
+    else inactive.push(c);
+  }
+  return { active, inactive };
+}
+
+export function activeCampaigns(
+  campaigns: CampaignListItem[],
+): CampaignListItem[] {
+  return campaigns.filter(isActiveCampaign);
 }

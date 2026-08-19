@@ -20,6 +20,13 @@ function summaryToListItem(c: CampaignSummary): CampaignListItem {
     level: c.level,
     lastScene: c.last_scene,
     active: c.active,
+    completed: Boolean(c.completed),
+    endReason:
+      c.end_reason === 'fallen' ||
+      c.end_reason === 'completed' ||
+      c.end_reason === 'ended'
+        ? c.end_reason
+        : null,
     pendingLevelUp: c.pending_level_up,
     recommendedPlayers: c.recommended_players ?? 4,
     levelMin: c.level_min ?? 1,
@@ -29,6 +36,8 @@ function summaryToListItem(c: CampaignSummary): CampaignListItem {
     campaignTemplateSlug: c.campaign_template_slug ?? undefined,
     sessionId: c.session_id ?? undefined,
     characterId: c.character_id ?? undefined,
+    gender: c.gender === 'female' ? 'female' : 'male',
+    character: c.character ?? null,
     xp: c.xp ?? 0,
     hp: c.hp ?? 1,
     hpMax: c.hp_max ?? 1,

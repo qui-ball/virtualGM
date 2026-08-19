@@ -326,6 +326,8 @@ class CampaignSummary(BaseModel):
     level: int = 1
     pending_level_up: bool = False
     active: bool = False
+    completed: bool = False
+    end_reason: Literal["fallen", "completed", "ended"] | None = None
     recommended_players: int = 4
     level_min: int = 1
     level_max: int = 5
@@ -342,6 +344,8 @@ class CampaignSummary(BaseModel):
     mana_max: int | None = None
     evasion: int = 10
     finesse: int = 0
+    gender: Literal["male", "female"] = "male"
+    character: CharacterState | None = None
 
 
 class CampaignListResponse(BaseModel):

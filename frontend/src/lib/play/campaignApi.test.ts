@@ -30,6 +30,7 @@ const API_CAMPAIGNS: CampaignSummary[] = [
     solo_mode: true,
     campaign_template_slug: 'fantasy-lost-mine',
     session_id: 'sess-1',
+    gender: 'male',
     xp: 80,
     hp: 14,
     hp_max: 14,
@@ -55,6 +56,9 @@ const API_CAMPAIGNS: CampaignSummary[] = [
     level_max: 3,
     avg_level: 2,
     solo_mode: false,
+    gender: 'female',
+    completed: true,
+    end_reason: 'ended',
     xp: 0,
     hp: 8,
     hp_max: 8,
@@ -83,8 +87,13 @@ describe('campaignApi', () => {
     expect(campaigns[0]?.hp).toBe(14);
     expect(campaigns[0]?.hpMax).toBe(14);
     expect(campaigns[0]?.xp).toBe(80);
+    expect(campaigns[0]?.gender).toBe('male');
+    expect(campaigns[0]?.completed).toBe(false);
     expect(campaigns[1]?.id).toBe('pt-2');
     expect(campaigns[1]?.mana).toBe(7);
+    expect(campaigns[1]?.gender).toBe('female');
+    expect(campaigns[1]?.completed).toBe(true);
+    expect(campaigns[1]?.endReason).toBe('ended');
   });
 
   it('fetchCampaignList returns empty when API has no playthroughs', async () => {

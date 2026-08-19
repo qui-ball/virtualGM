@@ -201,9 +201,15 @@ def test_ws6_solo_continue_then_replace_warned_path():
     assert replaced.status_code == 200
     assert session_store.get(old_session) is None
     lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
-    assert len(lobby) == 2
-    lm = next(c for c in lobby if c["campaign_template_slug"] == LM)
+    assert len(lobby) == 3
+    lm = next(
+        c
+        for c in lobby
+        if c["campaign_template_slug"] == LM and not c["completed"]
+    )
     assert lm["character_name"] == "Mira Bramblefoot"
+    archived = next(c for c in lobby if c["id"] == existing_id)
+    assert archived["completed"] is True
 
 
 # --- Matrix: Second non-solo instance — both in lobby ---

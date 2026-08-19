@@ -299,6 +299,8 @@ export interface CampaignSummary {
   level: number;
   pending_level_up: boolean;
   active?: boolean;
+  completed?: boolean;
+  end_reason?: 'fallen' | 'completed' | 'ended' | null;
   recommended_players?: number;
   level_min?: number;
   level_max?: number;
@@ -307,6 +309,10 @@ export interface CampaignSummary {
   campaign_template_slug?: string | null;
   session_id?: string | null;
   character_id?: string | null;
+  /** Portrait gender from the playthrough. */
+  gender?: 'male' | 'female' | null;
+  /** Full PC snapshot when the playthrough has one. */
+  character?: CharacterState | null;
   /** Lobby vitals from PC snapshot (WS-5). */
   xp?: number;
   hp?: number;

@@ -545,6 +545,11 @@ html[data-theme] .play-chip {
   border-color: var(--accent);
 }
 
+.play-surface button.play-select-card-inactive {
+  border-style: dashed;
+  opacity: 0.82;
+}
+
 .play-select-card-badge {
   font-family: var(--mono);
   font-size: 0.5625rem;
@@ -832,6 +837,35 @@ html[data-theme] .play-chip {
 }
 
 .play-seg-btn-on {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 18%, transparent),
+    color-mix(in srgb, var(--accent-2) 18%, transparent)
+  );
+  color: var(--accent);
+  text-shadow: var(--glow);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.play-surface button.play-seg-btn {
+  min-height: 36px;
+  padding: 8px 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--panel-edge);
+  border-radius: 0;
+}
+
+.play-surface button.play-seg-btn:last-child {
+  border-right: 0;
+}
+
+.play-surface button.play-seg-btn-on {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--accent) 18%, transparent),

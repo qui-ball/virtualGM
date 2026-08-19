@@ -47,6 +47,7 @@ class Playthrough:
     avg_level: int | None
     recommended_players: int
     completed: bool = False
+    end_reason: str | None = None
     created_at: str = field(default_factory=_now)
     pc_snapshot: dict[str, Any] | None = None
     owner_id: str = "default"
@@ -131,6 +132,7 @@ class PlaythroughStore:
                 pc_snapshot=prow.get("pc_snapshot"),
                 owner_id=str(prow.get("owner_id") or "default"),
                 game_state=prow.get("game_state"),
+                end_reason=prow.get("end_reason"),
             )
 
         for owner, value in (blob.get("incomplete_solo") or {}).items():
@@ -200,6 +202,7 @@ class PlaythroughStore:
                 "avg_level": pt.avg_level,
                 "recommended_players": pt.recommended_players,
                 "completed": pt.completed,
+                "end_reason": pt.end_reason,
                 "created_at": pt.created_at,
                 "pc_snapshot": pt.pc_snapshot
                 or (
@@ -266,9 +269,12 @@ class PlaythroughStore:
         self, playthrough_id: str, owner_key: str = "default"
     ) -> Playthrough | None:
         self.ensure_hydrated()
-        pt = self._playthroughs.pop(playthrough_id, None)
+        pt = self._playthroughs.get(playthrough_id)
         if pt is None:
             return None
+        if pt.owner_id and pt.owner_id != owner_key:
+            return None
+        self._playthroughs.pop(playthrough_id)
         owner = pt.owner_id or owner_key
         by_slug = self._incomplete_solo.get(owner)
         if by_slug:
@@ -282,6 +288,32 @@ class PlaythroughStore:
         )
         if not still_used:
             self._characters.pop(pt.character_id, None)
+        self._flush()
+        return pt
+
+    def complete_playthrough(
+        self,
+        playthrough_id: str,
+        owner_key: str = "default",
+        *,
+        reason: str = "ended",
+    ) -> Playthrough | None:
+        """Archive a playthrough so its character remains viewable but inactive."""
+        self.ensure_hydrated()
+        pt = self._playthroughs.get(playthrough_id)
+        if pt is None:
+            return None
+        owner = pt.owner_id or owner_key
+        pt.completed = True
+        pt.session_id = None
+        pt.end_reason = reason if reason in ("fallen", "completed", "ended") else "ended"
+        by_slug = self._incomplete_solo.get(owner)
+        if by_slug:
+            for slug, pid in list(by_slug.items()):
+                if pid == playthrough_id:
+                    del by_slug[slug]
+            if not by_slug:
+                del self._incomplete_solo[owner]
         self._flush()
         return pt
 
@@ -304,7 +336,7 @@ class PlaythroughStore:
             if existing_id and not replace_existing_solo:
                 raise SoloConflictError(existing_id)
             if existing_id and replace_existing_solo:
-                self.delete_playthrough(existing_id, owner_key)
+                self.complete_playthrough(existing_id, owner_key, reason="ended")
 
         pc = character.pc
         character.owner_id = owner_key
@@ -335,6 +367,7 @@ class PlaythroughStore:
             avg_level=template.get("avg_level"),
             recommended_players=int(template.get("recommended_players") or 4),
             completed=False,
+            end_reason=None,
             pc_snapshot=pc.model_dump(),
             owner_id=owner_key,
             game_state=game_state,
@@ -390,19 +423,25 @@ class PlaythroughStore:
 
     def list_playthroughs(self, owner_key: str = "default") -> list[Playthrough]:
         self.ensure_hydrated()
-        rows = [
-            p
-            for p in self._playthroughs.values()
-            if not p.completed and p.owner_id == owner_key
-        ]
-        rows.sort(key=lambda p: p.created_at, reverse=True)
-        return rows
+        rows = [p for p in self._playthroughs.values() if p.owner_id == owner_key]
+        incomplete = [p for p in rows if not p.completed]
+        complete = [p for p in rows if p.completed]
+        incomplete.sort(key=lambda p: p.created_at, reverse=True)
+        complete.sort(key=lambda p: p.created_at, reverse=True)
+        return incomplete + complete
 
     def to_campaign_summary(self, pt: Playthrough, *, active: bool) -> dict[str, Any]:
         snap = pt.pc_snapshot or {}
         if not snap and pt.character_id in self._characters:
             snap = self._characters[pt.character_id].pc.model_dump()
         stats = snap.get("stats") or {}
+        character = None
+        if snap:
+            try:
+                character = CharacterState.model_validate(snap)
+            except Exception:
+                character = None
+        gender = pt.gender if pt.gender in ("male", "female") else "male"
         return {
             "id": pt.id,
             "name": pt.campaign_name,
@@ -415,6 +454,8 @@ class PlaythroughStore:
             "level": pt.level,
             "pending_level_up": is_pending_level_up(pt.xp, pt.level),
             "active": active,
+            "completed": pt.completed,
+            "end_reason": _resolved_end_reason(pt, snap),
             "recommended_players": pt.recommended_players,
             "level_min": pt.level_min,
             "level_max": pt.level_max,
@@ -430,7 +471,20 @@ class PlaythroughStore:
             "mana_max": snap.get("mana_max"),
             "evasion": int(snap.get("evasion") if snap.get("evasion") is not None else 10),
             "finesse": int(stats.get("finesse") or 0),
+            "gender": gender,
+            "character": character,
         }
+
+
+def _resolved_end_reason(pt: Playthrough, snap: dict[str, Any]) -> str | None:
+    if pt.end_reason in ("fallen", "completed", "ended"):
+        return pt.end_reason
+    hp = int(snap.get("hp") if snap.get("hp") is not None else 1)
+    if hp <= 0:
+        return "fallen"
+    if pt.completed:
+        return "ended"
+    return None
 
 
 class SoloConflictError(Exception):
