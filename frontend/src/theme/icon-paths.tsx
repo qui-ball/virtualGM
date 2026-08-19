@@ -60,6 +60,18 @@ const STORM_ICONS: IconPathSet = {
       <path d="M8.5 7.5h7M8.5 10.5h5" {...stroke(1.4)} />
     </>
   ),
+  painting: (
+    <>
+      <path
+        d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+        fill="currentColor"
+        fillOpacity={0.14}
+        {...stroke(1.4)}
+      />
+      <circle cx="9" cy="9" r="1.4" {...stroke(1.4)} />
+      <path d="M4 16.5l5-4.5 3.5 3.5 3-3.5 4.5 5" {...stroke(1.4)} />
+    </>
+  ),
 };
 
 const NECROPOLIS_ICONS: IconPathSet = {
@@ -106,6 +118,13 @@ const NECROPOLIS_ICONS: IconPathSet = {
     <>
       <path d="M6 5h12a2 2 0 012 2v5a2 2 0 01-2 2h-5l-3 3v-3H6a2 2 0 01-2-2V7a2 2 0 012-2z" {...stroke(1.5)} />
       <path d="M8.5 8.5h7M8.5 11h4.5" {...stroke(1.2)} />
+    </>
+  ),
+  painting: (
+    <>
+      <path d="M5 5.5h14a1.5 1.5 0 011.5 1.5v10a1.5 1.5 0 01-1.5 1.5H5A1.5 1.5 0 013.5 17V7A1.5 1.5 0 015 5.5z" {...stroke(1.5)} />
+      <circle cx="9" cy="9.5" r="1.3" {...stroke(1.2)} />
+      <path d="M4 16.5l5-4 3 3 3.5-3.5 4.5 5" {...stroke(1.5)} />
     </>
   ),
 };
@@ -161,6 +180,22 @@ const OBSIDIAN_ICONS: IconPathSet = {
       <path d="M8 8h8M8 11.5h5" {...stroke(2)} />
     </>
   ),
+  painting: (
+    <>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="2"
+        fill="currentColor"
+        fillOpacity={0.12}
+        {...stroke(2)}
+      />
+      <circle cx="9" cy="9" r="1.5" {...stroke(2)} />
+      <path d="M3 17l6-6 3.5 3.5 3-4 5.5 7" {...stroke(2)} />
+    </>
+  ),
 };
 
 const MITHRIL_ICONS: IconPathSet = {
@@ -197,6 +232,13 @@ const MITHRIL_ICONS: IconPathSet = {
     <>
       <path d="M5.5 5.5h13c.8 0 1.5.7 1.5 1.5v5.5c0 .8-.7 1.5-1.5 1.5H12l-3 2.8V14H5.5c-.8 0-1.5-.7-1.5-1.5V7c0-.8.7-1.5 1.5-1.5z" {...stroke(1.2)} />
       <path d="M8.5 8.5h7M8.5 11h4.5" {...stroke(1.1)} />
+    </>
+  ),
+  painting: (
+    <>
+      <path d="M5 6h14c.8 0 1.5.7 1.5 1.5v9c0 .8-.7 1.5-1.5 1.5H5c-.8 0-1.5-.7-1.5-1.5v-9C3.5 6.7 4.2 6 5 6z" {...stroke(1.2)} />
+      <circle cx="8.5" cy="9.5" r="1.2" {...stroke(1.1)} />
+      <path d="M3.5 16l5-4.5 3 3 3-3.5 5 5.5" {...stroke(1.2)} />
     </>
   ),
 };
@@ -247,6 +289,18 @@ const GRIMOIRE_ICONS: IconPathSet = {
         {...stroke(1.5)}
       />
       <path d="M8 8.5h8M8 11.5h5" {...stroke(1.5)} />
+    </>
+  ),
+  painting: (
+    <>
+      <path
+        d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v10a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17V7a1.5 1.5 0 011.5-1.5z"
+        fill="currentColor"
+        fillOpacity={0.12}
+        {...stroke(1.5)}
+      />
+      <circle cx="9" cy="9.5" r="1.3" {...stroke(1.5)} />
+      <path d="M3.5 16.5l5-4.5 3.5 3.5 3-3.5 5 5" {...stroke(1.5)} />
     </>
   ),
 };

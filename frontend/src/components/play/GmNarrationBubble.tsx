@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { IllustrateButton } from '@/components/play/IllustrateButton';
 import { NarrationBody } from '@/components/play/NarrationBody';
 import { NarrationSpeechButton } from '@/components/play/NarrationSpeechButton';
 import { useTypewriterReveal } from '@/hooks/useTypewriterReveal';
@@ -72,6 +73,9 @@ export function GmNarrationBubble({
         streaming={streaming || revealing}
         highlightQuotes
       />
+      {!streaming && !revealing && !ooc ? (
+        <IllustrateButton entryId={entryId} text={content} />
+      ) : null}
     </article>
   );
 }
