@@ -114,9 +114,13 @@ export function updateNoteInList(
 
 type SheetNotesTabProps = {
   characterName: string;
+  readOnly?: boolean;
 };
 
-export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
+export function SheetNotesTab({
+  characterName,
+  readOnly = false,
+}: SheetNotesTabProps) {
   const [notes, setNotes] = useState<PlayerNote[]>(() =>
     loadPlayerNotes(characterName),
   );
@@ -162,6 +166,7 @@ export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
   }, [baseline, editing]);
 
   const beginEdit = (noteId: string, field: FieldKey, value: string) => {
+    if (readOnly) return;
     if (editing) {
       const next = updateNoteInList(notesRef.current, editing.noteId, {
         [editing.field]: draft,
@@ -236,8 +241,9 @@ export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
       <div>
         <p className="play-lbl">Player notes</p>
         <p className="text-xs text-[var(--ink-3)]">
-          Tap a field to edit · tap outside to save · drag ⋮⋮ to reorder.
-          Saved on this device only.
+          {readOnly
+            ? 'Notes saved on this device.'
+            : 'Tap a field to edit · tap outside to save · drag ⋮⋮ to reorder. Saved on this device only.'}
         </p>
       </div>
 
@@ -251,27 +257,33 @@ export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
                 dragIndex !== index &&
                 'ring-1 ring-[var(--accent)]',
             )}
-            onDragOver={(e: DragEvent) => {
-              e.preventDefault();
-              setDropIndex(index);
-            }}
-            onDrop={() => onDrop(index)}
+            onDragOver={
+              readOnly
+                ? undefined
+                : (e: DragEvent) => {
+                    e.preventDefault();
+                    setDropIndex(index);
+                  }
+            }
+            onDrop={readOnly ? undefined : () => onDrop(index)}
           >
             <div className="mb-1.5 flex items-center gap-2">
-              <button
-                type="button"
-                className="play-sheet-note-handle cursor-grab touch-none px-1 text-[var(--ink-3)] active:cursor-grabbing"
-                draggable
-                onDragStart={() => setDragIndex(index)}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setDropIndex(null);
-                }}
-                aria-label={`Reorder note ${index + 1}`}
-                title="Drag to reorder"
-              >
-                ⋮⋮
-              </button>
+              {readOnly ? null : (
+                <button
+                  type="button"
+                  className="play-sheet-note-handle cursor-grab touch-none px-1 text-[var(--ink-3)] active:cursor-grabbing"
+                  draggable
+                  onDragStart={() => setDragIndex(index)}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setDropIndex(null);
+                  }}
+                  aria-label={`Reorder note ${index + 1}`}
+                  title="Drag to reorder"
+                >
+                  ⋮⋮
+                </button>
+              )}
 
               <NoteField
                 label={note.title.trim() || `Note ${index + 1} title`}
@@ -293,14 +305,16 @@ export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
                 }}
               />
 
-              <button
-                type="button"
-                className="shrink-0 px-2 text-xs text-[var(--ink-3)] hover:text-[var(--bad)]"
-                onClick={() => setDeleteId(note.id)}
-                aria-label={`Delete note ${index + 1}`}
-              >
-                Delete
-              </button>
+              {readOnly ? null : (
+                <button
+                  type="button"
+                  className="shrink-0 px-2 text-xs text-[var(--ink-3)] hover:text-[var(--bad)]"
+                  onClick={() => setDeleteId(note.id)}
+                  aria-label={`Delete note ${index + 1}`}
+                >
+                  Delete
+                </button>
+              )}
             </div>
 
             <NoteField
@@ -330,13 +344,15 @@ export function SheetNotesTab({ characterName }: SheetNotesTabProps) {
         ))}
       </ul>
 
-      <button
-        type="button"
-        className="play-sheet-rest-btn w-full min-h-[40px] justify-center"
-        onClick={addNote}
-      >
-        + Add note
-      </button>
+      {readOnly ? null : (
+        <button
+          type="button"
+          className="play-sheet-rest-btn w-full min-h-[40px] justify-center"
+          onClick={addNote}
+        >
+          + Add note
+        </button>
+      )}
 
       {deleteId ? (
         <div

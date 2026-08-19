@@ -172,6 +172,10 @@ def test_start_and_lobby_and_continue_and_save():
     assert lobby[0]["hp_max"] >= lobby[0]["hp"]
     assert "xp" in lobby[0]
     assert "evasion" in lobby[0]
+    assert lobby[0]["gender"] == "male"
+    assert lobby[0]["completed"] is False
+    assert lobby[0]["character"] is not None
+    assert lobby[0]["character"]["name"] == body["character_name"]
 
     # Mutate live session then save
     session = session_store.get(session_id)
@@ -328,7 +332,7 @@ def test_multiple_non_solo_playthroughs_allowed():
     assert len(client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]) == 3
 
 
-def test_abandon_playthrough_removes_from_lobby():
+def test_abandon_playthrough_archives_for_character_roster():
     start = _start("fantasy-lost-mine", LM_WARRIOR, "male", solo=False)
     assert start.status_code == 200
     pid = start.json()["active_campaign_id"]
@@ -337,8 +341,56 @@ def test_abandon_playthrough_removes_from_lobby():
 
     gone = client.delete(f"/active-campaigns/{pid}", headers=ACCOUNT_HEADERS)
     assert gone.status_code == 200
-    assert client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"] == []
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
+    assert len(lobby) == 1
+    assert lobby[0]["id"] == pid
+    assert lobby[0]["completed"] is True
+    assert lobby[0]["end_reason"] == "ended"
+    assert lobby[0]["session_id"] is None
     assert session_store.get(sid) is None
+    cont = client.post(
+        f"/active-campaigns/{pid}/continue",
+        headers=ACCOUNT_HEADERS,
+    )
+    assert cont.status_code == 404
+
+
+def test_delete_inactive_playthrough_removes_from_roster():
+    start = _start("fantasy-lost-mine", LM_WARRIOR, "male", solo=False)
+    assert start.status_code == 200
+    pid = start.json()["active_campaign_id"]
+
+    active_delete = client.delete(
+        f"/active-campaigns/{pid}/permanent", headers=ACCOUNT_HEADERS
+    )
+    assert active_delete.status_code == 409
+
+    gone = client.delete(f"/active-campaigns/{pid}", headers=ACCOUNT_HEADERS)
+    assert gone.status_code == 200
+    assert len(client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]) == 1
+
+    purged = client.delete(
+        f"/active-campaigns/{pid}/permanent", headers=ACCOUNT_HEADERS
+    )
+    assert purged.status_code == 200
+    assert client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"] == []
+
+
+def test_replace_solo_keeps_previous_run_as_inactive():
+    first = _start("fantasy-lost-mine", LM_WARRIOR, "male", solo=True)
+    assert first.status_code == 200
+    first_id = first.json()["active_campaign_id"]
+    second = _start("fantasy-lost-mine", LM_RANGER, "female", solo=True, replace=True)
+    assert second.status_code == 200
+    second_id = second.json()["active_campaign_id"]
+    lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
+    assert len(lobby) == 2
+    by_id = {row["id"]: row for row in lobby}
+    assert by_id[first_id]["completed"] is True
+    assert by_id[first_id]["end_reason"] == "ended"
+    assert by_id[second_id]["completed"] is False
+    assert by_id[second_id]["active"] is True
+    assert lobby[0]["id"] == second_id
 
 
 def test_file_persistence_survives_store_rehydrate(tmp_path, monkeypatch):
@@ -365,3 +417,17 @@ def test_file_persistence_survives_store_rehydrate(tmp_path, monkeypatch):
     lobby = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
     assert len(lobby) == 1
     assert lobby[0]["id"] == pid
+    assert lobby[0]["completed"] is False
+
+    gone = client.delete(f"/active-campaigns/{pid}", headers=ACCOUNT_HEADERS)
+    assert gone.status_code == 200
+
+    playthrough_store._characters.clear()  # noqa: SLF001
+    playthrough_store._playthroughs.clear()  # noqa: SLF001
+    playthrough_store._incomplete_solo.clear()  # noqa: SLF001
+    playthrough_store._hydrated = False  # noqa: SLF001
+
+    archived = client.get("/campaigns", headers=ACCOUNT_HEADERS).json()["campaigns"]
+    assert len(archived) == 1
+    assert archived[0]["id"] == pid
+    assert archived[0]["completed"] is True

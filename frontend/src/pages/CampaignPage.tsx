@@ -10,7 +10,7 @@ import { fetchCampaignList } from '@/lib/play/campaignApi';
 import type { CampaignListItem } from '@/lib/play/campaignLobby';
 import { PLAY_ROUTES } from '@/lib/play/routes';
 import { clearSessionCache, storeSessionCache } from '@/lib/play/sessionCache';
-import { abandonActiveCampaign } from '@/api/client';
+import { abandonActiveCampaign, deleteInactivePlaythrough } from '@/api/client';
 import { useSoftAccount } from '@/auth';
 import { ThemeSelect } from '@/theme';
 import { useIsTabletOrUp } from '@/hooks';
@@ -38,10 +38,22 @@ export function CampaignPage() {
     async (campaignId: string) => {
       await abandonActiveCampaign(campaignId);
       clearSessionCache(campaignId);
-      setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+      setCampaigns((prev) =>
+        prev.map((c) =>
+          c.id === campaignId
+            ? { ...c, completed: true, endReason: 'ended', sessionId: undefined }
+            : c,
+        ),
+      );
     },
     [],
   );
+
+  const deleteCharacter = useCallback(async (campaignId: string) => {
+    await deleteInactivePlaythrough(campaignId);
+    clearSessionCache(campaignId);
+    setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+  }, []);
 
   useEffect(() => {
     loadCampaigns();
@@ -80,6 +92,7 @@ export function CampaignPage() {
           onNewCampaign={() => setNewCampaignOpen(true)}
           onRetry={loadCampaigns}
           onAbandonCampaign={abandonCampaign}
+          onDeleteCharacter={deleteCharacter}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center p-6 text-sm text-[var(--ink-3)]">

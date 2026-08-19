@@ -371,18 +371,39 @@ def save_active_campaign(active_campaign_id: str, account_id: AccountId):
 
 @router.delete("/active-campaigns/{active_campaign_id}")
 def abandon_active_campaign(active_campaign_id: str, account_id: AccountId):
-    """End/leave a playthrough — removes it from the lobby permanently."""
+    """End a playthrough — archives it so the character stays viewable as inactive."""
     pt = playthrough_store.get_playthrough(active_campaign_id)
     if pt is None or pt.owner_id != account_id:
         raise HTTPException(status_code=404, detail="Playthrough not found")
 
     session_id = pt.session_id
-    deleted = playthrough_store.delete_playthrough(active_campaign_id, account_id)
-    if deleted is None:
+    archived = playthrough_store.complete_playthrough(
+        active_campaign_id, account_id, reason="ended"
+    )
+    if archived is None:
         raise HTTPException(status_code=404, detail="Playthrough not found")
     if session_id:
         store.delete(session_id)
-    logger.info(f"Abandoned playthrough {active_campaign_id}")
+    logger.info(f"Archived playthrough {active_campaign_id}")
+    return {"ok": True, "active_campaign_id": active_campaign_id}
+
+
+@router.delete("/active-campaigns/{active_campaign_id}/permanent")
+def delete_inactive_playthrough(active_campaign_id: str, account_id: AccountId):
+    """Permanently delete an archived (inactive) playthrough and its character."""
+    pt = playthrough_store.get_playthrough(active_campaign_id)
+    if pt is None or pt.owner_id != account_id:
+        raise HTTPException(status_code=404, detail="Playthrough not found")
+    if not pt.completed:
+        raise HTTPException(
+            status_code=409,
+            detail="Only inactive characters can be deleted. End the campaign first.",
+        )
+
+    deleted = playthrough_store.delete_playthrough(active_campaign_id, account_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Playthrough not found")
+    logger.info(f"Deleted inactive playthrough {active_campaign_id}")
     return {"ok": True, "active_campaign_id": active_campaign_id}
 
 

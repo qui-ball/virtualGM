@@ -17,6 +17,7 @@ type ActiveCampaignCardProps = {
   campaign: CampaignListItem;
   className?: string;
   onAbandon?: (campaignId: string) => Promise<void>;
+  onInspectCharacter?: () => void;
 };
 
 /** One in-progress playthrough — all lobby instances use this card equally. */
@@ -24,6 +25,7 @@ export function ActiveCampaignCard({
   campaign,
   className,
   onAbandon,
+  onInspectCharacter,
 }: ActiveCampaignCardProps) {
   const monogram = monogramFromName(campaign.characterName);
   const showMana =
@@ -58,22 +60,49 @@ export function ActiveCampaignCard({
       <h2 className="play-h-display text-xl">{campaign.title}</h2>
       <CampaignMetaLine campaign={campaign} />
 
-      <div className="flex items-center gap-3">
-        <span
-          className="play-avat play-avat-you grid size-9 shrink-0 place-items-center text-sm"
-          aria-hidden
+      {onInspectCharacter ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 text-left"
+          onClick={onInspectCharacter}
+          aria-label={`View ${campaign.characterName}`}
         >
-          {monogram}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-[var(--ink)]">
-            {campaign.characterName}
-          </p>
-          <p className="play-mono text-[0.625rem] tracking-widest text-[var(--ink-3)] uppercase">
-            {campaign.classShort} · Lv {campaign.level}
-          </p>
+          <span
+            className="play-avat play-avat-you grid size-9 shrink-0 place-items-center text-sm"
+            aria-hidden
+          >
+            {monogram}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-[var(--ink)]">
+              {campaign.characterName}
+            </p>
+            <p className="play-mono text-[0.625rem] tracking-widest text-[var(--ink-3)] uppercase">
+              {campaign.classShort} · Lv {campaign.level}
+            </p>
+          </div>
+          <span className="play-mono ml-auto shrink-0 text-[0.5625rem] tracking-widest text-[var(--ink-3)] uppercase">
+            View
+          </span>
+        </button>
+      ) : (
+        <div className="flex items-center gap-3">
+          <span
+            className="play-avat play-avat-you grid size-9 shrink-0 place-items-center text-sm"
+            aria-hidden
+          >
+            {monogram}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-[var(--ink)]">
+              {campaign.characterName}
+            </p>
+            <p className="play-mono text-[0.625rem] tracking-widest text-[var(--ink-3)] uppercase">
+              {campaign.classShort} · Lv {campaign.level}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>

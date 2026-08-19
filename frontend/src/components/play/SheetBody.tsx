@@ -17,13 +17,15 @@ import { cn } from '@/lib/utils';
 type SheetBodyProps = {
   character: CharacterView;
   characterState: CharacterState | null;
-  /** Pixel height of the sheet body (phase 2 pull). */
+  /** Pixel height of the sheet body (phase 2 pull). Omit to fill the parent. */
   height?: number;
   dragging?: boolean;
   loading?: boolean;
   onShortRest?: () => void;
   onLongRest?: () => void;
   restsDisabled?: boolean;
+  /** Hide rest controls and lock notes to view-only. */
+  readOnly?: boolean;
   className?: string;
 };
 
@@ -39,12 +41,13 @@ const TAB_PANEL_LABELS: Record<SheetTabId, string> = {
 export function SheetBody({
   character,
   characterState,
-  height = 0,
+  height,
   dragging = false,
   loading = false,
   onShortRest,
   onLongRest,
   restsDisabled = false,
+  readOnly = false,
   className,
 }: SheetBodyProps) {
   const sheet = useMemo(
@@ -93,17 +96,18 @@ export function SheetBody({
 
   const activeTab = sheet.tabs.includes(tab) ? tab : sheet.tabs[0];
 
-  const collapsed = height < 4;
+  const collapsed = height != null && height < 4;
 
   return (
     <div
       className={cn(
         'play-sheet-body shrink-0',
+        height == null && 'min-h-0 flex-1',
         dragging && 'play-sheet-body-dragging',
         className,
       )}
-      style={{ height }}
-      aria-hidden={collapsed}
+      style={height != null ? { height } : undefined}
+      aria-hidden={collapsed || undefined}
     >
       <div className="play-sheet-body-inner">
         <StatModifierRow character={character} />
@@ -123,15 +127,20 @@ export function SheetBody({
             <SheetInventoryTab sheet={sheet} coins={character.coins} />
           ) : null}
           {activeTab === 'notes' ? (
-            <SheetNotesTab characterName={character.name} />
+            <SheetNotesTab
+              characterName={character.name}
+              readOnly={readOnly}
+            />
           ) : null}
         </div>
 
-        <SheetRestSection
-          onShortRest={() => onShortRest?.()}
-          onLongRest={() => onLongRest?.()}
-          disabled={restsDisabled || loading}
-        />
+        {readOnly ? null : (
+          <SheetRestSection
+            onShortRest={() => onShortRest?.()}
+            onLongRest={() => onLongRest?.()}
+            disabled={restsDisabled || loading}
+          />
+        )}
       </div>
     </div>
   );

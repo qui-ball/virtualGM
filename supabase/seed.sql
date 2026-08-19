@@ -662,3 +662,213 @@ on conflict (supabase_user_id) do update set
   email = excluded.email,
   display_name = excluded.display_name,
   updated_at = now();
+
+-- ---------- Qui inactive roster (dev) — fallen / completed / ended ----------
+-- Lets Qui's Characters tab show one hero per inactive reason without playing them.
+-- IDs match backend/catalog/demo_playthroughs.py. Re-run: ./launch.sh up --reset-db
+
+insert into public.characters (
+  id, user_id, ruleset_id, name, level, class_id, race_id, gender, character_data,
+  campaign_template_id, cloned_from_prebuilt_id, starting_package_id, created_at
+)
+select * from (values
+  (
+    'c0000004-0000-4000-8000-000000000001'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    'Kael Bramblefoot', 2, 'ranger', 'elf', 'male',
+    $json${
+      "name": "Kael Bramblefoot", "character_class": "ranger", "level": 2, "xp": 80,
+      "stats": {"might": 0, "finesse": 2, "wit": 1, "presence": -1},
+      "hp": 0, "hp_max": 10, "evasion": 13, "mana": null, "mana_max": null,
+      "gold": 10, "conditions": [], "class_abilities": ["marksman"], "spells_known": [],
+      "equipped_weapon": "Longbow", "equipped_armor": "Studded Leather",
+      "inventory": ["Longbow", "Shortsword", "Arrows x24", "Hunter's Kit", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+      "starting_package_id": "lm-ranger-trail-sniper", "ability_id": "RAN-S1"
+    }$json$::jsonb,
+    'a0000003-0000-4000-8000-000000000001'::uuid,
+    'a0000005-0000-4000-8000-000000000002'::uuid,
+    'lm-ranger-trail-sniper',
+    '2026-02-10T12:00:00+00:00'::timestamptz
+  ),
+  (
+    'c0000004-0000-4000-8000-000000000002'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    'Vespera Greythorn', 3, 'mage', 'human', 'female',
+    $json${
+      "name": "Vespera Greythorn", "character_class": "mage", "level": 3, "xp": 280,
+      "stats": {"might": -1, "finesse": 0, "wit": 2, "presence": 1},
+      "hp": 9, "hp_max": 9, "evasion": 10, "mana": 4, "mana_max": 7,
+      "gold": 22, "conditions": [], "class_abilities": ["arcane_affinity"],
+      "spells_known": ["Frost Ray", "Ray of Frost", "Shield", "Mage Hand"],
+      "equipped_weapon": "Frost-rimed staff", "equipped_armor": null,
+      "inventory": ["Frost-rimed staff", "Spellbook", "Ice crystal focus", "Dagger", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+      "starting_package_id": "tn-mage-frost-elementalist", "ability_id": "MAG-S1"
+    }$json$::jsonb,
+    'a0000003-0000-4000-8000-000000000002'::uuid,
+    'a0000005-0000-4000-8000-000000000013'::uuid,
+    'tn-mage-frost-elementalist',
+    '2026-03-20T12:00:00+00:00'::timestamptz
+  ),
+  (
+    'c0000004-0000-4000-8000-000000000003'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    'Aldric of Corlinn Hill', 1, 'warrior', 'human', 'male',
+    $json${
+      "name": "Aldric of Corlinn Hill", "character_class": "warrior", "level": 1, "xp": 15,
+      "stats": {"might": 2, "finesse": 1, "wit": 0, "presence": -1},
+      "hp": 12, "hp_max": 12, "evasion": 15, "mana": null, "mana_max": null,
+      "gold": 10, "conditions": [], "class_abilities": ["armored_defense"], "spells_known": [],
+      "equipped_weapon": "Longsword", "equipped_armor": "Chain Mail",
+      "inventory": ["Longsword", "Shield", "Handaxe", "Rope", "Crowbar", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+      "starting_package_id": "lm-warrior-wagon-guard", "ability_id": "WAR-S3"
+    }$json$::jsonb,
+    'a0000003-0000-4000-8000-000000000001'::uuid,
+    'a0000005-0000-4000-8000-000000000001'::uuid,
+    'lm-warrior-wagon-guard',
+    '2026-04-05T12:00:00+00:00'::timestamptz
+  )
+) as seed(id, user_id, ruleset_id, name, level, class_id, race_id, gender, character_data,
+         campaign_template_id, cloned_from_prebuilt_id, starting_package_id, created_at)
+where exists (
+  select 1 from public.users where id = 'c0000002-0000-4000-8000-000000000001'
+)
+on conflict (id) do update set
+  name = excluded.name,
+  level = excluded.level,
+  class_id = excluded.class_id,
+  race_id = excluded.race_id,
+  gender = excluded.gender,
+  character_data = excluded.character_data,
+  campaign_template_id = excluded.campaign_template_id,
+  cloned_from_prebuilt_id = excluded.cloned_from_prebuilt_id,
+  starting_package_id = excluded.starting_package_id;
+
+insert into public.active_campaigns (
+  id, owner_id, campaign_template_id, ruleset_id, solo_mode, is_completed,
+  campaign_state, started_at, last_played_at, completed_at, created_at
+)
+select * from (values
+  (
+    'c0000003-0000-4000-8000-000000000001'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000003-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    true, true,
+    $json${
+      "campaign_template_slug": "fantasy-lost-mine",
+      "campaign_name": "Lost Mine of Phandelver",
+      "character_id": "c0000004-0000-4000-8000-000000000001",
+      "character_name": "Kael Bramblefoot",
+      "character_class": "ranger",
+      "level": 2, "xp": 80, "gender": "male",
+      "runtime_session_id": null,
+      "chapter": 2, "time_current": 18, "time_max": 50,
+      "last_scene": "Klarg's cave",
+      "level_min": 1, "level_max": 5, "avg_level": 3, "recommended_players": 4,
+      "end_reason": "fallen",
+      "pc_snapshot": {
+        "name": "Kael Bramblefoot", "character_class": "ranger", "level": 2, "xp": 80,
+        "stats": {"might": 0, "finesse": 2, "wit": 1, "presence": -1},
+        "hp": 0, "hp_max": 10, "evasion": 13, "mana": null, "mana_max": null,
+        "gold": 10, "conditions": [], "class_abilities": ["marksman"], "spells_known": [],
+        "equipped_weapon": "Longbow", "equipped_armor": "Studded Leather",
+        "inventory": ["Longbow", "Shortsword", "Arrows x24", "Hunter's Kit", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+        "starting_package_id": "lm-ranger-trail-sniper", "ability_id": "RAN-S1"
+      }
+    }$json$::jsonb,
+    '2026-02-10T12:00:00+00:00'::timestamptz,
+    '2026-02-10T12:00:00+00:00'::timestamptz,
+    '2026-02-10T12:00:00+00:00'::timestamptz,
+    '2026-02-10T12:00:00+00:00'::timestamptz
+  ),
+  (
+    'c0000003-0000-4000-8000-000000000002'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000003-0000-4000-8000-000000000002'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    true, true,
+    $json${
+      "campaign_template_slug": "fantasy-touch-of-the-necromancer",
+      "campaign_name": "Touch of the Necromancer",
+      "character_id": "c0000004-0000-4000-8000-000000000002",
+      "character_name": "Vespera Greythorn",
+      "character_class": "mage",
+      "level": 3, "xp": 280, "gender": "female",
+      "runtime_session_id": null,
+      "chapter": 5, "time_current": 4, "time_max": 35,
+      "last_scene": "The ritual holds",
+      "level_min": 1, "level_max": 3, "avg_level": 2, "recommended_players": 1,
+      "end_reason": "completed",
+      "pc_snapshot": {
+        "name": "Vespera Greythorn", "character_class": "mage", "level": 3, "xp": 280,
+        "stats": {"might": -1, "finesse": 0, "wit": 2, "presence": 1},
+        "hp": 9, "hp_max": 9, "evasion": 10, "mana": 4, "mana_max": 7,
+        "gold": 22, "conditions": [], "class_abilities": ["arcane_affinity"],
+        "spells_known": ["Frost Ray", "Ray of Frost", "Shield", "Mage Hand"],
+        "equipped_weapon": "Frost-rimed staff", "equipped_armor": null,
+        "inventory": ["Frost-rimed staff", "Spellbook", "Ice crystal focus", "Dagger", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+        "starting_package_id": "tn-mage-frost-elementalist", "ability_id": "MAG-S1"
+      }
+    }$json$::jsonb,
+    '2026-03-20T12:00:00+00:00'::timestamptz,
+    '2026-03-20T12:00:00+00:00'::timestamptz,
+    '2026-03-20T12:00:00+00:00'::timestamptz,
+    '2026-03-20T12:00:00+00:00'::timestamptz
+  ),
+  (
+    'c0000003-0000-4000-8000-000000000003'::uuid,
+    'c0000002-0000-4000-8000-000000000001'::uuid,
+    'a0000003-0000-4000-8000-000000000001'::uuid,
+    'a0000001-0000-4000-8000-000000000001'::uuid,
+    true, true,
+    $json${
+      "campaign_template_slug": "fantasy-lost-mine",
+      "campaign_name": "Lost Mine of Phandelver",
+      "character_id": "c0000004-0000-4000-8000-000000000003",
+      "character_name": "Aldric of Corlinn Hill",
+      "character_class": "warrior",
+      "level": 1, "xp": 15, "gender": "male",
+      "runtime_session_id": null,
+      "chapter": 1, "time_current": 42, "time_max": 50,
+      "last_scene": "Goblin ambush on the Triboar Trail",
+      "level_min": 1, "level_max": 5, "avg_level": 3, "recommended_players": 4,
+      "end_reason": "ended",
+      "pc_snapshot": {
+        "name": "Aldric of Corlinn Hill", "character_class": "warrior", "level": 1, "xp": 15,
+        "stats": {"might": 2, "finesse": 1, "wit": 0, "presence": -1},
+        "hp": 12, "hp_max": 12, "evasion": 15, "mana": null, "mana_max": null,
+        "gold": 10, "conditions": [], "class_abilities": ["armored_defense"], "spells_known": [],
+        "equipped_weapon": "Longsword", "equipped_armor": "Chain Mail",
+        "inventory": ["Longsword", "Shield", "Handaxe", "Rope", "Crowbar", "Explorer's Pack", "Waterskin", "Bedroll", "Rations x3", "Torch x2"],
+        "starting_package_id": "lm-warrior-wagon-guard", "ability_id": "WAR-S3"
+      }
+    }$json$::jsonb,
+    '2026-04-05T12:00:00+00:00'::timestamptz,
+    '2026-04-05T12:00:00+00:00'::timestamptz,
+    '2026-04-05T12:00:00+00:00'::timestamptz,
+    '2026-04-05T12:00:00+00:00'::timestamptz
+  )
+) as seed(id, owner_id, campaign_template_id, ruleset_id, solo_mode, is_completed,
+          campaign_state, started_at, last_played_at, completed_at, created_at)
+where exists (
+  select 1 from public.users where id = 'c0000002-0000-4000-8000-000000000001'
+)
+on conflict (id) do update set
+  solo_mode = excluded.solo_mode,
+  is_completed = excluded.is_completed,
+  campaign_state = excluded.campaign_state,
+  completed_at = excluded.completed_at,
+  last_played_at = excluded.last_played_at;
+
+update public.characters c
+set active_campaign_id = v.campaign_id
+from (values
+  ('c0000004-0000-4000-8000-000000000001'::uuid, 'c0000003-0000-4000-8000-000000000001'::uuid),
+  ('c0000004-0000-4000-8000-000000000002'::uuid, 'c0000003-0000-4000-8000-000000000002'::uuid),
+  ('c0000004-0000-4000-8000-000000000003'::uuid, 'c0000003-0000-4000-8000-000000000003'::uuid)
+) as v(character_id, campaign_id)
+where c.id = v.character_id;
+

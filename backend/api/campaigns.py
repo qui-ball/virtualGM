@@ -10,9 +10,12 @@ def list_campaigns(owner_key: str = "default") -> CampaignListResponse:
     if not rows:
         return CampaignListResponse(campaigns=[])
 
-    # Most recently created is treated as active for lobby highlight
+    # Most recently created incomplete playthrough is highlighted as active
+    first_incomplete_id = next((p.id for p in rows if not p.completed), None)
     campaigns: list[CampaignSummary] = []
-    for i, pt in enumerate(rows):
-        summary = playthrough_store.to_campaign_summary(pt, active=(i == 0))
+    for pt in rows:
+        summary = playthrough_store.to_campaign_summary(
+            pt, active=(pt.id == first_incomplete_id)
+        )
         campaigns.append(CampaignSummary(**summary))
     return CampaignListResponse(campaigns=campaigns)
