@@ -454,6 +454,9 @@ def test_accepted_narration_reaches_the_wire_as_deltas_then_a_settle(monkeypatch
     assert streamed and streamed[-1] == NARRATION
     assert settles == [{"text": NARRATION, "tool_call_id": "call-1"}]
     assert "narration_discard" not in [t for t, _ in events]
+    assert [
+        (e.role, e.content) for e in session.transcript if e.kind == "message"
+    ] == [("player", "I look"), ("gm", NARRATION)]
 
 
 # --------------------------------------------------------------------------- #
@@ -604,3 +607,58 @@ def test_replayed_first_tool_call_batch_does_not_re_emit_narration():
     )
 
     assert got == []
+
+
+# --------------------------------------------------------------------------- #
+# Durable transcript: player input + settled GM narration (save/continue)
+# --------------------------------------------------------------------------- #
+def _message_rows(session: Session) -> list[tuple[str, str]]:
+    return [(e.role, e.content) for e in session.transcript if e.kind == "message"]
+
+
+def test_vetoed_narration_does_not_enter_the_transcript(monkeypatch):
+    monkeypatch.setattr(
+        turn_engine, "run_agent_iter", _stub_streaming_narrate("The goblin crumples and dies.")
+    )
+    session = Session(id="tx-veto", game_state=GameState())
+    session.game_state.awaiting_damage_roll = True
+
+    asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I attack")))
+
+    assert _message_rows(session) == [("player", "I attack")]
+
+
+def test_roll_prompt_only_narration_does_not_enter_the_transcript(monkeypatch):
+    leaked = "<tool_call>ask_player_roll<arg_key>dice_type</arg_key><arg_value>d20"
+    monkeypatch.setattr(turn_engine, "run_agent_iter", _stub_streaming_narrate(leaked))
+    session = Session(id="tx-leak", game_state=GameState())
+
+    asyncio.run(_drain_stream(turn_engine.stream_turn(session, "I search")))
+
+    assert _message_rows(session) == [("player", "I search")]
+
+
+def test_opening_and_resume_prompts_are_not_logged_as_player_messages(monkeypatch):
+    monkeypatch.setattr(turn_engine, "run_agent_iter", _stub_streaming_narrate(NARRATION))
+
+    opening = Session(id="tx-open", game_state=GameState())
+    asyncio.run(
+        _drain_stream(
+            turn_engine.stream_turn(
+                opening,
+                "Begin the campaign. Load the opening campaign section if needed.",
+            )
+        )
+    )
+    assert _message_rows(opening) == [("gm", NARRATION)]
+
+    resume = Session(id="tx-resume", game_state=GameState())
+    asyncio.run(
+        _drain_stream(
+            turn_engine.stream_turn(
+                resume,
+                "The player is resuming a mid-campaign playthrough. Briefly re-orient.",
+            )
+        )
+    )
+    assert _message_rows(resume) == [("gm", NARRATION)]

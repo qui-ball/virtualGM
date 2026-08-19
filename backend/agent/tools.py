@@ -99,6 +99,11 @@ def narrate(ctx: RunContext[GameState], text: str) -> str:
     # This is the settle signal: the tool_call_id ties it to the narration_delta frames the
     # client has been painting, so it can replace provisional text with the authoritative text.
     ctx.deps.emit("narration", {"text": text, "tool_call_id": ctx.tool_call_id})
+    session = getattr(ctx.deps, "_session", None)
+    if session is not None:
+        from api.transcript_log import append_message
+
+        append_message(session, role="gm", content=text)
     # Log for CLI consumers — but not when a direct sink is attached, since that consumer
     # already printed this text live off the delta stream and would otherwise see it twice.
     if ctx.deps._on_tool_event is None:

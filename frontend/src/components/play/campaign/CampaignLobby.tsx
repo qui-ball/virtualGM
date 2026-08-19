@@ -90,11 +90,13 @@ export function CampaignLobby({
           </div>
         ) : null}
 
-        <div className="play-rune-divider">
-          <span>Theme</span>
-        </div>
+        <div className="hidden" aria-hidden>
+          <div className="play-rune-divider">
+            <span>Theme</span>
+          </div>
 
-        <ThemePickerRpg variant="play" />
+          <ThemePickerRpg variant="play" />
+        </div>
       </div>
     </div>
   );

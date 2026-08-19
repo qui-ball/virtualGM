@@ -78,6 +78,7 @@ export function NarrationSpeechButton({
       ) : (
         <PlayGlyph />
       )}
+      Narrate
     </button>
   );
 }

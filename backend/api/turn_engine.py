@@ -14,8 +14,15 @@ from api.autosave import autosave_session
 from api.enrichment import build_pending_action
 from api.narration_sanitize import extract_leaked_ask_player_roll
 from api.snapshot import snapshot_dict
-from api.transcript_log import append_roll_prompt
+from api.transcript_log import append_message, append_roll_prompt
 from game.session import PendingDeferred, Session
+
+# Must match frontend CAMPAIGN_OPENING_PROMPT / CAMPAIGN_RESUME_PROMPT.
+# Those are sent without a player bubble and must not appear on reload.
+_HIDDEN_PLAYER_PREFIXES = (
+    "Begin the campaign.",
+    "The player is resuming a mid-campaign playthrough.",
+)
 
 
 def _queue_run_event(queue: asyncio.Queue):
@@ -117,6 +124,7 @@ def _try_recover_leaked_roll(
     append_roll_prompt(session, pending)
     session.message_history = result.all_messages()
     gs._leaked_roll_args = None
+    autosave_session(session)
     queue.put_nowait(
         (
             "pending_action",
@@ -156,6 +164,7 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
             session.game_state,
         )
         append_roll_prompt(session, pending)
+        autosave_session(session)
         queue.put_nowait(
             (
                 "pending_action",
@@ -183,10 +192,18 @@ def _handle_result(session: Session, result, queue: asyncio.Queue):
         )
 
 
+def _should_log_player_message(text: str) -> bool:
+    stripped = text.strip()
+    return bool(stripped) and not stripped.startswith(_HIDDEN_PLAYER_PREFIXES)
+
+
 async def stream_turn(
     session: Session, player_message: str
 ) -> AsyncGenerator[tuple[str, dict]]:
     """Run a player-message turn, yielding (event_type, data) tuples as SSE events."""
+    if _should_log_player_message(player_message):
+        append_message(session, role="player", content=player_message)
+
     queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
     gs = session.game_state
     gs.narrations.clear()
